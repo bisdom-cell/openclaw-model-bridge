@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-08 00:15:58",
+  "updated": "2026-10-12 09:42:03",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-10-12",
+      "by": "claude_code",
+      "what": "V37.9.372 OpenClaw 2026.9.9 / 10.1 / 10.2 追加读数（eval doc 25.7）：9 天三个 stable 到期 25.5 跟踪点，三判据与第十四次逐项相同（① 9.9 DIRTY 1 hotfix 分支边际披露 / 10.1 DIRTY 28 / 10.2 DIRTY 1 计数仍 0；② 5.31·2.55·1.28 天 🔴；③ engines 自 9.3 起九版逐字同），dist 核实四候选（provider-native compaction / Claws 迁移 / immutable install / 插件隔离）均不在我方面上 → 日落规则第二次走追加读数分支，LAST_EVAL_DATE 保持 10-02。前置 B 跟踪点兑现：10.1 真删除 config-runtime/channel-message/infra-runtime（changelog 仍写 removal-pending），weixin 2.4.10 迁移版本 → 目标 ≥10.1 须同窗口装；10.1 WhatsApp 凭据 Doctor 迁移流进 SOP 7.2/7.4；tripwire [2/6] 48/50 预计 10-19 触发（23.5 预注册三选一）。守卫 test_v37_9_336 +TestAppendReading257 8（99 单测 16 类）sabotage 六连开火；纯评估零 runtime VERSION 不变"
+    },
     {
       "date": "2026-10-07",
       "what": "V37.9.371 16:30 watchdog CORE「KB每日深度 parse_error」triage → kb_deep_dive/kb_evening/kb_review 三包装脚本 2>&1 把 collector stderr 混进 JSON，任一行 stderr（LLM 重试 WARN / pdfminer / bs4 警告）都让成功运行判 parse_error 并丢弃当日产物；V37.9.306 evening 重试的成功路径因此在生产从未到达用户。修：stdout/stderr 分开捕获（stderr 末 20 行进日志、崩溃告警带 stderr 末尾、临时文件即删）+ 重试 WARN 改原因码不匹配 watchdog err_pattern；新守卫 test_v37_9_371 19 单测含真 bash 抽块 + 反向证据 + 全仓同类扫描，sabotage 四连开火；VERSION 0.37.9.185→0.37.9.186。其余四条告警定性：DBLP Anubis 已登记 / ai_leaders_x 429 已知 / Yahoo Finance 404 观察一周",
@@ -226,7 +231,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-10-07 09:37:52",
+      "checked_at": "2026-10-12 09:22:16",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -260,7 +265,7 @@
     }
   },
   "session_context": {
-    "last_session": "2026-10-07",
+    "last_session": "2026-10-12",
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -282,7 +287,7 @@
       "V37.9.214 governance 审计间歇 fail — root-cause + B2 均已修 (剩 Mac Mini bash3.2 验证 + 潜在类): 根因 INV-REVIEW-001 kb_review.sh subprocess 负载超时 💥 已修 (timeout 45→90 + TimeoutExpired inconclusive)。 B2 假 FATAL line=101 = bash 3.2 errtrace re-enable landmine (3 次复发 whack-a-mole, dev bash5.x 不复现) 已日落法根治 (set +E 一次不再 re-enable, errexit+顶部 set -eEuo 保留)。 🔴 B2 修复只能 Mac Mini bash 3.2 验证: 同步后观察后续冷/负载失败是否还伴 FATAL 假告警 (预期消失); 仍出现则 bash -x ~/governance_audit_cron.sh 2>/tmp/gac_x.txt 抓 trace。 (潜在类, 不盲修) INV-WATCHDOG-SELF-001 6× 并行 ❌ = 自并行争用 artifact 非生产; '治理 runtime check 对负载敏感' 待系统性评估。 (清陈旧) bash ~/governance_audit_cron.sh 现全过写 pass 清 watchdog flag。 ｜✅ V37.9.285 (2026-08-03) 系统性评估兑现: yaml 结构化扫描 53 个 subprocess 型 runtime check 全量排查 (仅 2 个已硬化=历史真开火者, 44 个带 timeout 无 handler 同族裸奔), 执行器单点收口 (_exec_python_assert/_exec_command_succeeds/_exec_env_var_exists 各加 TimeoutExpired→skip+[LOAD-TIMEOUT], 零 yaml 编辑 44 check 一次性免疫); INV-WATCHDOG-SELF-001 并行 ❌ 为 fail-类争用 artifact 非 💥-类, 维持登记不动。剩 Mac Mini 被动观察: 负载日 07:00 审计出 ⏭ [LOAD-TIMEOUT] 行而非 💥。",
       "【2026-07-03 observer/治理/watchdog triage · findings 全部闭环 (V37.9.232-235/240) · 剩被动观察】(a) ✅ V37.9.247 兑现: 07-05 07:00 第二次再现 (07-03见/07-04干净/07-05再现=间歇负载) → 按预注册 V37.9.214 模式硬化两 runtime check (timeout 120→240 + TimeoutExpired→inconclusive+门控)。剩 Mac Mini 被动观察: 下次 07:00 不再 💥 + watchdog 治理 CORE 告警消失 (b) freight last_run 应已 07-03 14:00 自愈转 ok (仍 llm_failed=新问题贴我) (c) 修复生效信号: dblp 推送无「推测采用XX模型」类字眼 (V37.9.234) / last_run_deep_dive.json 见 banned_recent + 一周后 full-text 比例回升 (V37.9.233) / observer 报告 arxiv 截断 finding 消失 (V37.9.235) + dream 远期信号带「长期背景」标注 (V37.9.235) / observer deep_dive_repeat 告警仅违规时出现 (V37.9.240)。",
       "V37.9.236 follow-up: (a) Mac Mini 观察 alerts.log 不再新增 FATAL line=101 (下次告警推送撞冷调用即验证) (b) scanner 第8 pattern 候选诚实登记不现建 — sourced-lib $() 设计性可失败命令需跨文件 source-graph 分析=新机器, 11个 targeted 守卫已封死唯一日常失败站点(日落法); 若未来再有 sourced-lib 假 FATAL 实例再评估",
-      "【OpenClaw 升级判据跟踪 · 第十四次评估 (2026-10-02, V37.9.366) · 结论=继续 hold · 判据 ❌🔴✅】2026.9.7 (09-30) 到期; 三项与第十三次逐项相同 (① DIRTY 20 计数仍 0 连续第八个 / ② 6.19 天 🔴, 4 周窗主线 1.5/周单点读数 / ③ engines 五版同), 因 Discord allowBots 默认翻转 (#157091 dist 代码级) 按日落规则新开第二十五节. 前置 C 15 项 (第 15 项预防性 channels.discord.allowBots:false) / 前置 B 加 weixin 2.4.9 三个 removal-pending SDK 子路径核对 / 7.4 加 max_tokens 核对 (#85889). 被动跟踪: (a) 下一 stable 走 19.8 协议 + 按 25.5 预注册口径决定追加 25.6 读数还是新开节 (b) tripwire [2/6] 43/50 预计 10-19 或 10-26 周一 09:10 触发, 处置按 23.5 预注册三选一, 届时把告警转我 (c) weixin 三子路径是否真被移除 / weixin 是否发迁移版本. 无需任何升级动作. 详见 eval doc 第二十五节.",
+      "【OpenClaw 升级判据跟踪 · 第十四次评估 (2026-10-02, V37.9.366) + 9.8 追加读数 (25.6) + 9.9/10.1/10.2 追加读数 (25.7, 2026-10-12, V37.9.372) · 结论=继续 hold · 判据 ❌🔴✅】9 天三个 stable: ① 9.9 DIRTY 1(hotfix 分支边际, 结论不依赖) / 10.1 DIRTY 28 / 10.2 DIRTY 1, 计数仍 0 (连续第十至十二个不干净) / ② 5.31·2.55·1.28 天 🔴 / ③ engines 自 9.3 起九版逐字同; 按 25.5 口径 dist 核实无新默认自主行为 (provider-native compaction 门控在 openai/anthropic provider, 我方 qwen-local openai-completions 不经过 / Claws 迁移手动+experimental / Tool Search 门控与 discord allowBots 不变) → 追加读数, LAST_EVAL_DATE 保持 10-02. 前置 B 跟踪点兑现: 10.1 真删除 config-runtime/channel-message/infra-runtime (changelog 仍写 removal-pending), weixin 2.4.10 (10-11) 迁移版本 → 目标 ≥10.1 须同窗口装 weixin ≥2.4.10; 7.2/7.4 加 WhatsApp 凭据 Doctor 迁移核对. 被动跟踪: (a) 🔴 tripwire [2/6] 48/50 剩 2, 预计 10-19 周一 09:10 触发 + Discord 告警 = 预注册事件非事故, 届时把告警转我, 按 23.5 三选一 (改口径→主线 minor 36 / 调阈值 OPENCLAW_VERSION_GAP_TRIPWIRE / 接受每周告警) (b) 下一 stable 走 19.8 协议 + 25.5 口径决定追加还是新开节 (c) credential-prompt 弃用 11-30 到期后记 weixin 兼容性. 无需任何升级动作. 详见 eval doc 25.7.",
       "【2026-07-08 长 session Mac Mini 被动验证】同步后观察: (a) V37.9.260 ban-list 边界: 次日 deep_dive/dream 恰-14-天前论文/主题正确被 ban + observer deep_dive_repeat 恰-14-天误报消失 (b) V37.9.261 observer 降级桶: 次日 06:30 报告降级段自区分「无 OA 全文(结构性)」vs「PDF 抓取错误(HTTP/超时)」 (c) V37.9.263 OpenAlex 已回退 S2-only, deep_dive 闭源论文降级 abstract_only 正确。deep_dive 降级结论=接受现实(残余=真闭源 ACM/Elsevier 无 OA + 发布方反爬 MDPI/ScienceDirect 403, OA 解析器打不穿, 实测 0/7)。一周后可选复核 grep 抓取降级原因确认 ban-list 去重复后降级率下降(非 OpenAlex)。",
       "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫.",
       "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。",
@@ -353,7 +358,8 @@
       "[V37.9.365 Mac Mini 被动验证] 同步后 bash diagnose.sh 的【3/7】应显主力 doubao_21 + fallback 4 跳 + 断路器 closed（且不出现 ep- 接入点 ID）；10-05 周一 09:00 周报「🤖 模型」行应形如「🟢 主力 doubao_21 | fallback 4 跳 (…) | 断路器 closed」；~/.kb/health_status.json 的 model 键为 primary/fallback_chain/circuit_breaker/reachable",
       "【V37.9.370 Mac Mini 被动验证】合并 + git fetch+reset 同步（local_embed.py / kb_embed.py / memory_plane.py 走 FILE_MAP）+ 重启 proxy（memory_plane 新判据加载）后：sentence-transformers 在场故零行为变化——03:30 kb_embed 照常；`python3 ~/memory_plane.py stats` 的 kb 层仍 [OK] 且带 total_chunks；若某日 kb 层显示 UNAVAIL reason=text_index/meta.json not found = 索引真丢了（盲区解除非新 bug）。",
       "【低优登记 · 不改机器】CLAUDE.md changelog 归档触发判据：按行数（~70-80 行）对「行变大」不敏感（V37.9.369 实录：70 行时已 ~600KB，124 行 979KB 才轮到第四轮）。下轮归档建议按字节（内联段 >400KB）触发；届时只需改边界值 + 搬行（V37.9.278 头注去数字化设计仍成立）。",
-      "【V37.9.371 被动观察】部署与首晚已验证（10-08 用户实跑）：运行副本与仓库副本修复特征均在（5/5）；10-07 22:00 evening ok / 22:30 deep_dive ok（前晚 parse_error）；当晚无 collector stderr 行（abstract_only 未解析 PDF，与预期一致）。剩余仅被动观察：日后某晚日志首次出现「collector stderr: N 行」而 last_run 仍为 ok = 修复路径在生产真实生效，可顺手对账一次。另 finance_news Yahoo Finance 404（10-07 首见）观察一周，持续则按 V37.9.266 NBER 先例剔除。"
+      "【V37.9.371 被动观察】部署与首晚已验证（10-08 用户实跑）：运行副本与仓库副本修复特征均在（5/5）；10-07 22:00 evening ok / 22:30 deep_dive ok（前晚 parse_error）；当晚无 collector stderr 行（abstract_only 未解析 PDF，与预期一致）。剩余仅被动观察：日后某晚日志首次出现「collector stderr: N 行」而 last_run 仍为 ok = 修复路径在生产真实生效，可顺手对账一次。另 finance_news Yahoo Finance 404（10-07 首见）观察一周，持续则按 V37.9.266 NBER 先例剔除。",
+      "【低优登记 · 2026-10-12 V37.9.372 收工发现】test_gen_readme_badges.test_write_is_idempotent 对真仓库执行 `gen_readme_badges.py --write`：徽章过期时（每次 CLAUDE.md 版本头先于徽章更新）会在 full_regression 中途改写 README/FEATURES/config.md → 工作树变脏 → 第 3.5 层混沌审计按「工作树不干净」跳过，只留一行 ⚠️（本日第一轮实录）。规避：提交前先 `gen_readme_badges.py --write` 预置徽章再跑回归。根治已作为独立任务建议提出（改为临时副本上跑 + 守卫真仓库文件不变），未在 V37.9.372 内扩大范围。"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -362,8 +368,8 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6732,
-    "last_regression": "2026-10-07 09:49 pass",
+    "test_count": 6740,
+    "last_regression": "2026-10-12 09:34 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 206,
@@ -434,7 +440,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-10-06: 论文 #2 arXiv:2610.05981 已发表 + 中文科普版知乎已发布 (https://zhuanlan.zhihu.com/p/2090772315231539352). 剩余: cs.AI cross-list (若未勾选) / 期刊路线独立步骤 / influence_metrics 纳入待首次可比引用. 被动验证: V37.9.366 tripwire [2/6] 43/50 约 2-3 周内触发 (处置按 23.5 预注册) / V37.9.365 周报模型行 / WAF 418 重试 / DBLP [76].",
+  "focus": "2026-10-12: OpenClaw 9.9/10.1/10.2 追加读数完成 (25.7, 继续 hold). 🔴 tripwire [2/6] 48/50 预计 10-19 周一 09:10 触发 (预注册事件, 按 23.5 三选一决定). 剩余: 论文 #2 期刊路线独立步骤 / cs.AI cross-list (若未勾选) / influence_metrics 纳入待首次可比引用. 被动验证: V37.9.365 周报模型行 / WAF 418 重试 / DBLP [69] / V37.9.370-371.",
   "notes": "",
   "preferences": [
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",
