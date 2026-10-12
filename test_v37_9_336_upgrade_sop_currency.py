@@ -1024,5 +1024,78 @@ class TestFourteenthEvaluationPresent(unittest.TestCase):
             self.assertIn(kw, s255, f"25.5 缺 {kw}")
 
 
+
+class TestAppendReading257(unittest.TestCase):
+    """2026.9.9 / 10.1 / 10.2 追加读数（V37.9.372，2026-10-12）的落地守卫。
+
+    三个 stable 在 9 天内发布；三条判据与第十四次逐项相同（❌🔴✅），按 25.5 口径经 dist 核实无新默认自主行为
+    → 按日落规则只追加 25.7，不新开第二十六节、不重置 LAST_EVAL_DATE。本节的两项新事实必须流进 SOP，
+    而不是只活在评估节（V37.9.336 血案：评估结论从未回流到执行清单）：
+      1) 10.1 真删除 config-runtime / channel-message / infra-runtime，weixin 2.4.10 为迁移版本 → 前置 B；
+      2) 10.1 Doctor 迁移 legacy 共享根下的 WhatsApp 凭据 → 7.2 记录布局 + 7.4 核对 Doctor 输出。
+    """
+
+    def setUp(self):
+        self.doc = _read()
+        self.head = self.doc[:self.doc.index("## 一、版本概览")]
+        self.s257 = self.doc[self.doc.index("### 25.7"):]
+        self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
+        self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
+        self.pre_check = _slice(self.sop, "### 7.2", "### 7.3")
+        self.verify = _slice(self.sop, "### 7.4", "### 7.5")
+
+    def test_appended_not_new_section(self):
+        """三项判据全同 + 无新默认自主行为 → 追加读数：最新评估节仍是第二十五节（2026-10-02），不得出现第二十六节。"""
+        self.assertEqual(_latest_eval(self.doc), ("第二十五节", "十四", "2026-10-02"))
+        self.assertNotIn("## 第二十六节", self.doc)
+        self.assertIn("不新开节", self.s257.splitlines()[0])
+        self.assertIn("不重置 LAST_EVAL_DATE", self.s257.splitlines()[0])
+        self.assertIn("2026.10.2", self.head, "头部当前态须记上游 latest 2026.10.2")
+        self.assertIn("25.7", self.head)
+
+    def test_criteria_recorded_honestly(self):
+        for kw in ("5.31", "2.55", "1.28", "🔴", "DIRTY 28", "DIRTY 1", "计数仍 0", "九版逐字相同", "1.75/周"):
+            self.assertIn(kw, self.s257, f"25.7 缺「{kw}」")
+        for bad in ("10.1 干净", "10.2 干净", "9.9 干净", "计数 1", "② ✅", "② 回 🟡"):
+            self.assertNotIn(bad, self.s257, f"不得出现误记「{bad}」")
+
+    def test_hotfix_branch_ambiguity_disclosed_with_invariant_conclusion(self):
+        """9.9 的 hotfix 分支适用有边际；须写明结论不依赖这个选择，而不是悄悄挑一个。"""
+        self.assertIn("结论不依赖这个选择", self.s257)
+        self.assertIn("rc=3", self.s257)
+
+    def test_prereq_b_requires_weixin_2_4_10_in_same_window(self):
+        line = next((l for l in self.prereq.splitlines() if "前置 B" in l), "")
+        for kw in ("25.7", "10.1 真删除", "2.4.10", "ERR_PACKAGE_PATH_NOT_EXPORTED", "同一升级窗口"):
+            self.assertIn(kw, line, f"前置 B 缺 25.7 跟踪点兑现要素「{kw}」")
+
+    def test_whatsapp_credential_migration_flows_into_sop(self):
+        self.assertIn("credentials/whatsapp/default", self.s257)
+        blocks = _bash_blocks(self.pre_check)
+        self.assertTrue(any("~/.openclaw/credentials" in b for b in blocks),
+                        "7.2 须有记录 WhatsApp 凭据布局的命令块")
+        self.assertIn("WhatsApp 凭据迁移", self.verify)
+        self.assertIn("不要删除任何一套", self.verify)
+
+    def test_candidates_registered_not_added_to_prereq_c(self):
+        for pr in ("#168164", "#162329", "#163799", "#165063"):
+            self.assertIn(pr, self.s257, f"25.7 候选表缺 {pr}")
+            self.assertNotIn(pr, self.prereq, f"登记不入的 {pr} 不得进前置 C")
+        self.assertEqual(self.prereq.count("- [ ]"), PREREQ_CHECKBOXES)
+
+    def test_compaction_rationale_matches_proxy_api_surface(self):
+        """MR-8 跨文件：25.7 判定 #168164 不在我方面上的依据是「qwen-local 走 chat completions，不走 Responses API」。
+        若 proxy 未来开始承接 /responses，OpenAI provider-native compaction 的门控可能经过我方，本守卫先红提醒复核。"""
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tool_proxy.py")
+        with open(path, encoding="utf-8") as f:
+            code = "\n".join(l for l in f.read().splitlines() if not l.lstrip().startswith("#"))
+        self.assertIn("/chat/completions", code)
+        self.assertNotIn("/responses", code)
+
+    def test_tripwire_trigger_day_readings_prepared_without_changing_machine(self):
+        for kw in ("48/50", "10-19", "23.5", "主线 minor 36", "不预先改机器"):
+            self.assertIn(kw, self.s257, f"25.7 缺 tripwire 触发日读数要素「{kw}」")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
