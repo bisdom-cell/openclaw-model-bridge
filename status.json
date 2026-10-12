@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-12 09:08:09",
+  "updated": "2026-10-12 09:19:43",
   "updated_by": "claude_code",
   "priorities": [
     {
@@ -231,7 +231,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-10-07 09:37:52",
+      "checked_at": "2026-10-12 09:10:54",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -367,7 +367,7 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6732,
+    "test_count": 6740,
     "last_regression": "2026-10-07 09:49 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
