@@ -90,25 +90,26 @@ class TestVersionGapNumericCompare(unittest.TestCase):
         vs = ["2026.4.27", "2026.9.1", "2026.10.1", "2026.12.3", "2027.1.1"]
         fake = '{"versions": {' + ",".join(f'"{v}": {{}}' for v in vs) + "}}"
         out = _run_gap_python(self.code, fake)
-        self.assertEqual(out, "4", f"数值序应计 4 个 after，实际 {out!r}")
+        self.assertEqual(out, "4 0 0", f"数值序应计 4 个主线 after（V37.9.373 起输出 主线/维护线/-N 三桶），实际 {out!r}")
         # 反向证据（防空转）: 旧字典序 + '2026.' 前缀在同一 fixture 上只数出 1
         lex = len([v for v in vs if v.startswith("2026.") and v > "2026.4.27"])
         self.assertEqual(lex, 1, "前提自检: 旧算法在此 fixture 上确实漏计")
-        self.assertNotEqual(out, str(lex), "数值序结果必须区别于旧字典序（证修复 load-bearing）")
+        self.assertNotEqual(out.split()[0], str(lex), "数值序结果必须区别于旧字典序（证修复 load-bearing）")
 
     def test_patch_suffix_parses_and_counts(self):
-        """'2026.7.1-2' 风格 patch 后缀必须可解析且计入（-N 是本项目 stable 惯例非 prerelease）。"""
+        """'2026.7.1-2' 风格 patch 后缀必须可解析（-N 是上游 stable 惯例非 prerelease）。V37.9.373 起归入 -N 桶，
+        列出但不计入主线触发（同一版本的重发不拉远距离）——意图「可解析、不被当 prerelease 丢弃」不变。"""
         fake = '{"versions": {"2026.7.1-2": {}}}'
-        self.assertEqual(_run_gap_python(self.code, fake), "1")
+        self.assertEqual(_run_gap_python(self.code, fake), "0 0 1")
 
     def test_prerelease_excluded(self):
         fake = ('{"versions": {"2026.9.9-beta.1": {}, "2026.9.8-alpha.2": {}, '
                 '"2026.9.7-rc.1": {}, "2026.9.6-dev.1": {}}}')
-        self.assertEqual(_run_gap_python(self.code, fake), "0")
+        self.assertEqual(_run_gap_python(self.code, fake), "0 0 0")
 
     def test_current_itself_not_counted(self):
         fake = '{"versions": {"2026.4.27": {}}}'
-        self.assertEqual(_run_gap_python(self.code, fake), "0")
+        self.assertEqual(_run_gap_python(self.code, fake), "0 0 0")
 
     def test_empty_stdin_prints_na(self):
         """CU-F3: 空响应 → NA（旧行为 except → print(0) 伪装成"没新版"）。"""
@@ -268,6 +269,98 @@ class TestScriptBehaviorHermetic(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("🚨 [1/6] 时间上限", r.stdout)
         self.assertIn("触发", captured)
+
+
+# 2026-10-20 tripwire 触发日 npm registry 实测：2026.4.27 之后的全部 stable（含 -N 与维护线），共 52 个。
+# 用生产实测量级作 fixture（原则 #36-5），不手写小样本。
+_TRIGGER_DAY_STABLES = (
+    "2026.4.29 2026.5.2 2026.5.3-1 2026.5.3 2026.5.4 2026.5.5 2026.5.6 2026.5.7 2026.5.12 2026.5.18 "
+    "2026.5.19 2026.5.20 2026.5.22 2026.5.26 2026.5.27 2026.5.28 2026.6.1 2026.6.5 2026.6.6 2026.6.8 "
+    "2026.6.9 2026.6.10 2026.6.11 2026.6.33 2026.6.34 2026.6.35 2026.7.1-1 2026.7.1-2 2026.7.1 2026.7.33 "
+    "2026.7.34 2026.7.35 2026.8.1 2026.8.2 2026.8.33 2026.8.34 2026.8.35 2026.9.1 2026.9.2 2026.9.3 "
+    "2026.9.4 2026.9.5 2026.9.6 2026.9.7 2026.9.8 2026.9.9 2026.9.33 2026.10.1 2026.10.2 2026.10.3 "
+    "2026.10.4 2026.10.5"
+).split()
+_TRIGGER_DAY_NOISE = ["2026.3.13-1", "2026.4.26", "2026.4.27", "2026.10.5-beta.4", "2026.10.10-beta.2"]
+
+
+def _packument(versions):
+    return '{"versions": {' + ",".join(f'"{v}": {{}}' for v in versions) + "}}"
+
+
+class TestMainLineCaliberV373(unittest.TestCase):
+    """V37.9.373: tripwire-2 计数改为主线 minor stable（2026-10-20 触发日按 eval doc 23.5 预注册三选一，用户选「改口径」）。
+
+    -N patch 与维护线 tag 分桶列出但不计入触发。阈值 32 的依据写在 check_upgrade.sh 注释与 eval doc 26.5：
+    维护线实测编号 33–35；主线曾用日序编号（5.28 已出现，理论上限 31）——阈值低于 32 会在上游回到日序编号时误分。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = _read("check_upgrade.sh")
+        cls.code = _extract_tripwire2_python(cls.src)
+
+    def test_trigger_day_real_packument_reads_39_10_3(self):
+        """血案回归：触发日真实版本集 → 主线 39 / 维护线 10 / -N 3（prerelease 与 ≤4.27 的版本不计）。"""
+        self.assertEqual(len(_TRIGGER_DAY_STABLES), 52, "fixture 自检：触发日现行口径读数是 52")
+        out = _run_gap_python(self.code, _packument(_TRIGGER_DAY_STABLES + _TRIGGER_DAY_NOISE))
+        self.assertEqual(out, "39 10 3")
+
+    def test_reverse_evidence_old_caliber_trips_new_does_not(self):
+        """反向证据（防空转）：同一 fixture 上旧口径（全部 stable）= 52 ≥ 50 触发；新口径 39 < 50 不触发。"""
+        old = len(_TRIGGER_DAY_STABLES)
+        new = int(_run_gap_python(self.code, _packument(_TRIGGER_DAY_STABLES)).split()[0])
+        self.assertGreaterEqual(old, 50)
+        self.assertLess(new, 50)
+
+    def test_day_numbered_main_line_not_misread_as_maintenance(self):
+        """主线曾用日序编号：5.28 与理论上限 5.31 都必须计入主线；只有 ≥32 才归维护线。"""
+        out = _run_gap_python(self.code, _packument(["2026.5.28", "2026.5.31", "2026.10.10", "2026.9.32", "2026.9.33"]))
+        self.assertEqual(out, "3 2 0", "5.28 / 5.31 / 10.10 主线；9.32 / 9.33 维护线")
+
+    def test_patch_of_current_version_is_not_main(self):
+        out = _run_gap_python(self.code, _packument(["2026.4.27-1", "2026.4.27-2"]))
+        self.assertEqual(out, "0 0 2")
+
+    def test_threshold_single_source_in_script(self):
+        """MR-8：bash 默认值与 python 兜底默认值必须相同，且 python 由 env 读阈值（不另写一份常量）。"""
+        m_sh = re.search(r'MAINT_PATCH_MIN="\$\{OPENCLAW_MAINT_PATCH_MIN:-(\d+)\}"', self.src)
+        m_py = re.search(r"os\.environ\.get\('MAINT_MIN', '(\d+)'\)", self.code)
+        self.assertIsNotNone(m_sh, "check_upgrade.sh 须有 MAINT_PATCH_MIN 默认值")
+        self.assertIsNotNone(m_py, "tripwire-2 python 须从 env MAINT_MIN 读阈值")
+        self.assertEqual(m_sh.group(1), m_py.group(1))
+        self.assertEqual(m_sh.group(1), "32")
+        self.assertIn('MAINT_MIN="$MAINT_PATCH_MIN"', self.src, "python 调用须传入 MAINT_MIN")
+
+    def test_eval_doc_records_same_threshold_and_readings(self):
+        """MR-8 跨文件：eval doc 第二十六节须写下与代码相同的阈值，以及触发日三种口径读数。"""
+        with open(os.path.join(REPO, "docs", "gateway_upgrade_eval_v2026.4.md"), encoding="utf-8") as f:
+            doc = f.read()
+        sec = doc[doc.index("## 第二十六节"):]
+        n = re.search(r'MAINT_PATCH_MIN="\$\{OPENCLAW_MAINT_PATCH_MIN:-(\d+)\}"', self.src).group(1)
+        self.assertIn(f"`MAINT_PATCH_MIN` = {n}", sec)
+        for kw in ("52", "49", "39", "改口径"):
+            self.assertIn(kw, sec, f"第二十六节缺触发日口径要素「{kw}」")
+
+    def test_hermetic_script_reports_buckets_and_stays_quiet(self):
+        r, captured = TestScriptBehaviorHermetic._run_script(
+            self, npm_json=_packument(_TRIGGER_DAY_STABLES + _TRIGGER_DAY_NOISE),
+            gh_json='{"tag_name": "v2026.10.5", "body": "routine release notes"}')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("✅ [2/6] 版本差距: 39/50 主线 stable (剩 11; 另维护线 10 / -N patch 3 不计入)", r.stdout)
+        self.assertEqual(captured, "", "主线口径未达阈值不得推送")
+
+    def test_hermetic_script_main_line_at_threshold_trips(self):
+        """检出力不减：主线 stable 真到 50 时仍触发并推送。"""
+        main = [f"2027.{m}.{d}" for m in range(1, 6) for d in range(1, 11)]
+        r, captured = TestScriptBehaviorHermetic._run_script(
+            self, npm_json=_packument(main), gh_json='{"tag_name": "v2027.5.10", "body": "routine"}')
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("🚨 [2/6] 版本差距: 50 ≥ 50 主线 stable (TRIPPED", r.stdout)
+        self.assertIn("[SYSTEM_ALERT] OpenClaw 升级 tripwire 1/6 触发", captured)
+
+    def test_v37_9_373_marker(self):
+        self.assertIn("V37.9.373", self.src)
 
 
 class TestWiringGuards(unittest.TestCase):

@@ -17,11 +17,12 @@
 > 十四次评估：2026-10-02（2026.9.7 stable 触发——24.5 预设跟踪点到期，三条判据与第十三次逐项相同（❌🔴✅：① 9.7 DIRTY 20 计数仍 0，连续第八个 DIRTY，Highlights 头两条都是迁移安全；② 9.6→9.7 间隔 6.19 天仍 🔴，4 周窗主线回落到 1.5/周属单点读数；③ engines 五版逐字同），但 Discord `allowBots` 省略时由丢弃变接收（#157091，dist `=== true` → `?? true`）= 代码级新默认自主行为 → 按日落规则新开节；前置 C 14 → 15（预防性：当前 `groupPolicy` 空白名单下不触发，保护来自运营配置而非代码门控）；前置 B 加 weixin 2.4.9 仍引用三个 removal-pending SDK 子路径的核对；预注册「新默认自主行为」判定口径；tripwire [2/6] 43/50，第二十五节）
 > **2026.9.8 追加读数：2026-10-05**（2026.9.8 stable 10-03 发布——25.5 预设跟踪点到期；三条判据与第十四次逐项相同 ❌🔴✅，且按 25.5 预注册口径无新默认自主行为（9.8 自述「No intentional capability changes」hotfix；Tool Search 门控函数 9.7↔9.8 逐字节相同；discord `allowBots ?? true` 不变）→ 按日落规则只在第二十五节追加 **25.6**，不新开节、不重置 LAST_EVAL_DATE。① 9.8 协议六点读数 12/0/35/12/16 按门槛不可判，按 19.8 本日修订的「hotfix 规模 stable」分支内容直判 → DIRTY 2（SQLite contention / Windows 9.4 schema transitions），连续干净计数仍 0；② 9.7→9.8 间隔 2.94 天 🔴；③ engines 六版逐字同 ✅；tripwire [2/6] 45/50 剩 5，预计 10-12 或 10-19 触发）
 > **2026.9.9 / 10.1 / 10.2 追加读数：2026-10-12**（9.8 之后 9 天连发 3 个 stable——9.9（10-08，hotfix）/ **10.1**（10-10，新 minor 线）/ 10.2（10-12）；三条判据与第十四次逐项相同 ❌🔴✅，且按 25.5 口径无新默认自主行为（10.2 provider-native compaction 默认只对 `openai` / `anthropic` provider 生效，我方 `qwen-local` openai-completions 不在门控路径；Claws 迁移是手动命令 + experimental 开关；Tool Search 门控函数与 9.8 逐字节相同；discord `allowBots` 不变）→ 第二十五节追加 **25.7**，不新开节、不重置 LAST_EVAL_DATE。① 9.9 DIRTY 1（hotfix 分支，结论不依赖该分支是否适用）/ 10.1 DIRTY 28 / 10.2 DIRTY 1，连续干净计数仍 0；② 间隔 5.31 / 2.55 / 1.28 天 🔴；③ engines 九版逐字同 ✅（9.3 起）。**前置 B 跟踪点兑现**：10.1 真删除 `config-runtime` / `channel-message` / `infra-runtime`（exports 与 dist 文件均无），weixin **2.4.10**（10-11）是迁移版本 → 目标 ≥10.1 须与 core 同窗口装 weixin ≥2.4.10；7.2 / 7.4 加 WhatsApp 凭据迁移核对（10.1 Doctor 把 legacy 共享根凭据移入 `credentials/whatsapp/default/`）；tripwire [2/6] 48/50 剩 2，预计 **10-19** 触发，处置按 23.5 预注册）
+> 十五次评估：2026-10-20（tripwire [2/6] 触发日（现行口径 52/50，10-19 周一 09:10 的运行触发）+ 2026.10.3 / 10.4 / 10.5 三个 stable → 继续 hold；判据与第十四次逐项相同 ❌🔴✅（① 10.3 DIRTY 4 / 10.4 按 hotfix 分支直判 DIRTY 1 / 10.5 DIRTY 21，计数仍 0；② 间隔 1.34 / 2.43 / 2.89 天，4 周窗主线 2.25/周为历次最高；③ engines 自 9.3 起十二版逐字同），但 dist 实证 owner-conversation automation repair 默认开（`cron` 在 PA 白名单）= 新默认自主行为 → 按日落规则新开节；前置 C 15 → 18（+ exec 空输出完成事件 / 多 agent 入站兜底改变）+ 1 项开窗前全量基线；**更正 25.7**：repair 代码自 10.1 起即在、10.1 changelog 未写 → 候选来源补 docs 默认值增量对比；tripwire 计数按 23.5 预注册由用户选「改口径」→ 主线 minor stable 52 → 39，第二十六节）
 > 评估者：Claude Code
 >
 > 🔴 **当前态（本行为单一真理源，其余章节均为各自时点快照）**
-> 部署版本 **v2026.4.27**（2026-06-11 起）| 上游 latest **2026.10.2**（2026-10-12；9.9 / 10.1 / 10.2 追加读数见 25.7，上一正式评估对象 2026.9.7 见第二十五节）|
-> 决策 **继续 hold**（第十四次评估，2026-10-02）| 判据与下次跟踪点见 **第二十五节 25.5**
+> 部署版本 **v2026.4.27**（2026-06-11 起）| 上游 latest **2026.10.5**（2026-10-18；本次正式评估对象 10.3 / 10.4 / 10.5 见第二十六节，9.9 / 10.1 / 10.2 追加读数见 25.7）|
+> 决策 **继续 hold**（第十五次评估，2026-10-20）| 判据与下次跟踪点见 **第二十六节 26.5** | tripwire [2/6] 自 10-20 起按主线 minor stable 计数
 
 ---
 
@@ -159,15 +160,16 @@
 
 ### 7.0 前置条件
 
-> **目标版本不在本节硬编码**——由**最近一次评估的结论**决定（评估节按时间倒序：第二十五节 = 最新）。
-> 截至第十四次评估（2026-10-02）结论为**继续 hold，无目标版本**；本 SOP 仅在用户明确决定升级后启用。
+> **目标版本不在本节硬编码**——由**最近一次评估的结论**决定（评估节按时间倒序：第二十六节 = 最新）。
+> 截至第十五次评估（2026-10-20）结论为**继续 hold，无目标版本**；本 SOP 仅在用户明确决定升级后启用。
 
-- [ ] **目标版本**：读最新评估节的结论确定（当前第二十五节 25.5）。**禁止沿用本文档任何历史节里的版本号**——它们是当时的时点判断。
+- [ ] **目标版本**：读最新评估节的结论确定（当前第二十六节 26.5）。**禁止沿用本文档任何历史节里的版本号**——它们是当时的时点判断。
 - [ ] **时间窗口**：工作日白天，确保能快速处置（注意：回滚不再是无损的，见 7.5）
 - [ ] **在 Mac Mini 上 SSH 直连执行**（禁止通过 WhatsApp 触发）
 - [ ] **前置 A · Node 版本区间**（第七次评估 18.4 起）：确认 `node -v` 落在目标版本 `engines.node` 声明的区间内。7.1/8.1/8.2/9.1/9.2 的区间是 `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`（**区间黑名单**，排除 node 23.x 全部与 24.0–24.14），根因是 SQLite WAL 数据损坏安全；**9.3 起收紧为 `>=24.16.0 <25 || >=26.1.0`**（Node 22.x / 25.x 全部退出，根因是 SQLite 文本截断，第十次评估 21.3）——区间会随 stable 变动，**每次以目标版本 `npm view openclaw@<目标> engines.node` 实测为准，不能只确认「够新」**。**9.4 与 9.3 逐字相同**（第十一次评估 22.3）。**9.5 与 9.4 / 9.3 逐字相同**（第十二次评估 23.3，三版未变）。**9.6 与 9.5 / 9.4 / 9.3 逐字相同**（第十三次评估 24.3，四版未变）；9.6 继续修 updater 的 Node 路径（「complete managed Gateway upgrades after Node.js installation paths change」#145335 等）= 升级后 Node/服务环境核对仍必要。**9.7 与 9.6 / 9.5 / 9.4 / 9.3 逐字相同**（第十四次评估 25.3，五版未变）；9.7「macOS keeps saved Gateway runtime pins instead of replacing them automatically」与下述 updater 替换风险同向缓解，核对仍保留（以实测为准）。**9.4 起升级路径自身会动 Node**：updater 会在服务 Node 运行时不受支持时替换 launchd 托管服务的运行时（「replace unsupported service Node runtimes」#142195…#144031）+ CLI 在可用的受支持 Node 下重执行（#143464）+ 不兼容时主动提议 Node.js 更新（#142742/#143344）——**升级后核实 plist/服务实际执行的 node 未被 updater 替换**（V37.9.13 单一管理者语义；Mac Mini 26.5.0 在区间时不应触发，触发即异常）。
 - [ ] **前置 B · 外部插件锁步**（第八次评估 19.5）：M1 插件外部化后，`@openclaw/whatsapp` / `@openclaw/discord` 与 core **同版本发布**且声明 `peerDependencies: { openclaw: '>=<同版本>' }`。确认目标版本对应的 channel 插件存在；同时确认第三方插件（如 `@tencent-weixin/openclaw-weixin`）的 `peerDependencies.openclaw` 与目标版本相容。**第十一次评估 22.4 追加**：`sdk-untrusted-context-identifier-aliases` 到期日（09-08）已过但 9.4 仍 `removal-pending`（#142708，等插件 reader 迁移验证 + 显式 breaking 接受，真移除时本项加 `MsgContext.Channel*` 核对）；`agent-harness-credential-prompt-string-argument` 09-09 起弃用、旧字符串签名支持至 **2026-11-30**（#143238）——第三方插件（weixin）若调用 `buildCredentialSafetyPrompt` 须已迁移到 `{ controlToolsAvailable }`。**第十二次评估 23.4 追加**：weixin **2.4.9 已转 stable**（09-17）但 peer 仍 `>=2026.5.12`（4.27 上限 2.4.4，落后 4 版 / 92 天）；9.5 新增 **Gateway V2 传输迁移**（Gateway handler / node-session imports 如实暴露 WebSocket / framed / HTTP polling 三种能力，WebSocket-only 操作前须 narrow `node.client.webSocket`，framed 操作 narrow `node.client.socket`，node wire protocol 不变，`/plugins/sdk-migration/compatibility-policy#gateway-node-transport-sdk-v2`）——第三方插件若直接消费这些 imports 须已迁移。**第十四次评估 25.4 追加**：9.7 把 `openclaw/plugin-sdk/config-runtime` / `channel-message` / `infra-runtime` 列为 **removal pending after 2026-10-01**（「removal-pending entries stay until supported external plugin migration is verified」= 等外部插件迁移验证后才真移除），而 weixin **2.4.9**（仍为 latest）包内三个都在 import（`infra-runtime` 4 处 / `config-runtime` 1 / `channel-message` 1）——升级时核对目标版本是否已移除这三个子路径、weixin 是否已发迁移版本（在 weixin 包目录跑 `grep -rhoE "openclaw/plugin-sdk/[a-z-]+" . | sort | uniq -c`），未迁移的插件会在真移除的那个版本之后加载失败。**25.7 追加（2026-10-12）**：跟踪点兑现——**10.1 真删除了这三个子路径**（`exports` 与 `dist/plugin-sdk/*.js` 均已不存在，同版另删 `command-auth` / `channel-lifecycle` / `channel-reply-pipeline` / `discord` / `telegram-account`，而 10.1 的弃用段文案仍写 removal-pending = 以包内容为准、不以文案为准）；weixin **2.4.10**（10-11）是迁移版本——改为导入 `channel-outbound` / `channel-ingress-runtime` / `config-mutation` / `temp-path`，仅在 `ERR_PACKAGE_PATH_NOT_EXPORTED` 时回退旧 `channel-message`，全部导入在 10.2 与 9.8 的 exports 中均可解析；2.4.9 在 10.x 上缺 4 个子路径、必然加载失败 → **目标 ≥10.1 时 weixin 须 ≥2.4.10，且与 core 在同一升级窗口安装**（先装 core、后装插件的空窗内 weixin 不可加载）；peer 仍 `>=2026.5.12`。
-- [ ] **前置 C · 默认行为审计**（第八次评估 19.4，**须在首次启动前完成**）：目标 ≥8.1 时，以下 **15 项默认变更**（8.1 的 7 项 = 6 项自主行为 + 1 项并发假设；8.2/9.2 追加 3 项会话可见性 / 跨 agent 访问 / 并发编排，第九次评估 20.5；9.3 追加 2 项递归委派 / 更新自动推理修复，第十次评估 21.4；**9.4 零新增**，两项候选经 dist 源码核实为门控/opt-in 登记不入，第十一次评估 22.4；**9.5 追加 1 项跨 provider 消息默认开**（`message` 在 PA 白名单内）+ 第 7 项并发假设原位加注 `cpus × 4`，第十二次评估 23.4；**9.6 追加 1 项 Tool Search 默认开**（预防性：dist 门控显示我方路由不触发，但上游文档宣称更宽默认，第十三次评估 24.4）；**9.7 追加 1 项 Discord 默认接收其他 bot 的消息**（预防性：当前 `groupPolicy` 空白名单下不触发，但保护来自运营配置而非代码门控，第十四次评估 25.4）默认为开/生效，其中 10 项直接踩我们已立案的血案机制，逐项决定关闭或显式接受：
+- [ ] **前置 C · 默认行为审计**（第八次评估 19.4，**须在首次启动前完成**）：目标 ≥8.1 时，以下 **18 项默认变更**（8.1 的 7 项 = 6 项自主行为 + 1 项并发假设；8.2/9.2 追加 3 项会话可见性 / 跨 agent 访问 / 并发编排，第九次评估 20.5；9.3 追加 2 项递归委派 / 更新自动推理修复，第十次评估 21.4；**9.4 零新增**，两项候选经 dist 源码核实为门控/opt-in 登记不入，第十一次评估 22.4；**9.5 追加 1 项跨 provider 消息默认开**（`message` 在 PA 白名单内）+ 第 7 项并发假设原位加注 `cpus × 4`，第十二次评估 23.4；**9.6 追加 1 项 Tool Search 默认开**（预防性：dist 门控显示我方路由不触发，但上游文档宣称更宽默认，第十三次评估 24.4）；**9.7 追加 1 项 Discord 默认接收其他 bot 的消息**（预防性：当前 `groupPolicy` 空白名单下不触发，但保护来自运营配置而非代码门控，第十四次评估 25.4）；**10.1 / 10.5 追加 3 项** owner-conversation 自动修复回合 / exec 空输出完成事件 / 多 agent 入站兜底改变（第十五次评估 26.4；前两项此前评估漏核，见 26.4 更正）默认为开/生效，其中 12 项直接踩我们已立案的血案机制，逐项决定关闭或显式接受（另有 1 项开窗前全量基线，见第一个子项）：
+  - [ ] **（第十五次评估 26.4 追加·开窗前必做）** 全量基线：目标版本确定后，对 4.27 → 目标版本跑一次 26.4 的 docs 默认值对比（PREV=2026.4.27），逐条核实 ★ 候选并把新发现补进本清单。逐版本增量已漏过两次（26.4 更正）；2026-10-20 实测 4.27 → 10.5 为 1,669 条（★ 431 条），故不在 hold 期间提前做
   - [ ] Grounded dreaming（后台 LLM 记忆整合，#114819）→ 对应 `dream_quota_blast_radius_case`
   - [ ] Owner-directed ambient heartbeat（#121988）→ 对应 `heartbeat_md_pa_self_silencing_case`
   - [ ] Session reset default 变更（无 reset policy 时跨闲置/跨天保留会话，#111140）→ 对应 `pa_alert_contamination_case`
@@ -183,6 +185,9 @@
   - [ ] **（第十二次评估 23.4 追加）** Cross-provider messaging default（9.5，#149875：`tools.message.crossContext.allowAcrossProviders` 默认 false → true，9.5 内置 docs「Upgrades adopt this default when the setting is omitted」；`message` 在 PA 白名单 16 工具内）→ 首次启动前显式 `tools.message.crossContext.allowAcrossProviders: false`（可同时 `allowWithinProvider: false` 限定当前绑定会话）→ 对应 `pa_alert_contamination_case` 跨通道家族 + MR-14 通道边界（WhatsApp 告警走 Discord 是我方设计的单向路由，不是让 PA 自由跨通道投递）
   - [ ] **（第十三次评估 24.4 追加·预防性）** Tool Search default（9.6，#154068/#154005：changelog「enable structured Tool Search by default for embedded and Copilot runs when unset」+ 内置 docs「structured `tools` surface is on by default for OpenClaw runs」；但 dist `resolveAgentToolSearchRuntimeConfig` 只在 `model.toolSearchMode === "tools"` 时注入，而该值仅由 Ollama/LM Studio provider policy 或 provider 配置 `localService` 设出，我方 `qwen-local` 自定义 provider 两者皆无 = 代码层面不触发）→ 首次启动前显式 `tools.toolSearch: false`（文档与代码不一致时按代价不对称取安全方向：若触发，Gateway 会把 schema 换成 `tool_search`/`tool_describe`/`tool_call`，而 `proxy_filters.ALLOWED_TOOLS` 16 项白名单不含这三个名字 → 被剥离 → PA 工具静默失能 = fail-plausible；显式 false 在不触发时是 no-op）
   - [ ] **（第十四次评估 25.4 追加·预防性）** Discord bot-authored messages default（9.7，#157091：`allowBots` 省略时由「丢弃其他 bot 的消息」改为「接收」——dist `@openclaw/discord` 9.6 `allowBotsSetting === true ? "all" : "off"` → 9.7 `allowBots ?? true`；仍受既有频道访问 / mention 规则约束，bot-pair 循环保护默认开）→ 首次启动前显式 `channels.discord.allowBots: false`（当前配置下不触发：自身 bot 消息恒被丢弃——`author.id === botUserId`，故 `notify.sh` 推送不会回灌；guild 消息被 `groupPolicy=allowlist` + 空 `groupAllowFrom` 先行拦截，见第十五节升级实录。但这层保护来自**运营配置状态而非代码门控**，任何一次给 PA 开 guild 频道都会解除它，届时同频道其他 bot（告警 / 集成）的消息进入 PA 上下文 = `pa_alert_contamination_case` 家族；显式 false 在不触发时是 no-op）
+  - [ ] **（第十五次评估 26.4 追加）** Owner-conversation automation repair（10.1 代码起即在 / 10.5 changelog #161007 / #162702 / #162772：PA 从对话建的 openclaw cron 任务失败达告警阈值时，Gateway 向其 owner 会话——即 PA 主会话——发修复请求，「as an ordinary agent turn」在该会话的 transcript / workspace / 工具策略下运行，可以修改 workspace 里的脚本或说明文件，回复走 WhatsApp；10.5 扩到一次性任务终态失败；`cron` 在 PA 白名单 16 工具内）→ 首次启动前显式 `cron.failureAlert.enabled: false`（我方告警走 system crontab + job_watchdog + notify，不依赖 OpenClaw cron 告警，关闭没有代价），并用 7.2 的命令确认没有任务自带 per-job `failureAlert` 对象（它会重新打开）→ 对应 `pa_alert_contamination_case`（失败信息以回合形式进入 PA 上下文）+ `heartbeat_md_pa_self_silencing_case`（PA 自主改写 workspace 文件）
+  - [ ] **（第十五次评估 26.4 追加）** Exec empty-success completion events（`tools.exec.notifyOnExitEmptySuccess`：4.27 默认 false → 10.x 聊天通道未设置时为 true，10.2 与 10.5 逐字相同；10.5 起完成事件按普通回合处理、不再经 heartbeat 唤醒；同包 schema 帮助文字仍写 default false，以代码为准；`exec` 在 PA 白名单）→ 首次启动前显式 `tools.exec.notifyOnExitEmptySuccess: false`（恢复 4.27 语义：只有有输出或失败的后台命令才唤醒 PA）
+  - [ ] **（第十五次评估 26.4 追加）** Multi-agent unbound inbound routing（4.27 兜底取 `default: true` 或 agents.list 第一个；10.x 兜底为恰好一个 `default: true` → 唯一 agent → 否则抛 `AgentSelectionRequiredError`、消息不分发；Doctor 对多 agent 旧配置自动填 `agents.defaults.systemAgent.agentId` = 唯一的 `default: true`，否则 `main`）→ 首次启动前**显式决定 WhatsApp 入站归属**：加 binding `{"agentId": "<选定 agent>", "match": {"channel": "whatsapp", "accountId": "default"}}`（先用 7.2 的命令看现状；unfinished [9] 记录 4.27 当前落在 research）。不决定的两种结果都不可接受：跑过 Doctor → 静默改到 `main`（PA 换了工作区与记忆）；没跑或失败 → WhatsApp 消息不分发（PA 静默）→ 对应 `heartbeat_md_pa_self_silencing_case`（PA 对用户静默）
 
 ### 7.1 升级前备份（5 分钟）
 
@@ -228,6 +233,16 @@ npm view openclaw@<目标版本> engines.node
 ```bash
 ls -la ~/.openclaw/credentials
 ls -la ~/.openclaw/credentials/whatsapp/default
+```
+
+目标 ≥10.1 时另记录 agents / bindings 与 openclaw cron 任务的现状（前置 C 第 16、18 项，26.4）。第一条看 agents.list 有没有恰好一个 `default: true`、有没有 `systemAgent` 和 WhatsApp binding——两者都没有时，升级后 WhatsApp 入站要么被 Doctor 改到 `main`，要么不分发；第二条列出 PA 建过的 openclaw cron 任务，看 `delivery` 为 announce 且带 session 的任务（repair 的对象）与自带 `failureAlert` 对象的任务（会绕过全局关闭）：
+
+```bash
+python3 -c "import json,os;c=json.load(open(os.path.expanduser('~/.openclaw/openclaw.json')));a=c.get('agents') or {};print('ownership:',a.get('ownership'));print('systemAgent:',(a.get('defaults') or {}).get('systemAgent'));[print('agent:',x.get('id'),'default:',x.get('default')) for x in (a.get('list') or []) if isinstance(x,dict)];print('bindings:',json.dumps(c.get('bindings') or [],ensure_ascii=False))"
+```
+
+```bash
+python3 -c "import json,os;p=os.path.expanduser('~/.openclaw/cron/jobs.json');d=json.load(open(p)) if os.path.exists(p) else [];j=d.get('jobs',[]) if isinstance(d,dict) else d;print('jobs:',len(j));[print(x.get('id'),'|',x.get('name'),'| enabled:',x.get('enabled'),'| delivery:',(x.get('delivery') or {}).get('mode'),'| failureAlert:',x.get('failureAlert'),'| session:',x.get('sessionKey') or (x.get('owner') or {}).get('sessionKey')) for x in j if isinstance(x,dict)]"
 ```
 
 ### 7.3 执行升级（5 分钟）
@@ -278,6 +293,12 @@ openclaw channels status --probe
 
 目标 ≥10.1 时另核对 `doctor --fix` 输出里的 WhatsApp 凭据迁移行（25.7）：迁移成功会列出移动的文件与 `.migrated` 备份路径；出现「canonical credentials differ」「unmatched auth files」「requires offline Doctor repair」一类告警时，Doctor 会把两套凭据都保留、不自动选择——按告警选定 `authDir` 后再重跑 Doctor，**不要删除任何一套**（凭据丢失 = 重新链接撞设备限流 408，见 7.5）。结论以 `openclaw channels status --probe` 显示 WhatsApp linked 且实际收发正常为准。
 
+目标 ≥10.2 时另核对 Runtime 行迁移（26.4）：新会话第一回合后看当天对话日志里有多少条带迁移过来的 `Runtime:` 行。输出非 0 = 这一行随用户原话进了 KB 对话捕获，先改 proxy `_capture_conversation_turn` 剥除尾部的 `Runtime:` 行，再依赖 kb_harvest_chat 的对话精华；同时确认 WhatsApp 入站落在前置 C 第 18 项决定的 agent 上。
+
+```bash
+grep -cE "Runtime: (name|agent|session|host)=" ~/.kb/conversations/$(date +%Y%m%d).jsonl
+```
+
 ### 7.5 回滚（视目标版本，**可能有损**）
 
 > 🔴 **「30 秒无损回滚」自 6.x 起不再成立**（第六次评估 17.4）。SQLite 状态迁移含 cleanup：
@@ -322,7 +343,7 @@ openclaw message send --channel discord -t "user:$DISCORD_TARGET" -m "回滚完�
 
 > ⚠️ **2026-04 时点快照，勿作当前判断依据**。本节的收益/风险/建议（含选项 A/B/C = hold / 升 4.2 / 升 4.1）
 > 是首次评估时的判断；此后 4.27 已于 2026-06-11 升级完成，且第六/七/八次评估的方案 A/B/C 是**另一套语义**
-> （A=hold / B=中间版本 / C=现升最新）。**当前判断以最新评估节（第二十五节；第十三次见第二十四节）为准**，本节仅作历史留档。
+> （A=hold / B=中间版本 / C=现升最新）。**当前判断以最新评估节（第二十六节；第十四次见第二十五节）为准**，本节仅作历史留档。
 
 ### 升级收益
 1. **WhatsApp 稳定性提升**：bundled sidecar + crash fix + timestamp
@@ -1299,6 +1320,9 @@ Windows 2026.9.4 schema transitions」→ ❌）；**无命中 → 记 N/A_HOTFI
 | **2026.9.9**（2026-10-12 追加读数） | **10** | 0 | 14 | **10** | **15** | ⚠️ 不可判 | hotfix 规模（自述 14 in-range + 0 seed-only；另自述启用 Codex GPT-6.1 Sol，分支适用有边际）→ 内容直判 → ❌ DIRTY(1)；分支不适用则 rc=3 不计入，计数同样不 +1 |
 | **2026.10.1**（2026-10-12 追加读数） | **32** | 0 | 396 | **32** | **225** | ⚠️ 不可判 | 可判（仅行内引用过门槛）→ ❌ DIRTY(28) |
 | **2026.10.2**（2026-10-12 追加读数） | **6** | 0 | 85 | **6** | **82** | ⚠️ 不可判 | 可判（仅行内引用过门槛）→ ❌ DIRTY(1) |
+| **2026.10.3**（第十五次评估追加） | **0** | 0 | 79 | **0** | **72** | ⚠️ 不可判 | 可判（仅行内引用过门槛）→ ❌ DIRTY(4) |
+| **2026.10.4**（第十五次评估追加） | **0** | 0 | 61 | **0** | **47** | ⚠️ 不可判 | 修订后仍不可判；hotfix 规模（自述 61 in-range + 0 seed-only + 无新功能与配置变更，三条件全满足）→ 内容直判 → ❌ DIRTY(1) |
+| **2026.10.5**（第十五次评估追加） | **206** | 0 | 1985 | **206** | **1222** | 可判 | 可判 → ❌ DIRTY(21) |
 
 9.1 的叙述段行内引用 924 个唯一 PR，**多于 8.1 的 802**——内容完整，只是粒度从 bullet 变成段落。原协议对它判
 「不可判」是**计量单位错了 ≠ 内容不够**：与 V37.9.288「搜索坏了 ≠ 没搜到」同族，只是这次坏的是尺子。若不重标定，
@@ -1954,3 +1978,132 @@ weixin 是否已发迁移版本。
   Gateway startup after reboot from triggering repeated restarts」与 V37.8.13 宕机恢复同源；10.2 的跨 chunk 凭据遮蔽与 Anthropic 前缀缓存稳定对我方 provider 链无直接收益。
 - **结论**：继续 hold（❌🔴✅ 与第十四次相同）；**LAST_EVAL_DATE 保持 2026-10-02**；下次跟踪点同 25.5（下一个 stable 发布时核对 ①②③ + 口径；hotfix 规模
   stable 按 19.8 修订分支判 ①）+ **tripwire [2/6] 触发日（预计 10-19）按 23.5 处置**。
+
+---
+
+## 第二十六节：第十五次评估（2026-10-20，tripwire [2/6] 触发日 + 2026.10.3 / 10.4 / 10.5 三个 stable——23.5 预注册的触发日处置与 25.5 预设「下一个 stable」同日到期；dist 实证 owner-conversation automation repair 默认开 = 新默认自主行为 → 按日落规则新开节）
+
+> 触发：10-19 周一 09:10 的 check_upgrade 运行时，现行口径版本差距已是 **52 / 50**（25.7 之后新增 10.3 / 10.4 / 9.33 / 10.5 四个 stable）→ tripwire [2/6] 触发；
+> 同时 25.5 跟踪点 1 预设的「下一个 stable」已到。周二开工按 23.5 预注册处置：(a) 先按判据走一次正式评估，(b) 若仍 hold 当日决定计数口径。
+> 方法沿用「代码即事实」：`npm pack` 10.2（对照）/ 10.3 / 10.4 / 10.5 / 9.33 + 10.1 / 9.9 / 9.8 / 9.7 / 4.27（追溯）+ `@openclaw/ai` 10.2 与 10.5 +
+> `@openclaw/discord`、`@openclaw/whatsapp` 10.5 → 19.8 协议 + dist 函数体对照 + engines + npm 元数据 + **本节新增的 docs 默认值增量对比**（26.4）。
+
+### 26.1 一句话结论
+
+**继续 hold**（判据 ❌🔴✅ 与第十四次逐项相同）。新开节不是因为判据变化，而是两件事：
+(1) tripwire [2/6] 触发日，按 23.5 预注册三选一，用户选「改口径」——计数改为主线 minor stable，读数 52 → 39；
+(2) dist 实证的新默认自主行为：**owner-conversation automation repair 默认开**，而 `cron` 在 PA 白名单内，PA 从 WhatsApp 对话建的 openclaw cron 任务失败时，
+Gateway 会往 PA 主会话注入一个修复回合。另附一处对 25.7 的**更正**：这段代码自 10.1 起就在，只是 10.1 的 changelog 一个字没写，25.7 的候选只从 changelog 生成，因此漏掉。
+
+### 26.2 上游现状（2026-10-20 实证）
+
+- latest **2026.10.5**（10-18 21:16Z；1,985 个 in-range PR，contribution record 范围是 `8ea8bb11..2c823ccb` 而非 `v2026.10.4..`，即一条较长开发线的合入）；
+  **2026.10.3**（10-13 13:43Z，79 个 PR，Highlights 前五条全是 update / Doctor 自身修复）；**2026.10.4**（10-15 23:58Z，61 个 PR，自述「Stability patch for 2026.10.3
+  with no new features or configuration changes」）。
+- beta 指针 **2026.10.10-beta.2**（10-19）；extended-stable 由 8.35 上移到 **9.33**（10-15 10:05Z，范围 `v2026.9.9..`）= 维护线整体换到 9.x。
+- `@openclaw/whatsapp` / `@openclaw/discord` 2026.10.5 peer `>=2026.10.5`，锁步再证；`@tencent-weixin/openclaw-weixin` 仍 **2.4.10**（10-11），peer `>=2026.5.12`。
+- 4.27 仍未 deprecate（2026-04-29 发布，174 天）。
+
+### 26.3 三条收敛判据逐一核对
+
+- **判据 ①**（三版六点读数已追加进 20.4 表）：
+  - **10.3**：叙述 0 / 带描述 PR 0 / 裸 PR 79 / 语义量 0 / 行内引用 72 → 可判（仅行内引用过门槛）→ **DIRTY 4**：「honor Windows permissions for SQLite recovery snapshots」/
+    「route migrated-no-rollback failures to `openclaw update repair`」/「clear repaired migration warnings」/「unblock repairs while data migrations are pending」。
+  - **10.4**：0 / 0 / 61 / 0 / 47 → 修订后门槛仍不可判（47 < 50）；19.8 hotfix 分支**三个条件全满足**（自述 61 in-range + 0 retained seed-only +
+    「no new features or configuration changes」，没有 9.9 那样的边际）→ 内容直判命中 1（「candidate validation no longer amplifies private SQLite snapshots on live
+    installs, older drivers stop reading candidate-migrated state」）→ **DIRTY 1**。
+  - **10.5**：206 / 0 / 1985 / 206 / 1222 → 原门槛即可判 → **DIRTY 21**：「Faster, lighter Gateway … far less SQLite work per turn」/「SQLite deadlocks and stalls」/
+    「Doctor migrations: commit transcript archive migration per batch, preserve SQLite files and markerless legacy cron ownership」/「Doctor data safety: Doctor refuses
+    retired state before migrating the database」。
+  - → ❌，连续干净计数仍 0（10.3 / 10.4 / 10.5 = 连续第十三至十五个不干净的 stable）。维护线 9.33 的协议读数 21 / 0 / 65 / 21 / 53 → 可判、0 命中；按历次惯例判据 ①
+    只看主线（维护线是给旧 minor 的回补，不能证明主弧线收尾），登记不计入。
+- **判据 ②**：10.2 → 10.3 **1.34 天** / 10.3 → 10.4 **2.43 天** / 10.4 → 10.5 **2.89 天** → 🔴 状态不变；4 周窗（09-22 → 10-20）主线 9 个 stable
+  （9.6 / 9.7 / 9.8 / 9.9 / 10.1 / 10.2 / 10.3 / 10.4 / 10.5）= **2.25/周**（历次最高，25.7 为 1.75/周），维护线 4 个 tag（8.33 / 8.34 / 8.35 / 9.33），合计 13 个 tag / 4 周。
+- **判据 ③**：10.3 / 10.4 / 10.5 的 `engines.node` 均为 `>=24.16.0 <25 || >=26.1.0`，与 9.3 起**十二版逐字相同**（9.3–9.9 七版 + 10.1–10.5 五版）；Mac Mini 26.5.0 仍在区间 → ✅。
+
+### 26.4 新默认行为核实（+3 项）+ 一处更正 + 候选来源补 docs 对比 + 集成面 + 持有成本 + 收益侧
+
+按 25.5 预注册口径（(a) dist 源码核实的代码级默认翻转 × (b) 落在我方实际使用的面）逐项核实。候选来自 changelog **与** 26.4 新增的 docs 默认值对比的并集：
+
+| 候选 | 来源 | dist 实证 | 结论 |
+|------|------|----------|------|
+| Owner-conversation automation repair（10.5 Changes「Automation repair」，#161007 / #162702 / #162772） | 10.5 changelog；10.1 起自带 docs「Repair is on by default」 | `failure-alerts` 模块 10.1 起有 `failure-repair` 分支（9.9 / 9.8 / 9.7 没有）：任务有 owner 会话 + announce 模式 + 非 command 任务 + 失败达阈值 → 向 owner 会话发修复请求，「as an ordinary agent turn」在该会话的 transcript / workspace / 工具策略下运行，可以修改 workspace 里的脚本或说明文件，回复走该会话路由；10.5 扩到一次性任务终态失败。全局 `cron.failureAlert.enabled: false` → `resolveFailureAlert` 返回 null，repair 分支不进（per-job `failureAlert` 对象会重新打开） | (a)+(b)：`cron` 在 PA 白名单 16 工具内，PA 从对话建的任务 owner 会话就是 PA 主会话 → **前置 C 第 16 项** |
+| Exec 空输出成功的完成事件（`tools.exec.notifyOnExitEmptySuccess`） | 10.5 docs「Defaults to true for chat channels」 | 4.27 只在显式 `true` 时开（默认 false）；10.2 与 10.5 的 `resolveNotifyOnExitEmptySuccess` 逐字相同：未设置时 `normalizeChatChannelId(messageProvider) !== null` → 聊天通道默认 true。10.5 同时把完成事件由「system event + heartbeat 唤醒」改为「session event 按普通回合处理」。同包 schema 帮助文字仍写「default: false」——以代码为准 | (a)+(b)：`exec` 在 PA 白名单，WhatsApp 是聊天通道 → **前置 C 第 17 项**（显式 false 恢复 4.27 语义） |
+| 多 agent 入站无 binding 时不再取第一个 agent（10.5 docs concepts/multi-agent.md） | docs | 4.27 `resolveDefaultAgentId` = `agents.find(a => a.default) ?? agents[0]`；10.x `resolveAgentRoute` 兜底 = 恰好一个 `default: true` → 唯一 agent → 否则抛 `AgentSelectionRequiredError`（消息不分发，报错提示加 channel-wide binding）；10.2 与 10.5 路由模块逻辑相同。Doctor 对「多 agent、无 owner」的旧配置自动填 `agents.defaults.systemAgent.agentId`：唯一的 `default: true`，否则 `main` | (a)+(b)：我方多 agent 且 WhatsApp 无显式 binding，4.27 现落在 agents.list 第一个（unfinished [9] 记录为 research）→ **前置 C 第 18 项** |
+| cua-computer 默认加载 Gateway policy（10.5 docs） | docs | macOS 的默认集成依赖 app-owned daemon（Mac app）；我方 npm 全局 + launchd，未装 app | 不在我方面上 → 登记不入 |
+| Discord / Telegram 默认 `progress` 流式草稿（#166861 / #168032） | changelog + docs | 只作用于 Discord 上的 agent 会话；我方 Discord 只做 notify 推送，guild 入站被 `groupPolicy=allowlist` + 空 `groupAllowFrom` 拦截 | 不在我方面上且非自主行为 → 登记不入 |
+| 自定义 `openai-completions` + `reasoning: true` 默认发 `reasoning_effort`；loopback 端点请求 `stream_options.include_usage` | docs | adapter.py 以白名单重建请求体（model / messages / max_tokens / temperature / tools / tool_choice / stream），两个字段都被丢弃 | 对我方无效 → 登记不入（判断依据由守卫钉住） |
+
+复查（25.5 跟踪点 3）：`resolveAgentToolSearchRuntimeConfig` 在 10.5 与 10.2 **逐字节相同** → 前置 C 第 14 项维持预防性；`@openclaw/discord@2026.10.5` 仍为 `allowBots ?? true` → 第 15 项继续成立。
+
+**更正（25.7）**：候选 1 的代码自 10.1 起就在，10.1 自带 docs 已写「Repair is on by default」，但 10.1 的 changelog 没有写；25.7 的候选只从 changelog 生成，所以漏掉。
+候选 2 同类（4.27 → 10.2 之间某版翻转，10.2 → 10.5 两版相同，历次评估都没有覆盖）。这是第三种方向的「文档 ≠ 代码」：24.4 是文档说开、代码没开；25.7 是 changelog 说待移除、
+包里已经删了；这次是代码先发、changelog 后写。25.7 的结论（「无新默认自主行为」）就 10.1 而言不成立，此处如实更正，不改写 25.7 原文。
+
+**方法补丁：候选来源加 docs 默认值增量对比**。两版自带 docs 逐文件对比，只取新增行里含「by default / defaults to / default: true」的句子，落在我方面上的加 ★。
+实测 9.9 → 10.1 产出 60 条（★ 23），漏掉的 repair 就在 ★ 里；10.2 → 10.5 产出 75 条（★ 23）。命令块（替换 PREV / TARGET 后整段粘贴）：
+
+```bash
+PREV=2026.10.2 && TARGET=2026.10.5 && WORK=$(mktemp -d) && cd "$WORK" && npm pack openclaw@$PREV openclaw@$TARGET >/dev/null 2>&1 && PREV=$PREV TARGET=$TARGET python3 - <<'PYDOC'
+import os, re, sys, tarfile
+def docs(v):
+    t = tarfile.open(f"openclaw-{v}.tgz")
+    return {m.name[13:]: t.extractfile(m).read().decode("utf-8", "replace").splitlines() for m in t.getmembers() if m.isfile() and m.name.startswith("package/docs/") and m.name.endswith(".md")}
+old, new = docs(os.environ["PREV"]), docs(os.environ["TARGET"])
+pat = re.compile(r"(?i)\b(on by default|enabled by default|by default|defaults? to|default:\s*`?(true|on|enabled))")
+ours = re.compile(r"(?i)whatsapp|discord|weixin|\bcron\b|automation|heartbeat|\bexec\b|message tool|binding|openai-completions|custom provider|\bsession")
+hits = [(n, l.strip()) for n, ls in sorted(new.items()) for l in ls if l not in set(old.get(n, [])) and pat.search(l)]
+mine = [h for h in hits if ours.search(h[0] + " " + h[1])]
+print(f"docs_files prev={len(old)} target={len(new)} added_default_lines={len(hits)} on_our_surface={len(mine)}")
+for n, l in hits:
+    print(("★ " if ours.search(n + " " + l) else "  ") + f"{n}: {l[:160]}")
+if not old or not new:
+    print("VERDICT=N/A_NO_DOCS")
+    sys.exit(3)
+PYDOC
+```
+
+退出码：`0` = 正常输出候选 / `3` = 某一版没有自带 docs（不可判）。输出只是线索，入不入前置 C 仍按 25.5 口径做 dist 核实。**诚实边界**：只能抓到「docs 写了」的翻转；
+代码改了、changelog 与 docs 都不写的翻转仍然抓不到。刻意不做成仓库脚本，理由同 19.8（每次 stable 一次手工执行，自带的命令块已经足够）。
+
+**全量基线（开窗前必做，现在不做）**：逐版本增量已经漏过两次，开窗前须对 4.27 → 目标版本做一次全量 docs 默认值对比（上面命令块的 PREV 改为 2026.4.27）。
+2026-10-20 实测 4.27 → 10.5 为 **1,669** 条（★ 431 条；docs 由 470 个文件扩到 1,291 个，绝大多数是重写而不是行为变化）——不是一次评估能核完的量，
+且目标版本随上游继续移动，现在核完、开窗时还得重做。故登记为前置 C 的第一个子项，目标版本确定后执行。
+
+**集成面登记（进 SOP 7.4，非自主行为）**：目标版本里 system prompt 的 `## Runtime` 行（agent / session / host / repo / os / node / model / channel / capabilities）
+被包在 `OPENCLAW-RELOCATABLE-BOUNDARY` 标记内（`@openclaw/ai` 注释：「Producer-delimited Runtime facts; instructions must remain outside this region」）；
+对没有 cacheControl 的 openai-completions 端点，`relocateNonBehavioralRegion` 会把这一行从 system 消息挪到 system 之后的**第一条 user 消息末尾**
+（10.2 与 10.5 逐字节相同；4.27 没有这对标记，Runtime 行留在 system 角色）。对我方有两处接缝：
+(1) proxy `_capture_conversation_turn` 取**最后一条** user 消息、只剥 `System:` / `Conversation info` 开头的前缀——会话第一回合时首条就是最新，`Runtime:` 行会随用户原话写进
+`~/.kb/conversations/`，再经 kb_harvest_chat 进 KB（dmScope 默认 `main` 时 session 字段为 `agent:main:main`，不含手机号；我方实际配置 dev 无法核实）；
+(2) `truncate_messages` 超预算时最先丢最旧的非 system 消息，长会话里 Runtime 行最先被丢。两处都只在升级后出现 → 写进 7.4 核对，确认发生后再改 proxy 捕获，
+不预先改代码（日落法 #34：不为尚不存在的问题加机制）。
+
+**持有成本 / tripwire**：4.27 → 10.5 精确 **52** 个 stable（现行口径）/ 不含 -N **49** / 主线 minor **39**（维护线 10：6.33–6.35 / 7.33–7.35 / 8.33–8.35 / 9.33；
+-N patch 3：5.3-1 / 7.1-1 / 7.1-2）；weixin 4.27 上限仍是 2.4.4，落后 **5 个已发布版本 / 120 天**（2.4.5 于 06-22 把 peer 抬到 `>=2026.5.12`；2.4.7 从未发布）；
+whatsapp / discord 锁步再证；4.27 未 deprecate 174 天。
+
+**收益侧登记（不改结论）**：10.3 Highlights 前五条都在修 update / Doctor 自身（卡住的更新、回滚、Doctor 修复时破坏数据）→ **方案 B（中间版本）第八次再证不可取**；
+10.4「The Gateway keeps running after the computer sleeps or the system clock jumps」（#170790）与 Mac Mini 睡眠问题（V37.9.327 pmset）同源；10.5 把会话、历史读取移到 worker 线程。
+
+### 26.5 结论与建议：**继续 hold（判据 ❌🔴✅）+ tripwire 计数改为主线口径 + 前置 C 15 → 18**
+
+- **方案 A（推荐，不变）**：hold 4.27。三条判据与第十四次逐项相同；本节新开是为了把一个触发日决定和三项新默认行为落进 SOP，不是结论变化。
+- **tripwire [2/6] 触发日处置（23.5 预注册，用户 2026-10-20 选「改口径」）**：check_upgrade.sh 改为只数主线 minor stable，-N patch 与维护线 tag 分桶列出、不计入触发。
+  维护线判据 = 第三段 ≥ `MAINT_PATCH_MIN` = 32：维护线实测编号 33–35；主线曾用日序编号（4.29 / 5.28 已出现，理论上限 31），后改为顺序编号（7.1 / 9.9 / 10.5）——
+  32 在两种编号下都不会误分（阈值取 30 会在上游回到日序编号时把 5.30 / 5.31 误判为维护线）。触发日三种口径读数：现行 **52** / 不含 -N **49** / 主线 **39**（剩 11）。
+  按 4 周窗主线 2.25/周，约 5 周后（11 月下旬）再次触发，届时是主线口径下的真信号，按本节判据再走一次评估。另两个选项未选：调阈值 = 静音一条真信号；接受每周告警 = 每周推一条不带新信息的告警。
+- **下次跟踪点**：
+  1. **下一个 stable 发布时**：(a) 走 19.8 修订后协议核对 ①；(b) 记与 10.5（10-18 21:16Z）的间隔判 ②（≥ 14 天 → ✅，< 7 天 → 🔴，之间 → 🟡），同时记 4 周窗滚动速率；
+     (c) `engines.node` 复核 ③；(d) **候选来源 = changelog 候选 ∪ 26.4 docs 默认值增量对比的 ★ 候选**，再按 25.5 口径 dist 核实；按 22.5 日落规则决定追加段还是新开节
+     （三项全同且无新默认自主行为 → 只在本节末追加「26.6 追加读数」，不新开评估节、不重置 LAST_EVAL_DATE；追加读数仍走 19.8 协议，不得简化为裸 grep）。
+  2. **weixin SDK 子路径**（前置 B）：复查 10.x 是否继续删导出、weixin 是否需要新的迁移版本。
+  3. **Discord / Tool Search 门控**：复查 `allowBots` 默认值与 `resolveAgentToolSearchRuntimeConfig`。
+  4. **19.5 持有成本**每次复测（本次 5 版 / 120 天；credential-prompt 弃用 11-30 到期后记录）。
+  5. 前置 C 现为 **18 项 + 1 项开窗前全量基线**。
+- **方案 B（中间版本）**：仍不可取（第八次再证，见 26.4 收益侧）。
+- **方案 C（若用户决定现升）**：前置 A 区间同 9.3；前置 B weixin ≥2.4.10 且同一升级窗口安装；前置 C 18 项 + 开窗前全量基线（第 16 / 17 / 18 项须在首次启动前设置或决定）；
+  7.2 记录 agents / bindings 与 openclaw cron 任务现状；7.4 加 Runtime 行核对；升级为 migration-bearing，**自动回滚不适用，7.1 全量快照必做**。
+
+**LAST_EVAL_DATE 更新至 2026-10-20**（第十五次评估完成，重置时间 tripwire）。下次触发 = 任一 tripwire 跳红（[2/6] 按主线口径预计 11 月下旬），
+或下一个 stable 发布时的判据 ①/②/③ 跟踪（① 走 19.8 修订后协议；三项全同且按 25.5 口径无新默认自主行为则追加读数不新开节）。

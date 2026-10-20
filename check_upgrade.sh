@@ -12,6 +12,8 @@
 #         3/4 报 "未检出 ✅"（跑不动 ≠ 没新版, V37.9.322 F3 家族）。现: ⚠️ NA 不计触发但可见。
 #   CU-F4 EOL 关键词跟随部署版本 — 旧硬编码 'v2026.3'（部署 2026.3.x 时代遗留, 部署已
 #         4.27 十一周）。现: 从 CURRENT 派生 v{year}.{minor} + 'deprecated v{year}'。
+# V37.9.373: tripwire 2 计数口径改为主线 minor stable —— 2026-10-20 触发日（现行口径 52/50）按 eval doc
+#   23.5 预注册三选一, 用户选「改口径」: -N patch 与维护线 tag 分桶列出但不计入触发（见 Tripwire 2 段）。
 # 用法：bash check_upgrade.sh   （每周一 09:10 cron, 登记见 jobs_registry.yaml: check_upgrade）
 set -euo pipefail
 export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
@@ -27,13 +29,14 @@ else
 fi
 
 # ── 配置（升级后须更新 LAST_EVAL_DATE）──
-# 最近一次正式评估: 2026-10-02 第十四次评估 (2026.9.7 stable, 24.5 预设跟踪点到期): 继续 hold —— 判据与第十三次逐项相同
-#    (❌ 9.7 DIRTY 20 计数仍 0 / 🔴 9.6→9.7 间隔 6.19 天 / ✅ engines 五版逐字同), 因 Discord allowBots 默认翻转 (#157091,
-#    代码级 + 我方推送主通道) 按日落规则新开节; 前置 C 14→15 (预防性); tripwire [2/6] 43/50. 详见 eval doc 第二十五节.
+# 最近一次正式评估: 2026-10-20 第十五次评估 (tripwire [2/6] 触发日 + 2026.10.3/10.4/10.5): 继续 hold —— 判据与第十四次逐项相同
+#    (❌ 三版全 DIRTY 计数仍 0 / 🔴 间隔 1.34·2.43·2.89 天 / ✅ engines 自 9.3 起逐字同), 因 dist 核实 owner-conversation repair
+#    默认开 (cron 在 PA 白名单) 按日落规则新开节; 前置 C 15→18; tripwire 计数改主线口径 52→39. 详见 eval doc 第二十六节.
 # 历次评估摘要只在 eval doc 头部评估列表维护 (V37.9.366 起: 一物一形, 退役本处逐次复制的摘要——它与 eval doc 是同一事实的两份手写副本).
-LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-10-02}"  # V37.9.366: 第十四次评估 (eval doc 第二十五节; 第十三次=第二十四节)
+LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-10-20}"  # V37.9.373: 第十五次评估 (eval doc 第二十六节; 第十四次=第二十五节)
 TIME_TRIPWIRE_DAYS="${OPENCLAW_TIME_TRIPWIRE_DAYS:-180}"
 VERSION_GAP_TRIPWIRE="${OPENCLAW_VERSION_GAP_TRIPWIRE:-50}"
+MAINT_PATCH_MIN="${OPENCLAW_MAINT_PATCH_MIN:-32}"
 CVE_FILE="${OPENCLAW_CVE_ALERT_FILE:-$HOME/.openclaw_cve_alert}"
 PAIN_FILE="${OPENCLAW_PAIN_POINT_FILE:-$HOME/.openclaw_pain_point}"
 
@@ -73,14 +76,18 @@ else
     TRIPWIRE_REPORT+=("✅ [1/6] 时间上限: ${DAYS_SINCE}/${TIME_TRIPWIRE_DAYS} 天 (剩 ${REMAIN} 天)")
 fi
 
-# ── Tripwire 2: 版本差距 ≥ VERSION_GAP_TRIPWIRE 个 stable ──
+# ── Tripwire 2: 版本差距 ≥ VERSION_GAP_TRIPWIRE 个主线 minor stable ──
 # V37.9.334 (CU-F2): 数值元组比较（'2026.7.1-2' → (2026,7,1,2)）替代字典序 —— 字典序在
 # 2026.10.x 起漏计（'1'<'4'）; 去掉 '2026.' 前缀过滤 —— 2027.1.x 起同款漏计, 旧年份
 # 版本数值上天然 < current 不需要前缀挡。
 # V37.9.334 (CU-F3): curl 失败/空响应/versions 为空 → NA 显式不可判, 不再伪装成 0。
+# V37.9.373: 分三桶 —— 主线 minor stable 计入触发; -N patch（'2026.7.1-2'，同一版本的重发）与维护线
+# tag（第三段 ≥ MAINT_PATCH_MIN）只列出不计入。阈值 32 的依据: 维护线实测编号 33–35（2026.6.33–9.33）; 主线
+# 曾用日序编号（2026.4.29 / 5.28, 理论上限 31）, 后改顺序编号（7.1 / 9.9 / 10.5）—— 32 在两种编号下都不误分。
+# 理由: tripwire 要回答「我们落后目标多远」, 维护线是上游给旧 minor 的回补节奏、-N 是同版重发, 二者都不拉远距离。
 NPM_TMP=$(mktemp "${TMPDIR:-/tmp}/check_upgrade_npm.XXXXXX")
 if curl -s --max-time 10 https://registry.npmjs.org/openclaw -o "$NPM_TMP" 2>/dev/null && [ -s "$NPM_TMP" ]; then
-    STABLE_AFTER=$(CURRENT_V="$CURRENT" python3 -c "
+    GAP_COUNTS=$(CURRENT_V="$CURRENT" MAINT_MIN="$MAINT_PATCH_MIN" python3 -c "
 import json, os, re, sys
 def vkey(v):
     return tuple(int(p) for p in re.split(r'[.-]', v))
@@ -91,7 +98,8 @@ try:
         print('NA')
         sys.exit()
     cur_key = vkey(os.environ.get('CURRENT_V', ''))
-    after = 0
+    maint_min = int(os.environ.get('MAINT_MIN', '32'))
+    main = maint = patch = 0
     for v in versions.keys():
         if any(x in v for x in ['beta', 'alpha', 'rc', 'dev']):
             continue
@@ -99,26 +107,39 @@ try:
             k = vkey(v)
         except Exception:
             continue
-        if k > cur_key:
-            after += 1
-    print(after)
+        if k <= cur_key:
+            continue
+        if len(k) > 3:
+            patch += 1
+        elif k[2] >= maint_min:
+            maint += 1
+        else:
+            main += 1
+    print(main, maint, patch)
 except Exception:
     print('NA')
 " < "$NPM_TMP" 2>/dev/null || echo "NA")
 else
-    STABLE_AFTER="NA"
+    GAP_COUNTS="NA"
 fi
 rm -f "$NPM_TMP"
+
+STABLE_AFTER="NA"
+MAINT_AFTER=0
+PATCH_AFTER=0
+if [[ "$GAP_COUNTS" =~ ^[0-9]+\ [0-9]+\ [0-9]+$ ]]; then
+    read -r STABLE_AFTER MAINT_AFTER PATCH_AFTER <<< "$GAP_COUNTS"
+fi
 
 if [ "$STABLE_AFTER" = "NA" ]; then
     TRIPWIRE_REPORT+=("⚠️ [2/6] 版本差距: 不可判（npm registry 不可达或响应异常 — 跑不动≠没新版）")
     TRIPWIRE_NA=$((TRIPWIRE_NA + 1))
 elif [ "$STABLE_AFTER" -ge "$VERSION_GAP_TRIPWIRE" ]; then
-    TRIPWIRE_REPORT+=("🚨 [2/6] 版本差距: ${STABLE_AFTER} ≥ ${VERSION_GAP_TRIPWIRE} stable (TRIPPED)")
+    TRIPWIRE_REPORT+=("🚨 [2/6] 版本差距: ${STABLE_AFTER} ≥ ${VERSION_GAP_TRIPWIRE} 主线 stable (TRIPPED; 另维护线 ${MAINT_AFTER} / -N patch ${PATCH_AFTER} 不计入)")
     TRIPWIRE_TRIPPED=$((TRIPWIRE_TRIPPED + 1))
 else
     REMAIN=$((VERSION_GAP_TRIPWIRE - STABLE_AFTER))
-    TRIPWIRE_REPORT+=("✅ [2/6] 版本差距: ${STABLE_AFTER}/${VERSION_GAP_TRIPWIRE} stable (剩 ${REMAIN})")
+    TRIPWIRE_REPORT+=("✅ [2/6] 版本差距: ${STABLE_AFTER}/${VERSION_GAP_TRIPWIRE} 主线 stable (剩 ${REMAIN}; 另维护线 ${MAINT_AFTER} / -N patch ${PATCH_AFTER} 不计入)")
 fi
 
 # ── Tripwire 3/4 共享: latest release 获取 + 可判性检查 ──
