@@ -24,8 +24,12 @@ Mac Mini 上复制粘贴执行的块（zsh interactive_comments 默认 OFF 会�
 本守卫把「SOP ↔ 评估结论」做成跨节契约（MR-8）：未来评估节新增前置而 SOP 没跟，
 CI 立刻红 —— 而不是靠下一个 session 记得同步。
 """
+import json
 import os
 import re
+import subprocess
+import sys
+import tempfile
 import unittest
 
 DOC = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -45,9 +49,10 @@ def _slice(text, start_marker, end_marker):
 
 # 7.0 清单勾选项总数的单一真理源（V37.9.366 起）：3 基础 + A + B + C 头 + 15 子项。
 # 此前 Eleventh / Twelfth / Thirteenth 三个类各自写死 20 —— 同一事实三份字面量 pin，每加一项要改三处。
-# 历史：18（第十一次）→ 19（第十二次 +#149875）→ 20（第十三次 +#154068）→ 21（第十四次 +#157091）。
+# 历史：18（第十一次）→ 19（第十二次 +#149875）→ 20（第十三次 +#154068）→ 21（第十四次 +#157091）
+#       → 25（第十五次 V37.9.373：+ 开窗前全量基线子项 + owner repair / exec 空输出完成事件 / 多 agent 入站兜底 三项）。
 # 每个评估类仍各自断言「本次新增项在清单里」，计数 pin 只负责「没有悄悄多出未登记的项」。
-PREREQ_CHECKBOXES = 21
+PREREQ_CHECKBOXES = 25
 
 
 def _bash_blocks(text):
@@ -930,7 +935,9 @@ class TestFourteenthEvaluationPresent(unittest.TestCase):
     def setUp(self):
         self.doc = _read()
         self.head = self.doc[:self.doc.index("## 一、版本概览")]
-        self.sec25 = self.doc[self.doc.index("## 第二十五节"):]
+        # V37.9.373 演进（V37.9.131 alternation，镜像 V37.9.366 收紧 sec24）：原切到文末；第二十六节加入后改为切到下一个 ---，
+        # 否则第十五次评估的文字会落进本类的误记黑名单扫描。第二十五节自身（25.1–25.7）的覆盖范围不变。
+        self.sec25 = _slice(self.doc, "## 第二十五节", "\n---\n")
         self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
         self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
         self.verify = _slice(self.sop, "### 7.4", "### 7.5")
@@ -967,7 +974,10 @@ class TestFourteenthEvaluationPresent(unittest.TestCase):
         self.assertIn("首次启动前", line)
         self.assertIn("预防性", line, "第 15 项须诚实标注为预防性（当前配置下不触发）")
         self.assertIn("运营配置", line, "须写明保护来自运营配置状态而非代码门控（这是入项理由）")
-        self.assertIn("15 项默认变更", self.prereq)
+        # V37.9.373 演进：前置 C 头部计数随第十五次评估 15 → 18；本断言原意「头部计数已把第 15 项算进去」不变。
+        m = re.search(r"\*\*(\d+) 项默认变更\*\*", self.prereq)
+        self.assertIsNotNone(m, "前置 C 头部须写明默认变更项数")
+        self.assertGreaterEqual(int(m.group(1)), 15)
         self.assertEqual(self.prereq.count("- [ ]"), PREREQ_CHECKBOXES)
 
     def test_prereq_b_weixin_removal_pending_subpaths(self):
@@ -1038,7 +1048,8 @@ class TestAppendReading257(unittest.TestCase):
     def setUp(self):
         self.doc = _read()
         self.head = self.doc[:self.doc.index("## 一、版本概览")]
-        self.s257 = self.doc[self.doc.index("### 25.7"):]
+        # V37.9.373 演进：原切到文末；第二十六节加入后切到下一个 ---（同 sec25），25.7 自身覆盖范围不变。
+        self.s257 = _slice(self.doc, "### 25.7", "\n---\n")
         self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
         self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
         self.pre_check = _slice(self.sop, "### 7.2", "### 7.3")
@@ -1046,11 +1057,14 @@ class TestAppendReading257(unittest.TestCase):
 
     def test_appended_not_new_section(self):
         """三项判据全同 + 无新默认自主行为 → 追加读数：最新评估节仍是第二十五节（2026-10-02），不得出现第二十六节。"""
-        self.assertEqual(_latest_eval(self.doc), ("第二十五节", "十四", "2026-10-02"))
-        self.assertNotIn("## 第二十六节", self.doc)
+        # V37.9.373 演进（V37.9.131 alternation）：原断言「最新节仍是第二十五节、不存在第二十六节、头部 latest = 2026.10.2」是 25.7 当时的状态；
+        # 第十五次评估新开第二十六节后改为断言 25.7 本身的形态——它是第二十五节内部的追加段，不是新节。意图不变。
+        sec25 = _slice(self.doc, "## 第二十五节", "\n---\n")
+        self.assertIn("### 25.7", sec25, "25.7 必须位于第二十五节内部（追加段）")
+        self.assertNotIn("### 25.7", self.doc[self.doc.index("## 第二十六节"):] if "## 第二十六节" in self.doc else "")
         self.assertIn("不新开节", self.s257.splitlines()[0])
         self.assertIn("不重置 LAST_EVAL_DATE", self.s257.splitlines()[0])
-        self.assertIn("2026.10.2", self.head, "头部当前态须记上游 latest 2026.10.2")
+        self.assertIn("10.1 / 10.2 追加读数", self.head, "头部评估列表须保留 25.7 那次追加读数")
         self.assertIn("25.7", self.head)
 
     def test_criteria_recorded_honestly(self):
@@ -1095,6 +1109,213 @@ class TestAppendReading257(unittest.TestCase):
     def test_tripwire_trigger_day_readings_prepared_without_changing_machine(self):
         for kw in ("48/50", "10-19", "23.5", "主线 minor 36", "不预先改机器"):
             self.assertIn(kw, self.s257, f"25.7 缺 tripwire 触发日读数要素「{kw}」")
+
+
+def _python_c_code(block):
+    """从 `python3 -c "..."` 形态的命令块取出 python 源码（命令整体在双引号内、源码不含双引号）。"""
+    m = re.search(r'python3 -c "(.*)"\s*$', block.strip(), re.S)
+    assert m, f"命令块不是 python3 -c 形态：{block[:80]}"
+    return m.group(1)
+
+
+class TestFifteenthEvaluationPresent(unittest.TestCase):
+    """第十五次评估（V37.9.373，2026-10-20）：tripwire [2/6] 触发日 + 2026.10.3 / 10.4 / 10.5。
+
+    判据与第十四次逐项相同（❌🔴✅），按 25.5 口径 dist 实证一项新默认自主行为（owner-conversation automation repair，`cron` 在 PA 白名单）
+    → 新开第二十六节。本类钉住：新开节理由 / 判据如实 / 25.7 更正 / 前置 C 三项新增与全量基线 / 7.2 两条只读命令与 26.4 docs 对比协议块
+    真能跑出结论（行为级，从文档里抽出来跑）/ 7.4 Runtime 行核对 / tripwire 改口径的落地。
+    """
+
+    def setUp(self):
+        self.doc = _read()
+        self.head = self.doc[:self.doc.index("## 一、版本概览")]
+        self.sec26 = self.doc[self.doc.index("## 第二十六节"):]
+        self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
+        self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
+        self.pre_check = _slice(self.sop, "### 7.2", "### 7.3")
+        self.verify = _slice(self.sop, "### 7.4", "### 7.5")
+
+    def test_section26_is_latest_with_all_subsections(self):
+        self.assertEqual(_latest_eval(self.doc), ("第二十六节", "十五", "2026-10-20"))
+        for sub in ("### 26.1", "### 26.2", "### 26.3", "### 26.4", "### 26.5"):
+            self.assertIn(sub, self.sec26, f"第二十六节缺 {sub}")
+        self.assertNotIn("### 26.6", self.sec26, "26.6 是下一次追加读数的位置，本次不得预先出现")
+        self.assertIn("十五次评估", self.head)
+        self.assertIn("2026.10.5", self.head, "头部当前态须记上游 latest 2026.10.5")
+
+    def test_new_section_justified_by_default_flip_and_trigger_day(self):
+        heading = self.sec26.splitlines()[0]
+        for kw in ("tripwire [2/6] 触发日", "新默认自主行为", "新开节"):
+            self.assertIn(kw, heading, f"节标题须写明新开理由「{kw}」")
+
+    def test_criteria_recorded_honestly(self):
+        s263 = _slice(self.sec26, "### 26.3", "### 26.4")
+        for kw in ("1.34", "2.43", "2.89", "2.25/周", "DIRTY 4", "DIRTY 1", "DIRTY 21", "计数仍 0", "十二版逐字相同", "🔴"):
+            self.assertIn(kw, s263, f"26.3 缺「{kw}」")
+        for bad in ("10.3 干净", "10.4 干净", "10.5 干净", "计数 1", "② ✅", "② 回 🟡"):
+            self.assertNotIn(bad, self.sec26, f"不得出现误记「{bad}」")
+        self.assertIn("三个条件全满足", s263, "10.4 走 hotfix 分支须写明三条件满足（不同于 9.9 的边际情形）")
+        self.assertIn("61 in-range", s263)
+
+    def test_correction_to_25_7_is_disclosed_not_rewritten(self):
+        s264 = _slice(self.sec26, "### 26.4", "### 26.5")
+        for kw in ("更正", "10.1", "changelog", "不改写 25.7 原文"):
+            self.assertIn(kw, s264, f"26.4 更正段缺「{kw}」")
+        s257 = _slice(self.doc, "### 25.7", "\n---\n")
+        self.assertIn("无新默认自主行为", s257, "25.7 原文保留不改写（更正只在 26.4 追加）")
+
+    def test_prereq_c_new_items_actionable(self):
+        lines = self.prereq.splitlines()
+        def item(kw):
+            hit = [l for l in lines if kw in l and l.strip().startswith("- [ ]")]
+            self.assertEqual(len(hit), 1, f"前置 C 须恰有一项含「{kw}」")
+            return hit[0]
+        repair = item("Owner-conversation automation repair")
+        self.assertIn("cron.failureAlert.enabled: false", repair)
+        self.assertIn("首次启动前", repair)
+        self.assertIn("per-job `failureAlert`", repair, "须提醒 per-job 对象会绕过全局关闭")
+        exec_item = item("Exec empty-success completion events")
+        self.assertIn("tools.exec.notifyOnExitEmptySuccess: false", exec_item)
+        routing = item("Multi-agent unbound inbound routing")
+        for kw in ('"channel": "whatsapp"', "AgentSelectionRequiredError", "main", "不分发", "首次启动前"):
+            self.assertIn(kw, routing, f"第 18 项缺「{kw}」")
+        baseline = item("全量基线：")
+        for kw in ("PREV=2026.4.27", "1,669", "26.4"):
+            self.assertIn(kw, baseline)
+        self.assertIn("**18 项默认变更**", self.prereq)
+        self.assertEqual(self.prereq.count("- [ ]"), PREREQ_CHECKBOXES)
+
+    def test_mr8_items_16_17_rationale_tracks_proxy_whitelist(self):
+        """MR-8 跨文件：第 16 / 17 项入清单的理由是「cron / exec 在 PA 白名单」。白名单若移除它们，理由失效，本守卫先红提醒复核。"""
+        import sys
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import proxy_filters
+        for name in ("cron", "exec"):
+            self.assertIn(name, proxy_filters.ALLOWED_TOOLS, f"{name} 已不在白名单，复核前置 C 第 16 / 17 项理由")
+
+    def test_mr8_registered_not_included_rationale_tracks_adapter_body(self):
+        """MR-8 跨文件：reasoning_effort / stream_options 登记不入的依据是 adapter 以白名单重建请求体。adapter 若开始透传它们，本守卫先红。"""
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "adapter.py")
+        with open(path, encoding="utf-8") as f:
+            code = "\n".join(l for l in f.read().splitlines() if not l.lstrip().startswith("#"))
+        self.assertIn('clean = {"model": use_model, "messages": clean_msgs}', code)
+        for key in ("reasoning_effort", "stream_options"):
+            self.assertNotIn(key, code, f"adapter 开始处理 {key}，复核 26.4 登记不入的结论")
+
+    def _run_cmd(self, cmd, home):
+        env = os.environ.copy()
+        env["HOME"] = home
+        r = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, env=env, timeout=30)
+        return r
+
+    def test_pre_check_commands_run_and_show_conclusion(self):
+        """7.2 的两条只读命令从文档抽出来真跑（原则 #35 补充：交出去的验证命令要先证明能显出结论）。"""
+        blocks = [b for b in _bash_blocks(self.pre_check) if "openclaw.json" in b or "cron/jobs.json" in b]
+        self.assertEqual(len(blocks), 2, "7.2 须有 agents/bindings 与 cron 任务两条命令")
+        for b in blocks:
+            compile(_python_c_code(b), "<7.2>", "exec")
+        tmp = tempfile.mkdtemp(prefix="sop72_")
+        os.makedirs(os.path.join(tmp, ".openclaw", "cron"))
+        with open(os.path.join(tmp, ".openclaw", "openclaw.json"), "w") as f:
+            json.dump({"agents": {"list": [{"id": "research"}, {"id": "main", "default": True}]},
+                       "bindings": [{"agentId": "main", "match": {"channel": "whatsapp"}}]}, f)
+        with open(os.path.join(tmp, ".openclaw", "cron", "jobs.json"), "w") as f:
+            json.dump({"jobs": [{"id": "j1", "name": "water", "enabled": True, "delivery": {"mode": "announce"},
+                                 "sessionKey": "agent:main:main"}]}, f)
+        agents_cmd = next(b for b in blocks if "openclaw.json" in b)
+        out = self._run_cmd(agents_cmd, tmp)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("agent: research default: None", out.stdout)
+        self.assertIn("agent: main default: True", out.stdout)
+        self.assertIn('"channel": "whatsapp"', out.stdout)
+        cron_cmd = next(b for b in blocks if "cron/jobs.json" in b)
+        out = self._run_cmd(cron_cmd, tmp)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("jobs: 1", out.stdout)
+        self.assertIn("delivery: announce", out.stdout)
+        self.assertIn("session: agent:main:main", out.stdout)
+        empty = tempfile.mkdtemp(prefix="sop72e_")
+        out = self._run_cmd(cron_cmd, empty)
+        self.assertEqual((out.returncode, out.stdout.strip()), (0, "jobs: 0"), "没有 cron 文件时须如实报 0，不得报错")
+
+    def test_post_upgrade_runtime_line_check_present(self):
+        self.assertIn("_capture_conversation_turn", self.verify)
+        self.assertTrue(any("Runtime: (name|agent|session|host)=" in b and "~/.kb/conversations/" in b
+                            for b in _bash_blocks(self.verify)), "7.4 须有 Runtime 行核对命令")
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tool_proxy.py")
+        with open(path, encoding="utf-8") as f:
+            src = f.read()
+        self.assertIn("def _capture_conversation_turn(", src, "7.4 引用的函数名须真实存在")
+        self.assertIn('_CHAT_LOG_DIR = os.path.expanduser("~/.kb/conversations")', src, "7.4 命令的路径须与捕获目录一致")
+
+    def _docs_protocol_python(self):
+        s264 = _slice(self.sec26, "### 26.4", "### 26.5")
+        block = next(b for b in _bash_blocks(s264) if "<<'PYDOC'" in b)
+        body = block[block.index("<<'PYDOC'\n") + len("<<'PYDOC'\n"):block.rindex("\nPYDOC")]
+        return block, body
+
+    def test_docs_protocol_block_compiles_and_is_whole_doc_scan(self):
+        block, body = self._docs_protocol_python()
+        compile(body, "<26.4>", "exec")
+        self.assertIn("npm pack openclaw@$PREV openclaw@$TARGET", block)
+        self.assertIn('startswith("package/docs/")', body, "须扫全部自带 docs，而不是某一个文件")
+        self.assertIn("not in set(old.get(n, []))", body, "只取新增行（与旧版逐文件对比）")
+
+    def _make_pkg(self, root, version, files):
+        import io
+        import tarfile
+        path = os.path.join(root, f"openclaw-{version}.tgz")
+        with tarfile.open(path, "w:gz") as t:
+            for name, text in files.items():
+                data = text.encode("utf-8")
+                info = tarfile.TarInfo(f"package/docs/{name}")
+                info.size = len(data)
+                t.addfile(info, io.BytesIO(data))
+            pj = b'{"name": "openclaw"}'
+            info = tarfile.TarInfo("package/package.json")
+            info.size = len(pj)
+            t.addfile(info, io.BytesIO(pj))
+
+    def test_docs_protocol_behavior_on_synthetic_packages(self):
+        """行为级：新增的默认值句子被抓到、落在我方面上的加 ★、未变化的默认值句子不报。"""
+        _, body = self._docs_protocol_python()
+        tmp = tempfile.mkdtemp(prefix="docsproto_")
+        self._make_pkg(tmp, "1.0.0", {"a.md": "Bar defaults to 3.\nintro"})
+        self._make_pkg(tmp, "1.1.0", {"a.md": "Bar defaults to 3.\nintro\nFoo is on by default.",
+                                      "automation/cron.md": "Repair is on by default for cron jobs."})
+        env = os.environ.copy()
+        env.update({"PREV": "1.0.0", "TARGET": "1.1.0"})
+        r = subprocess.run([sys.executable, "-c", body], cwd=tmp, env=env, capture_output=True, text=True, timeout=30)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("added_default_lines=2 on_our_surface=1", r.stdout)
+        self.assertIn("★ automation/cron.md: Repair is on by default", r.stdout)
+        self.assertIn("  a.md: Foo is on by default.", r.stdout)
+        self.assertNotIn("Bar defaults to 3", r.stdout, "两版都有的默认值句子不是新增，不得报")
+        self._make_pkg(tmp, "0.9.0", {})
+        env.update({"PREV": "0.9.0"})
+        r = subprocess.run([sys.executable, "-c", body], cwd=tmp, env=env, capture_output=True, text=True, timeout=30)
+        self.assertEqual(r.returncode, 3, "某一版没有自带 docs 时须判不可判（rc=3），不得当作零候选")
+        self.assertIn("VERDICT=N/A_NO_DOCS", r.stdout)
+
+    def test_tripwire_caliber_decision_landed_in_doc_and_script(self):
+        s265 = _slice(self.sec26, "### 26.5", "**LAST_EVAL_DATE")
+        for kw in ("改口径", "`MAINT_PATCH_MIN` = 32", "52", "49", "39", "11 月下旬", "5.28"):
+            self.assertIn(kw, s265, f"26.5 缺口径决定要素「{kw}」")
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "check_upgrade.sh")
+        with open(path, encoding="utf-8") as f:
+            src = f.read()
+        self.assertIn('MAINT_PATCH_MIN="${OPENCLAW_MAINT_PATCH_MIN:-32}"', src)
+        self.assertIn("主线 stable", src)
+
+    def test_next_tracking_point_includes_docs_candidates(self):
+        s265 = _slice(self.sec26, "### 26.5", "**LAST_EVAL_DATE")
+        for kw in ("19.8", "engines.node", "26.6", "docs 默认值增量对比", "不新开评估节", "不重置 LAST_EVAL_DATE", "裸 grep", "18 项"):
+            self.assertIn(kw, s265, f"26.5 跟踪点缺「{kw}」")
+
+    def test_protocol_table_rows_appended(self):
+        t = _slice(self.doc, "### 20.4", "### 20.5")
+        for v in ("2026.10.3", "2026.10.4", "2026.10.5"):
+            self.assertIn(f"| **{v}**（第十五次评估追加）", t)
 
 
 if __name__ == "__main__":
