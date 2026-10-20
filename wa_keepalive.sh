@@ -35,10 +35,12 @@ _wa_channel_check() {
     parsed=$("$OPENCLAW" channels status 2>/dev/null | python3 "$parser" 2>/dev/null)
     [ -n "$parsed" ] || return 0  # FAIL-OPEN: 解析失败不告警
 
-    local escalate present reason rest
+    local escalate present action reason rest
     escalate="${parsed%%|*}"
     rest="${parsed#*|}"
     present="${rest%%|*}"
+    rest="${rest#*|}"
+    action="${rest%%|*}"
     reason="${rest#*|}"
 
     if [ "$escalate" = "1" ]; then
@@ -49,12 +51,22 @@ _wa_channel_check() {
         echo "$prev" > "$WA_CHANNEL_WARN_FILE"
         if [ "$prev" -eq "$ESCALATE_FIRST" ] || \
            { [ "$prev" -gt "$ESCALATE_FIRST" ] && [ "$(( (prev - ESCALATE_FIRST) % ESCALATE_REPEAT ))" -eq 0 ]; }; then
+            # V37.9.374: 恢复建议按状态分（2026-10-20 血案：仍 linked 的 405 停摆被提示去扫码，
+            # 而重启一次即恢复）。只有 parser 明确判为 login 才建议扫码；未知值（含部署窗口内
+            # 旧 parser 的三段输出）一律落到重启 —— 重启无损，扫码会丢掉仍然有效的会话。
+            local hint
+            if [ "$action" = "login" ]; then
+                hint="恢复: openclaw channels login --channel whatsapp（会话未链接或已被服务端登出，需手机扫码）"
+            else
+                hint="恢复: bash ~/openclaw-model-bridge/restart.sh（频道仍 linked、凭据有效，只是停止了重试；先重启，不要扫码）
+重启后 openclaw channels status 显示 not linked 才扫码: openclaw channels login --channel whatsapp"
+            fi
             local amsg="[SYSTEM_ALERT]
 ⚠️ WhatsApp 频道连续 ${prev} 次掉线（Gateway 健康但频道断连）
 状态: ${reason}
 检查时间: ${TS}
 排查: openclaw channels status
-恢复: openclaw channels login --channel whatsapp（需手机扫码；会话被服务端登出时必需）"
+${hint}"
             # 强制走 Discord（WhatsApp 频道已死，告警链不得依赖失效主体自身 — MR-14）
             # V37.9.281 (对抗审计 NOT-F4): 检查发送 rc — 原 || true + 无条件
             # ESCALATED 日志把失败叙述成已送达 (fail-plausible), 且无本地兜底。

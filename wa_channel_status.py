@@ -22,10 +22,18 @@
 `openclaw channels status` 是轻量调用（查询运行中的 Gateway 守护进程，CLI 进程不加载
 插件、无 plugin staging churn），适合每 30min keepalive 调用。
 
-Output 格式 (single line stdout): "{escalate}|{present}|{reason}"
+Output 格式 (single line stdout): "{escalate}|{present}|{action}|{reason}"
   escalate: "1" 当 WhatsApp 行存在且含明确负面信号；否则 "0"
   present:  "1" 当找到 WhatsApp 行；否则 "0"
-  reason:   人类可读状态摘要（不含手机号）
+  action:   告警该建议的恢复动作 — "login" | "restart" | "none"（V37.9.374）
+  reason:   人类可读状态摘要（不含手机号）；放最后一段，内含 "|" 也不会切错
+
+V37.9.374（2026-10-20 血案）：告警原本不分状态一律建议「扫码登录」。10-20 02:28
+  服务端 428 断开 → 4.27 重建连接时取 WhatsApp Web 版本号失败、静默回退到内置旧版本
+  → 握手 405 → 建连阶段的失败不重试，监听循环直接退出 → 频道 stopped 12.5h。
+  当时频道仍 linked、凭据有效，重启 Gateway 一次即恢复；扫码不仅无效（登录走同一段
+  取版本代码，同样 405），还会丢掉仍然有效的会话（6 月 408 血案就是反复扫码撞出来的）。
+  判据对齐上游自己的提示：not linked / 会话被登出 → 扫码；仍 linked 但停了 → 先重启。
 
 CLI:
   openclaw channels status | python3 wa_channel_status.py
@@ -34,11 +42,19 @@ CLI:
 
 from __future__ import annotations
 
+import re
 import sys
 
 
 # 频道行内可能出现的明确负面信号 token（comma-split 后精确匹配，避免 "linked" 子串误判）
 _NEGATIVE_TOKENS = ("not linked", "disconnected", "stopped")
+
+# 会话被服务端登出的错误特征（V37.9.374）：Baileys UNAUTHORIZED_CODES = 401/403/419，
+# 以及 4.27 的 "session logged out" 文案。刻意要求 "logged out" 带空格 —— 错误 JSON 里的
+# isLoggedOut/loggedOut 字段（值可能是 false）不得误判成已登出。
+_LOGGED_OUT_RE = re.compile(
+    r'statusCode"?\s*:\s*(?:401|403|419)\b|\blogged out\b', re.IGNORECASE
+)
 
 
 def _find_whatsapp_line(status_text: str) -> str | None:
@@ -70,6 +86,8 @@ def parse_whatsapp_state(status_text: str) -> dict:
       stopped:        bool
       error:          str | None — "error:" 之后的错误文本（无则 None）
       should_escalate: bool — present 且含明确负面信号才 True（FAIL-OPEN）
+      action:         str  — "login"（未链接/已登出，需扫码）| "restart"（仍 linked，
+                             先重启 Gateway）| "none"（不告警）
       reason:         str  — 人类可读摘要（不含手机号）
     """
     line = _find_whatsapp_line(status_text)
@@ -82,6 +100,7 @@ def parse_whatsapp_state(status_text: str) -> dict:
             "stopped": False,
             "error": None,
             "should_escalate": False,
+            "action": "none",
             "reason": "whatsapp_line_not_found",
         }
 
@@ -126,6 +145,13 @@ def parse_whatsapp_state(status_text: str) -> dict:
         reason = "indeterminate"
         should_escalate = False
 
+    if not should_escalate:
+        action = "none"
+    elif not_linked or (error is not None and _LOGGED_OUT_RE.search(error)):
+        action = "login"
+    else:
+        action = "restart"
+
     return {
         "present": True,
         "linked": linked,
@@ -134,16 +160,18 @@ def parse_whatsapp_state(status_text: str) -> dict:
         "stopped": stopped,
         "error": error,
         "should_escalate": should_escalate,
+        "action": action,
         "reason": reason,
     }
 
 
 def format_keepalive_output(state: dict) -> str:
-    """Format keepalive-consumable output: '{escalate}|{present}|{reason}'."""
+    """Format keepalive-consumable output: '{escalate}|{present}|{action}|{reason}'."""
     escalate = "1" if state.get("should_escalate") else "0"
     present = "1" if state.get("present") else "0"
+    action = state.get("action") or "none"
     reason = state.get("reason", "")
-    return f"{escalate}|{present}|{reason}"
+    return f"{escalate}|{present}|{action}|{reason}"
 
 
 def _cli() -> None:
@@ -156,14 +184,14 @@ def _cli() -> None:
             text = sys.stdin.read()
     except (IOError, OSError):
         # FAIL-OPEN：读取失败不告警
-        print("0|0|read_error")
+        print("0|0|none|read_error")
         return
 
     try:
         state = parse_whatsapp_state(text)
         print(format_keepalive_output(state))
     except Exception:  # noqa: BLE001 — FAIL-OPEN：解析 bug 绝不制造告警
-        print("0|0|parse_error")
+        print("0|0|none|parse_error")
 
 
 if __name__ == "__main__":
