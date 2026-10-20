@@ -1,6 +1,6 @@
 {
-  "updated": "2026-10-20 06:16:07",
-  "updated_by": "unknown",
+  "updated": "2026-10-20 08:59:11",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-10-20",
+      "what": "V37.9.374 WhatsApp 405 停摆 12.5h triage: 02:28 服务端 428 → 4.27 重建连接取 WA 版本号失败静默回退 rc.9 内置旧版本 → 握手 405 → 建连阶段失败不重试直接 stopped（上游 openclaw#125673 未修, 10.5 同路径）。用户 curl 版本号源可达 → restart.sh → connected（H1 坐实）。修: wa_channel_status.py 加 action 段（not linked/401/403/419/logged out → login, 其余 → restart）, wa_keepalive 告警按状态给恢复建议（未知值落重启）; 案例 whatsapp_405_setup_failure_terminal_case.md; test_wa_channel_status 46→57",
+      "by": "claude_code"
+    },
     {
       "date": "2026-10-20",
       "what": "前置 C 第 18 项在 Mac Mini 落地：备份 openclaw.json 后给 research 加 default:true，7.2 命令复核 research default: True、ops/main 与 bindings 不变、Gateway /health 200；eval doc 第 18 项与 26.6 记录已执行（勾选留到开窗当天复核）。纯记录，VERSION 不变。",
@@ -246,7 +251,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-10-20 03:34:01",
+      "checked_at": "2026-10-20 08:46:44",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -375,7 +380,8 @@
       "【低优登记 · 不改机器】CLAUDE.md changelog 归档触发判据：按行数（~70-80 行）对「行变大」不敏感（V37.9.369 实录：70 行时已 ~600KB，124 行 979KB 才轮到第四轮）。下轮归档建议按字节（内联段 >400KB）触发；届时只需改边界值 + 搬行（V37.9.278 头注去数字化设计仍成立）。",
       "【V37.9.371 被动观察】部署与首晚已验证（10-08 用户实跑）：运行副本与仓库副本修复特征均在（5/5）；10-07 22:00 evening ok / 22:30 deep_dive ok（前晚 parse_error）；当晚无 collector stderr 行（abstract_only 未解析 PDF，与预期一致）。剩余仅被动观察：日后某晚日志首次出现「collector stderr: N 行」而 last_run 仍为 ok = 修复路径在生产真实生效，可顺手对账一次。另 finance_news Yahoo Finance 404（10-07 首见）观察一周，持续则按 V37.9.266 NBER 先例剔除。",
       "【低优登记 · 2026-10-12 V37.9.372 收工发现】test_gen_readme_badges.test_write_is_idempotent 对真仓库执行 `gen_readme_badges.py --write`：徽章过期时（每次 CLAUDE.md 版本头先于徽章更新）会在 full_regression 中途改写 README/FEATURES/config.md → 工作树变脏 → 第 3.5 层混沌审计按「工作树不干净」跳过，只留一行 ⚠️（本日第一轮实录）。规避：提交前先 `gen_readme_badges.py --write` 预置徽章再跑回归。根治已作为独立任务建议提出（改为临时副本上跑 + 守卫真仓库文件不变），未在 V37.9.372 内扩大范围。",
-      "【V37.9.373 Mac Mini 被动验证】合并同步后：10-26 周一 09:10 check_upgrade 应显「[2/6] 版本差距: 39+/50 主线 stable (剩 …; 另维护线 … / -N patch … 不计入)」且不推送 Discord 告警（若当周上游主线又发版，读数随之 +1）；可选跑 eval doc 7.2 两条只读命令记录 agents/bindings 与 openclaw cron 任务现状（PA 是否建过 announce 模式且带 session 的任务 = 前置 C 第 16 项的作用对象）。 【2026-10-20 已执行】用户已跑 7.2 两条只读命令（agents.list research/ops/main 无标记无 bindings；openclaw cron 仅 session-cleanup-daily 停用无 session → 第 16 项当前无对象）。剩余被动验证 = 10-26 check_upgrade 读数。可选（零行为变化）：给 research 加 default:true，见 unfinished [9]。"
+      "【V37.9.373 Mac Mini 被动验证】合并同步后：10-26 周一 09:10 check_upgrade 应显「[2/6] 版本差距: 39+/50 主线 stable (剩 …; 另维护线 … / -N patch … 不计入)」且不推送 Discord 告警（若当周上游主线又发版，读数随之 +1）；可选跑 eval doc 7.2 两条只读命令记录 agents/bindings 与 openclaw cron 任务现状（PA 是否建过 announce 模式且带 session 的任务 = 前置 C 第 16 项的作用对象）。 【2026-10-20 已执行】用户已跑 7.2 两条只读命令（agents.list research/ops/main 无标记无 bindings；openclaw cron 仅 session-cleanup-daily 停用无 session → 第 16 项当前无对象）。剩余被动验证 = 10-26 check_upgrade 读数。可选（零行为变化）：给 research 加 default:true，见 unfinished [9]。",
+      "【V37.9.374 下次 OpenClaw 升级评估纳入】(a) 4.27 建连阶段失败（含 405）对监听循环是终止性的, 一次失败即 stopped 不重试; 7.1+ 建连失败也重试 12 次 = hold 的具体成本 (b) 上游 openclaw#125673（取版本号失败静默回退内置版本 → 405）在 10.4/10.5 仍未修, 升级不能消除, 只能缩短停摆 (c) 内置版本号随时间静默过期 = 无代码变化即可触发的持有成本 (d) 对 V37.9.358 的补充: 09-22 停摆推断同一机制（建连失败码未取证）。Mac Mini: 合并同步后 wa_keepalive 下次频道告警应按状态给恢复建议; WhatsApp 已恢复, 积压 30 条随下次推送补发。"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -384,14 +390,14 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6771,
-    "last_regression": "2026-10-20 03:44 pass",
+    "test_count": 6782,
+    "last_regression": "2026-10-20 08:58 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 206,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.187",
+    "version": "0.37.9.188",
     "observer": {}
   },
   "incidents": [

@@ -181,16 +181,16 @@ class TestFormatKeepaliveOutput(unittest.TestCase):
 
     def test_healthy_format(self):
         out = format_keepalive_output(parse_whatsapp_state(HEALTHY_LINE))
-        self.assertEqual(out, "0|1|connected")
+        self.assertEqual(out, "0|1|none|connected")
 
     def test_missing_format(self):
         out = format_keepalive_output(parse_whatsapp_state("- Discord: connected"))
-        self.assertEqual(out, "0|0|whatsapp_line_not_found")
+        self.assertEqual(out, "0|0|none|whatsapp_line_not_found")
 
-    def test_pipe_delimited_three_fields(self):
+    def test_pipe_delimited_four_fields(self):
         out = format_keepalive_output(parse_whatsapp_state(INCIDENT_LINE))
-        # reason 内含 "; " 但字段分隔是 "|"，恰好 3 段
-        self.assertEqual(len(out.split("|")), 3)
+        # V37.9.374 起 4 段（escalate|present|action|reason）；reason 内含 "; " 不影响切分
+        self.assertEqual(len(out.split("|")), 4)
 
 
 # ═══════════════════════════════════════════════════════
@@ -213,12 +213,12 @@ class TestCliBehavior(unittest.TestCase):
 
     def test_stdin_healthy(self):
         r = self._run(stdin_text="Gateway reachable.\n" + HEALTHY_LINE)
-        self.assertEqual(r.stdout.strip(), "0|1|connected")
+        self.assertEqual(r.stdout.strip(), "0|1|none|connected")
 
     def test_stdin_empty_fail_open(self):
         r = self._run(stdin_text="")
         self.assertEqual(r.returncode, 0)
-        self.assertEqual(r.stdout.strip(), "0|0|whatsapp_line_not_found")
+        self.assertEqual(r.stdout.strip(), "0|0|none|whatsapp_line_not_found")
 
     def test_file_arg(self):
         with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as f:
@@ -335,7 +335,7 @@ class TestWaKeepaliveIntegration(unittest.TestCase):
 class TestChannelCheckRuntime(unittest.TestCase):
     """用 fake openclaw + 隔离 HOME 真跑 _wa_channel_check，验证端到端行为。"""
 
-    def _run_check(self, channels_status_output, prev_count="0"):
+    def _run_check(self, channels_status_output, prev_count="0", parser_src=None):
         """构造隔离环境跑 wa_keepalive.sh 的 _wa_channel_check（单独 source + 调用）。
 
         Returns (warn_count_after, log_contents, discord_sent_msg_or_None)
@@ -367,8 +367,12 @@ class TestChannelCheckRuntime(unittest.TestCase):
             f.write(channels_status_output)
         # 把 wa_channel_status.py 复制进 fake HOME（_wa_channel_check 找 $HOME/wa_channel_status.py）
         import shutil
-        shutil.copy(os.path.join(REPO, "wa_channel_status.py"),
-                    os.path.join(tmp, "wa_channel_status.py"))
+        if parser_src is None:
+            shutil.copy(os.path.join(REPO, "wa_channel_status.py"),
+                        os.path.join(tmp, "wa_channel_status.py"))
+        else:
+            with open(os.path.join(tmp, "wa_channel_status.py"), "w") as pf:
+                pf.write(parser_src)
         warn_file = os.path.join(tmp, ".wa_channel_warn_count")
         with open(warn_file, "w") as f:
             f.write(prev_count)
@@ -428,6 +432,114 @@ DISCORD_CH_ALERTS="test-alerts"
         warn, log, sent = self._run_check("Gateway reachable.\n- Discord: connected", prev_count="3")
         self.assertEqual(warn, "0")
         self.assertIsNone(sent)
+
+
+# ═══════════════════════════════════════════════════════
+# I. V37.9.374 恢复建议按状态分（2026-10-20 血案）
+# ═══════════════════════════════════════════════════════
+
+# 2026-10-20 15:00 告警里的真实状态（error 原文；手机号用占位）：
+# 02:28 服务端 428 → 4.27 重建连接时取版本号失败回退旧版本 → 握手 405 → 监听循环退出。
+# 频道仍 linked、凭据有效，restart.sh 一次即恢复 —— 而旧告警提示去扫码。
+INCIDENT_405_LINE = (
+    "- WhatsApp default: enabled, configured, linked, stopped, disconnected, "
+    "dm:allowlist, allow:+85200000000, error:"
+    '{"error":{"data":{"reason":"405","location":"rva"},"isBoom":true,'
+    '"isServer":false,"output":{"statusCode":405,"payload":{"statusCode":405,'
+    '"error":"Method Not Allowed","message":"Connection Failure"},"headers":{}}},'
+    '"date":"2026-10-19T18:29:08.941Z"}'
+)
+
+
+class TestRecoveryActionV374(unittest.TestCase):
+    def test_405_linked_stopped_suggests_restart(self):
+        st = parse_whatsapp_state(INCIDENT_405_LINE)
+        self.assertTrue(st["should_escalate"])
+        self.assertEqual(st["action"], "restart")
+
+    def test_not_linked_suggests_login(self):
+        """06-16 会话被登出血案行（not linked）仍必须建议扫码 —— 检出力不减"""
+        self.assertEqual(parse_whatsapp_state(INCIDENT_LINE)["action"], "login")
+
+    def test_unauthorized_status_codes_suggest_login(self):
+        for code in ("401", "403", "419"):
+            line = ("- WhatsApp default: linked, stopped, disconnected, "
+                    'error:{"output":{"statusCode":%s}}' % code)
+            self.assertEqual(parse_whatsapp_state(line)["action"], "login", code)
+
+    def test_session_logged_out_text_suggests_login(self):
+        line = "- WhatsApp default: linked, stopped, error:session logged out"
+        self.assertEqual(parse_whatsapp_state(line)["action"], "login")
+
+    def test_logged_out_field_name_not_misread(self):
+        """错误 JSON 的 isLoggedOut/loggedOut 字段（值可能为 false）不得误判成已登出"""
+        line = ('- WhatsApp default: linked, stopped, '
+                'error:{"isLoggedOut":false,"loggedOut":false,"statusCode":428}')
+        self.assertEqual(parse_whatsapp_state(line)["action"], "restart")
+
+    def test_timestamp_digits_not_misread_as_401(self):
+        line = ('- WhatsApp default: linked, stopped, '
+                'error:{"statusCode":405,"date":"2026-10-19T14:01:00.401Z"}')
+        self.assertEqual(parse_whatsapp_state(line)["action"], "restart")
+
+    def test_non_escalating_states_have_no_action(self):
+        self.assertEqual(parse_whatsapp_state(HEALTHY_LINE)["action"], "none")
+        self.assertEqual(parse_whatsapp_state("- Discord: connected")["action"], "none")
+        self.assertEqual(
+            parse_whatsapp_state("- WhatsApp default: enabled, configured")["action"],
+            "none")
+
+    def test_cli_emits_action_field_without_phone(self):
+        r = subprocess.run(
+            [sys.executable, os.path.join(REPO, "wa_channel_status.py")],
+            input="Gateway reachable.\n" + INCIDENT_405_LINE,
+            capture_output=True, text=True, timeout=30)
+        self.assertTrue(r.stdout.startswith("1|1|restart|"), r.stdout)
+        self.assertNotIn("85200000000", r.stdout)
+
+
+class TestAlertHintRuntimeV374(TestChannelCheckRuntime):
+    """真跑 _wa_channel_check：告警正文的恢复建议必须与状态一致。"""
+
+    # 继承来的 G 类测试不在这里重复跑
+    test_incident_first_warn_no_escalate_yet = None
+    test_incident_second_warn_escalates_discord = None
+    test_healthy_resets_counter = None
+    test_missing_line_resets_no_escalate = None
+
+    @staticmethod
+    def _first_recovery_line(msg):
+        for line in msg.splitlines():
+            if line.startswith("恢复:"):
+                return line
+        return ""
+
+    def test_405_incident_alert_says_restart_not_scan(self):
+        """血案回归：10-20 那条告警必须先建议重启，不得以扫码作为恢复动作"""
+        _, _, sent = self._run_check("Gateway reachable.\n" + INCIDENT_405_LINE,
+                                     prev_count="1")
+        self.assertIsNotNone(sent)
+        first = self._first_recovery_line(sent)
+        self.assertIn("restart.sh", first)
+        self.assertNotIn("channels login", first)
+        self.assertIn("不要扫码", sent)
+        self.assertNotIn("85200000000", sent)
+
+    def test_not_linked_alert_says_scan(self):
+        _, _, sent = self._run_check("Gateway reachable.\n" + INCIDENT_LINE,
+                                     prev_count="1")
+        first = self._first_recovery_line(sent)
+        self.assertIn("openclaw channels login --channel whatsapp", first)
+        self.assertNotIn("restart.sh", sent)
+
+    def test_old_three_field_parser_falls_back_to_restart(self):
+        """部署窗口内 shell 新、parser 旧（三段输出）：未知 action 必须落到重启（无损）"""
+        old_parser = ("import sys\nsys.stdin.read()\n"
+                      "print('1|1|disconnected; stopped; error=x')\n")
+        _, _, sent = self._run_check("Gateway reachable.\n" + INCIDENT_405_LINE,
+                                     prev_count="1", parser_src=old_parser)
+        self.assertIn("restart.sh", self._first_recovery_line(sent))
+        self.assertIn("状态: disconnected; stopped; error=x", sent)
 
 
 # ═══════════════════════════════════════════════════════
