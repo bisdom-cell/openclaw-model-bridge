@@ -50,9 +50,10 @@ def _slice(text, start_marker, end_marker):
 # 7.0 清单勾选项总数的单一真理源（V37.9.366 起）：3 基础 + A + B + C 头 + 15 子项。
 # 此前 Eleventh / Twelfth / Thirteenth 三个类各自写死 20 —— 同一事实三份字面量 pin，每加一项要改三处。
 # 历史：18（第十一次）→ 19（第十二次 +#149875）→ 20（第十三次 +#154068）→ 21（第十四次 +#157091）
-#       → 25（第十五次 V37.9.373：+ 开窗前全量基线子项 + owner repair / exec 空输出完成事件 / 多 agent 入站兜底 三项）。
+#       → 25（第十五次 V37.9.373：+ 开窗前全量基线子项 + owner repair / exec 空输出完成事件 / 多 agent 入站兜底 三项）
+#       → 26（V37.9.373 同日 26.6：+ 前置 D 两段式升级）。
 # 每个评估类仍各自断言「本次新增项在清单里」，计数 pin 只负责「没有悄悄多出未登记的项」。
-PREREQ_CHECKBOXES = 25
+PREREQ_CHECKBOXES = 26
 
 
 def _bash_blocks(text):
@@ -1139,7 +1140,8 @@ class TestFifteenthEvaluationPresent(unittest.TestCase):
         self.assertEqual(_latest_eval(self.doc), ("第二十六节", "十五", "2026-10-20"))
         for sub in ("### 26.1", "### 26.2", "### 26.3", "### 26.4", "### 26.5"):
             self.assertIn(sub, self.sec26, f"第二十六节缺 {sub}")
-        self.assertNotIn("### 26.6", self.sec26, "26.6 是下一次追加读数的位置，本次不得预先出现")
+        self.assertIn("### 26.6", self.sec26, "26.6 = 同日实跑定档（V37.9.373 同日）")
+        self.assertNotIn("### 26.7", self.sec26, "26.7 是下一次追加读数的位置，本次不得预先出现")
         self.assertIn("十五次评估", self.head)
         self.assertIn("2026.10.5", self.head, "头部当前态须记上游 latest 2026.10.5")
 
@@ -1177,8 +1179,10 @@ class TestFifteenthEvaluationPresent(unittest.TestCase):
         exec_item = item("Exec empty-success completion events")
         self.assertIn("tools.exec.notifyOnExitEmptySuccess: false", exec_item)
         routing = item("Multi-agent unbound inbound routing")
-        for kw in ('"channel": "whatsapp"', "AgentSelectionRequiredError", "main", "不分发", "首次启动前"):
+        for kw in ('"channel": "whatsapp"', "AgentSelectionRequiredError", "main", "不分发", "首次启动前",
+                   '"default": true', "workspace-main", "26.6", "任何一段 Doctor 之前"):
             self.assertIn(kw, routing, f"第 18 项缺「{kw}」")
+        self.assertNotIn("<选定 agent>", routing, "26.6 实跑后动作已定档为给 research 加标记，不再是「自选 agent 加 binding」")
         baseline = item("全量基线：")
         for kw in ("PREV=2026.4.27", "1,669", "26.4"):
             self.assertIn(kw, baseline)
@@ -1309,13 +1313,123 @@ class TestFifteenthEvaluationPresent(unittest.TestCase):
 
     def test_next_tracking_point_includes_docs_candidates(self):
         s265 = _slice(self.sec26, "### 26.5", "**LAST_EVAL_DATE")
-        for kw in ("19.8", "engines.node", "26.6", "docs 默认值增量对比", "不新开评估节", "不重置 LAST_EVAL_DATE", "裸 grep", "18 项"):
+        for kw in ("19.8", "engines.node", "26.7 追加读数", "docs 默认值增量对比", "不新开评估节", "不重置 LAST_EVAL_DATE", "裸 grep", "18 项"):
             self.assertIn(kw, s265, f"26.5 跟踪点缺「{kw}」")
 
     def test_protocol_table_rows_appended(self):
         t = _slice(self.doc, "### 20.4", "### 20.5")
         for v in ("2026.10.3", "2026.10.4", "2026.10.5"):
             self.assertIn(f"| **{v}**（第十五次评估追加）", t)
+
+
+class TestSameDayRunbook266(unittest.TestCase):
+    """V37.9.373 同日 26.6：Mac Mini 实测 agents.list = research / ops / main 无标记 → dev 用 9.5 / 10.5 真 Doctor 实跑。
+
+    两件事：(1) 上游要求 7 月前的安装先过桥接版本（2026.9.5），此前四次评估都没核到 → 前置 D + 7.3 两段式；
+    (2) 不加标记时经桥接 WhatsApp 落到 main、工作区换成 workspace-main → 第 18 项定档为给 research 加 `default: true`。
+    本类钉住两件事在 SOP 里的落点，并把 7.2 / 7.4 的核对命令从文档里抽出来对 Doctor 实跑出的两种配置形状真跑。
+    """
+
+    def setUp(self):
+        self.doc = _read()
+        self.sec26 = self.doc[self.doc.index("## 第二十六节"):]
+        self.s266 = self.sec26[self.sec26.index("### 26.6"):]
+        self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
+        self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
+        self.pre_check = _slice(self.sop, "### 7.2", "### 7.3")
+        self.install = _slice(self.sop, "### 7.3", "### 7.4")
+        self.verify = _slice(self.sop, "### 7.4", "### 7.5")
+
+    def _run(self, cmd, home):
+        env = os.environ.copy()
+        env["HOME"] = home
+        return subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, env=env, timeout=30)
+
+    def _home_with(self, cfg):
+        home = tempfile.mkdtemp(prefix="sop266_")
+        os.makedirs(os.path.join(home, ".openclaw"))
+        with open(os.path.join(home, ".openclaw", "openclaw.json"), "w") as f:
+            json.dump(cfg, f)
+        return home
+
+    def test_section_266_records_upstream_bridge_with_versions(self):
+        for kw in ("July 1, 2026", "2026.9.5", "2026.9.7", "left unchanged", "Current releases leave those retired state files untouched",
+                   "9.4 / 9.5 / 9.6", "9.7 / 9.8 / 9.9", "10.1 / 10.2 / 10.5", "2026-04-27"):
+            self.assertIn(kw, self.s266, f"26.6 缺桥接要素「{kw}」")
+
+    def test_section_266_records_method_patch_and_correction(self):
+        for kw in ("方法补丁", "docs/install/updating", "docs/gateway/doctor", "为什么漏了四次", "更正", "26.4 表行已加注"):
+            self.assertIn(kw, self.s266, f"26.6 缺「{kw}」")
+        row = next(l for l in self.sec26.splitlines() if l.startswith("| 多 agent 入站无 binding"))
+        self.assertIn("26.6 实跑补全", row, "26.4 表行须加注指向 26.6")
+
+    def test_section_266_table_covers_all_paths(self):
+        for kw in ("经桥接（9.5 → 10.5），不加标记", "经桥接，research 加 `default: true`", "直跳 10.5，不加标记", "直跳 10.5，加标记", "不跑 Doctor",
+                   "`~/.openclaw/workspace-main`", "AgentSelectionRequiredError", "matchedBy: default", "binding.channel"):
+            self.assertIn(kw, self.s266, f"26.6 实跑表缺「{kw}」")
+        self.assertIn("诚实边界", self.s266)
+
+    def test_prereq_d_two_stage_actionable(self):
+        lines = [l for l in self.prereq.splitlines() if l.strip().startswith("- [ ] **前置 D")]
+        self.assertEqual(len(lines), 1, "7.0 须恰有一项前置 D")
+        d = lines[0]
+        for kw in ("2026-07-01", "2026.9.5", "2026-04-27", "Gateway 保持停止", "`npm install -g`", "`openclaw update`", "第 18 项", "26.6"):
+            self.assertIn(kw, d, f"前置 D 缺「{kw}」")
+        self.assertEqual(self.prereq.count("- [ ]"), PREREQ_CHECKBOXES)
+
+    def test_install_step_goes_through_bridge_before_target(self):
+        """7.3 两段式顺序：桥接版本 → doctor --fix → 目标版本 → doctor --fix。"""
+        blocks = _bash_blocks(self.install)
+        seq = []
+        for b in blocks:
+            if "openclaw@<桥接版本>" in b:
+                seq.append("bridge")
+            if "openclaw@<目标版本>" in b:
+                seq.append("target")
+            if "openclaw doctor --fix" in b:
+                seq.append("doctor")
+        self.assertEqual(seq, ["bridge", "doctor", "target", "doctor"], f"7.3 顺序不对：{seq}")
+        self.assertIn("--allow-scripts=openclaw", self.install)
+
+    def test_pre_check_prose_matches_command_output_for_marker(self):
+        """7.2 正文写的「加好标记后应显示 agent: research default: True」必须真是那条命令的输出（文档说的与命令打的一致）。"""
+        self.assertIn("`agent: research default: True`", self.pre_check)
+        cmd = next(b for b in _bash_blocks(self.pre_check) if "openclaw.json" in b)
+        home = self._home_with({"agents": {"list": [{"id": "research", "default": True}, {"id": "ops"}, {"id": "main"}]}})
+        out = self._run(cmd, home)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("agent: research default: True", out.stdout)
+
+    def test_post_doctor_ownership_check_runs_and_shows_conclusion(self):
+        """7.4 归属核对命令抽出来，对 26.6 实跑得到的两种 Doctor 结果形状真跑：标记生效 / 标记缺失，两种都要能一眼看出。"""
+        cmds = [b for b in _bash_blocks(self.verify) if "systemAgent" in b and "entries" in b]
+        self.assertEqual(len(cmds), 1, "7.4 须有一条 agent 归属核对命令")
+        compile(_python_c_code(cmds[0]), "<7.4>", "exec")
+        ws = "/Users/x/.openclaw/workspace"
+        good = self._home_with({"agents": {"ownership": "explicit",
+                                           "defaults": {"systemAgent": {"agentId": "research"}, "heartbeat": {"agentId": "research"}},
+                                           "entries": {"research": {"workspace": ws}, "ops": {}, "main": {}}},
+                                "bindings": [{"agentId": "research", "match": {"channel": "whatsapp", "accountId": "*"}}]})
+        out = self._run(cmds[0], good)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("systemAgent: research heartbeat: research", out.stdout)
+        self.assertIn("agent: research workspace: " + ws, out.stdout)
+        self.assertIn('binding: research {"channel": "whatsapp", "accountId": "*"}', out.stdout)
+        bad = self._home_with({"agents": {"ownership": "explicit",
+                                          "defaults": {"systemAgent": {"agentId": "main"}, "heartbeat": {"agentId": "main"}},
+                                          "entries": {"research": {"workspace": ws}, "ops": {}, "main": {}}}})
+        out = self._run(cmds[0], bad)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("systemAgent: main heartbeat: main", out.stdout)
+        self.assertNotIn("binding:", out.stdout)
+        for kw in ("systemAgent: research heartbeat: research", "`systemAgent: main`", "Gateway 先不要启动"):
+            self.assertIn(kw, self.verify, f"7.4 正文须写明判读「{kw}」")
+
+    def test_plan_b_and_c_reconciled_with_bridge(self):
+        s265 = _slice(self.sec26, "### 26.5", "**LAST_EVAL_DATE")
+        self.assertIn("前置 D 的桥接版本只过不停", s265)
+        self.assertIn("**两段式（前置 D，26.6）**", s265)
+        self.assertIn("26.6", self.doc[:self.doc.index("## 一、版本概览")], "头部十五次评估行须提到同日 26.6")
 
 
 if __name__ == "__main__":
