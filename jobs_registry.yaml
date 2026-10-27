@@ -344,7 +344,7 @@ jobs:
     needs_api_key: false
     enabled: true
     tier: core                       # WhatsApp 连接保活
-    description: WhatsApp session 保活（Gateway HTTP 探测，不发送消息）
+    description: WhatsApp session 保活（Gateway HTTP 探测 + 频道状态监控；V37.9.376 linked+stopped 告警轮有界自动重启 restart.sh，每 6h≤1 次/24h≤2 次）
 
   - id: openclaw_backup
     scheduler: system

@@ -192,6 +192,7 @@ run_suite "wa_gateway_resilience (V37.8.13 Gateway 宕机韧性三层修复)" "p
 if [ -f test_wa_channel_status.py ]; then
     run_suite "wa_channel_status (V37.9.162 WhatsApp 频道掉线监控 — 2026-06-16 静默 7h 血案闭环)" "python3 test_wa_channel_status.py"
 fi
+run_suite "v37_9_376_wa_bounded_auto_restart (V37.9.376 wa_keepalive 有界自动重启 — 10-20 405 / 10-24 408 两次建连终止同一恢复动作，告警轮 linked+stopped 自动 restart.sh 每 6h≤1/24h≤2 次仍告警；parser auto 字段 + 真源码抽函数跑真 bash + 整脚本端到端 + watchdog 契约)" "python3 test_v37_9_376_wa_bounded_auto_restart.py"
 if [ -f test_restart_launchd.py ]; then
     run_suite "restart_launchd (V37.9.13 restart.sh 单一 manager 契约)" "python3 test_restart_launchd.py"
 fi

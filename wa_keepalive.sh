@@ -22,6 +22,94 @@ ESCALATE_REPEAT=6
 #   旧逻辑只探 Gateway 端口 → 对频道掉线完全盲 → 零告警。频道掉线独立计数、独立升级。
 #   Gateway 健康 ≠ WhatsApp 频道在线——频道是 Gateway 内的 channel，会独立 logged out。）
 WA_CHANNEL_WARN_FILE="$HOME/.wa_channel_warn_count"
+# V37.9.376: 有界自动重启（2026-10-27 用户决策 b）。4.27 在建连阶段失败后不重试、直接把
+#   频道留在 stopped（10-20 405 停摆 12.5h / 10-24 408 跨周末约 60h），两次都是一条
+#   restart.sh 恢复、不扫码，告警每 3h 送达却无人处理。现在在升级告警那一轮，若 parser 判
+#   「仍 linked 且 stopped」（auto=1），wa_keepalive 替人执行 restart.sh（它内部走
+#   launchctl kickstart，不另起进程管理者），并把结果写进同一条告警。边界：每 6 小时至多
+#   1 次、24 小时至多 2 次（失败的尝试同样计入配额——不循环），超出即只告警不动手。
+#   not linked / 已登出 → 扫码是人工动作，永不自动；仅 disconnected 不动（可能是重连瞬态）。
+#   WA_AUTO_RESTART=0 可随时关闭（env 翻转即回滚，零代码）。
+WA_AUTO_RESTART="${WA_AUTO_RESTART:-1}"
+WA_AUTO_RESTART_STAMPS="$HOME/.wa_auto_restart_stamps"
+AUTO_RESTART_MIN_GAP_SEC=21600     # 6h
+AUTO_RESTART_WINDOW_SEC=86400      # 24h 滚动窗
+AUTO_RESTART_DAILY_MAX=2
+RESTART_SH="${WA_RESTART_SH:-$HOME/openclaw-model-bridge/restart.sh}"
+
+# 有界执行 restart.sh；结果写入全局 AUTO_RESTART_NOTE（进告警正文）与 AUTO_RESTART_RESULT
+#   ran_ok | ran_failed | skipped_gap | skipped_quota | disabled | no_script
+_wa_auto_restart() {
+    local parser="$1"
+    AUTO_RESTART_NOTE=""
+    AUTO_RESTART_RESULT=""
+    AUTO_RESTART_POST=""
+    if [ "$WA_AUTO_RESTART" != "1" ]; then
+        AUTO_RESTART_RESULT="disabled"
+        AUTO_RESTART_NOTE="自动重启: 已停用 (WA_AUTO_RESTART=${WA_AUTO_RESTART})"
+        echo "[$TS] AUTO_RESTART_SKIPPED: 已停用 (WA_AUTO_RESTART=${WA_AUTO_RESTART})" >> "$LOG"
+        return 0
+    fi
+    local script="$RESTART_SH"
+    [ -f "$script" ] || script="$HOME/restart.sh"
+    if [ ! -f "$script" ]; then
+        AUTO_RESTART_RESULT="no_script"
+        AUTO_RESTART_NOTE="自动重启: 未执行 (restart.sh 不存在: ${RESTART_SH})"
+        echo "[$TS] AUTO_RESTART_SKIPPED: restart.sh 不存在 (${RESTART_SH})" >> "$LOG"
+        return 0
+    fi
+    local now
+    now=$(date +%s)
+    # 读取并修剪 24h 窗内的重启时间戳（一行一个 epoch 秒）
+    local kept="" last=0 n=0 s
+    if [ -f "$WA_AUTO_RESTART_STAMPS" ]; then
+        while IFS= read -r s; do
+            case "$s" in ''|*[!0-9]*) continue ;; esac
+            if [ $((now - s)) -lt "$AUTO_RESTART_WINDOW_SEC" ]; then
+                kept="${kept}${s}
+"
+                n=$((n + 1))
+                if [ "$s" -gt "$last" ]; then
+                    last="$s"
+                fi
+            fi
+        done < "$WA_AUTO_RESTART_STAMPS"
+    fi
+    printf '%s' "$kept" > "$WA_AUTO_RESTART_STAMPS"
+    if [ "$last" -gt 0 ] && [ $((now - last)) -lt "$AUTO_RESTART_MIN_GAP_SEC" ]; then
+        AUTO_RESTART_RESULT="skipped_gap"
+        AUTO_RESTART_NOTE="自动重启: 未执行 (距上次自动重启 $(( (now - last) / 60 )) 分钟，间隔须 ≥ $((AUTO_RESTART_MIN_GAP_SEC / 3600))h；24h 内已 ${n}/${AUTO_RESTART_DAILY_MAX} 次)"
+        echo "[$TS] AUTO_RESTART_SKIPPED: 距上次 $(( (now - last) / 60 )) 分钟 < ${AUTO_RESTART_MIN_GAP_SEC}s" >> "$LOG"
+        return 0
+    fi
+    if [ "$n" -ge "$AUTO_RESTART_DAILY_MAX" ]; then
+        AUTO_RESTART_RESULT="skipped_quota"
+        AUTO_RESTART_NOTE="自动重启: 未执行 (24h 内已自动重启 ${n}/${AUTO_RESTART_DAILY_MAX} 次，配额用尽，需人工处置)"
+        echo "[$TS] AUTO_RESTART_SKIPPED: 24h 配额用尽 (${n}/${AUTO_RESTART_DAILY_MAX})" >> "$LOG"
+        return 0
+    fi
+    # 先记账再执行：restart.sh 被中途杀掉也要消耗配额，绝不因此多跑一次
+    echo "$now" >> "$WA_AUTO_RESTART_STAMPS"
+    n=$((n + 1))
+    echo "[$TS] AUTO_RESTART: 频道 linked+stopped，执行 $script (24h 内第 ${n}/${AUTO_RESTART_DAILY_MAX} 次)" >> "$LOG"
+    local rc=0
+    bash "$script" >> "$LOG" 2>&1 || rc=$?
+    # 重启后再看一眼频道，结果进告警正文（reason 是 parser 输出的最后一段）
+    local post
+    post=$("$OPENCLAW" channels status 2>/dev/null | python3 "$parser" 2>/dev/null)
+    AUTO_RESTART_POST="${post##*|}"
+    [ -n "$AUTO_RESTART_POST" ] || AUTO_RESTART_POST="unknown"
+    if [ "$rc" -eq 0 ]; then
+        AUTO_RESTART_RESULT="ran_ok"
+        AUTO_RESTART_NOTE="自动重启: 已执行 restart.sh (rc=0, 24h 内第 ${n}/${AUTO_RESTART_DAILY_MAX} 次)，重启后频道: ${AUTO_RESTART_POST}"
+        echo "[$TS] AUTO_RESTART_DONE: rc=0, 重启后频道: ${AUTO_RESTART_POST}" >> "$LOG"
+    else
+        AUTO_RESTART_RESULT="ran_failed"
+        AUTO_RESTART_NOTE="自动重启: restart.sh 失败 (rc=${rc}, 24h 内第 ${n}/${AUTO_RESTART_DAILY_MAX} 次)，重启后频道: ${AUTO_RESTART_POST}，需人工介入"
+        echo "[$TS] AUTO_RESTART_FAILED: restart.sh rc=${rc}, 重启后频道: ${AUTO_RESTART_POST}" >> "$LOG"
+    fi
+    return 0
+}
 
 # 解析 `openclaw channels status` 的 WhatsApp 行，频道掉线时升级 Discord（不走 WhatsApp 自身）
 _wa_channel_check() {
@@ -35,12 +123,16 @@ _wa_channel_check() {
     parsed=$("$OPENCLAW" channels status 2>/dev/null | python3 "$parser" 2>/dev/null)
     [ -n "$parsed" ] || return 0  # FAIL-OPEN: 解析失败不告警
 
-    local escalate present action reason rest
+    # V37.9.376 起 5 段 escalate|present|action|auto|reason；旧 parser（3/4 段）时 auto 落到
+    # 非 "1" 的残片 → 不自动重启（保守），reason 仍是最后一段，告警不受影响。
+    local escalate present action auto reason rest
     escalate="${parsed%%|*}"
     rest="${parsed#*|}"
     present="${rest%%|*}"
     rest="${rest#*|}"
     action="${rest%%|*}"
+    rest="${rest#*|}"
+    auto="${rest%%|*}"
     reason="${rest#*|}"
 
     if [ "$escalate" = "1" ]; then
@@ -54,9 +146,20 @@ _wa_channel_check() {
             # V37.9.374: 恢复建议按状态分（2026-10-20 血案：仍 linked 的 405 停摆被提示去扫码，
             # 而重启一次即恢复）。只有 parser 明确判为 login 才建议扫码；未知值（含部署窗口内
             # 旧 parser 的三段输出）一律落到重启 —— 重启无损，扫码会丢掉仍然有效的会话。
+            # V37.9.376: 告警那一轮先有界自动重启（仅 auto=1 = linked+stopped），结果写进告警
+            local auto_line=""
+            AUTO_RESTART_RESULT=""
+            AUTO_RESTART_POST=""
+            if [ "$auto" = "1" ]; then
+                _wa_auto_restart "$parser"
+                auto_line="${AUTO_RESTART_NOTE}
+"
+            fi
             local hint
             if [ "$action" = "login" ]; then
                 hint="恢复: openclaw channels login --channel whatsapp（会话未链接或已被服务端登出，需手机扫码）"
+            elif [ "$AUTO_RESTART_RESULT" = "ran_ok" ] && [ "$AUTO_RESTART_POST" = "connected" ]; then
+                hint="恢复: 已由 wa_keepalive 自动执行 restart.sh 并确认 connected，无需操作（再次掉线时按上行配额自动处理）"
             else
                 hint="恢复: bash ~/openclaw-model-bridge/restart.sh（频道仍 linked、凭据有效，只是停止了重试；先重启，不要扫码）
 重启后 openclaw channels status 显示 not linked 才扫码: openclaw channels login --channel whatsapp"
@@ -65,7 +168,7 @@ _wa_channel_check() {
 ⚠️ WhatsApp 频道连续 ${prev} 次掉线（Gateway 健康但频道断连）
 状态: ${reason}
 检查时间: ${TS}
-排查: openclaw channels status
+${auto_line}排查: openclaw channels status
 ${hint}"
             # 强制走 Discord（WhatsApp 频道已死，告警链不得依赖失效主体自身 — MR-14）
             # V37.9.281 (对抗审计 NOT-F4): 检查发送 rc — 原 || true + 无条件
