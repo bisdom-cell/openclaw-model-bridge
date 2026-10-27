@@ -181,16 +181,17 @@ class TestFormatKeepaliveOutput(unittest.TestCase):
 
     def test_healthy_format(self):
         out = format_keepalive_output(parse_whatsapp_state(HEALTHY_LINE))
-        self.assertEqual(out, "0|1|none|connected")
+        self.assertEqual(out, "0|1|none|0|connected")
 
     def test_missing_format(self):
         out = format_keepalive_output(parse_whatsapp_state("- Discord: connected"))
-        self.assertEqual(out, "0|0|none|whatsapp_line_not_found")
+        self.assertEqual(out, "0|0|none|0|whatsapp_line_not_found")
 
-    def test_pipe_delimited_four_fields(self):
+    def test_pipe_delimited_five_fields(self):
         out = format_keepalive_output(parse_whatsapp_state(INCIDENT_LINE))
-        # V37.9.374 起 4 段（escalate|present|action|reason）；reason 内含 "; " 不影响切分
-        self.assertEqual(len(out.split("|")), 4)
+        # V37.9.374 起 4 段 → V37.9.376 起 5 段（escalate|present|action|auto|reason）；
+        # reason 内含 "; " 不影响切分
+        self.assertEqual(len(out.split("|")), 5)
 
 
 # ═══════════════════════════════════════════════════════
@@ -213,12 +214,12 @@ class TestCliBehavior(unittest.TestCase):
 
     def test_stdin_healthy(self):
         r = self._run(stdin_text="Gateway reachable.\n" + HEALTHY_LINE)
-        self.assertEqual(r.stdout.strip(), "0|1|none|connected")
+        self.assertEqual(r.stdout.strip(), "0|1|none|0|connected")
 
     def test_stdin_empty_fail_open(self):
         r = self._run(stdin_text="")
         self.assertEqual(r.returncode, 0)
-        self.assertEqual(r.stdout.strip(), "0|0|none|whatsapp_line_not_found")
+        self.assertEqual(r.stdout.strip(), "0|0|none|0|whatsapp_line_not_found")
 
     def test_file_arg(self):
         with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as f:
@@ -377,6 +378,11 @@ class TestChannelCheckRuntime(unittest.TestCase):
         with open(warn_file, "w") as f:
             f.write(prev_count)
         log_file = os.path.join(tmp, "wa_keepalive.log")
+        # V37.9.376: _wa_channel_check 在告警轮会调 _wa_auto_restart → 给一个 exit 0 的假 restart.sh
+        fake_restart = os.path.join(tmp, "restart.sh")
+        with open(fake_restart, "w") as f:
+            f.write("#!/bin/bash\necho '[restart] fake'\nexit 0\n")
+        os.chmod(fake_restart, 0o755)
 
         # 提取 _wa_channel_check 函数体 + 必要变量，构造可独立运行的脚本
         harness = f"""#!/bin/bash
@@ -388,11 +394,18 @@ WA_CHANNEL_WARN_FILE="{warn_file}"
 ESCALATE_FIRST=2
 ESCALATE_REPEAT=6
 DISCORD_CH_ALERTS="test-alerts"
+WA_AUTO_RESTART=1
+WA_AUTO_RESTART_STAMPS="{tmp}/.wa_auto_restart_stamps"
+AUTO_RESTART_MIN_GAP_SEC=21600
+AUTO_RESTART_WINDOW_SEC=86400
+AUTO_RESTART_DAILY_MAX=2
+RESTART_SH="{fake_restart}"
 """
-        # 抽 _wa_channel_check 函数定义
+        # 抽 _wa_channel_check + _wa_auto_restart（V37.9.376）两个函数定义
         src = _read("wa_keepalive.sh")
-        m = re.search(r"(_wa_channel_check\(\)\s*\{.*?\n\})", src, re.DOTALL)
-        harness += m.group(1) + "\n_wa_channel_check\n"
+        funcs = re.findall(r"(_wa_\w+\(\)\s*\{.*?\n\})", src, re.DOTALL)
+        assert len(funcs) >= 2, "wa_keepalive.sh 应含 _wa_channel_check 与 _wa_auto_restart"
+        harness += "\n".join(funcs) + "\n_wa_channel_check\n"
         harness_path = os.path.join(tmp, "harness.sh")
         with open(harness_path, "w") as f:
             f.write(harness)
@@ -494,7 +507,8 @@ class TestRecoveryActionV374(unittest.TestCase):
             [sys.executable, os.path.join(REPO, "wa_channel_status.py")],
             input="Gateway reachable.\n" + INCIDENT_405_LINE,
             capture_output=True, text=True, timeout=30)
-        self.assertTrue(r.stdout.startswith("1|1|restart|"), r.stdout)
+        # V37.9.376 起第 4 段为 auto（linked+stopped → "1"）
+        self.assertTrue(r.stdout.startswith("1|1|restart|1|"), r.stdout)
         self.assertNotIn("85200000000", r.stdout)
 
 

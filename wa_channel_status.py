@@ -22,11 +22,21 @@
 `openclaw channels status` 是轻量调用（查询运行中的 Gateway 守护进程，CLI 进程不加载
 插件、无 plugin staging churn），适合每 30min keepalive 调用。
 
-Output 格式 (single line stdout): "{escalate}|{present}|{action}|{reason}"
+Output 格式 (single line stdout): "{escalate}|{present}|{action}|{auto}|{reason}"
   escalate: "1" 当 WhatsApp 行存在且含明确负面信号；否则 "0"
   present:  "1" 当找到 WhatsApp 行；否则 "0"
   action:   告警该建议的恢复动作 — "login" | "restart" | "none"（V37.9.374）
+  auto:     "1" 当且仅当 wa_keepalive 可以替人执行 restart.sh（V37.9.376）：
+            action=restart 且行内有精确 token "linked" 与 "stopped"——这是 4.27 建连阶段
+            失败后的终止态（405 / 408 两次血案的形态），重启无损且一次即恢复；
+            其余告警态（如仅 disconnected、未知形态）不自动重启，只给人工建议。
   reason:   人类可读状态摘要（不含手机号）；放最后一段，内含 "|" 也不会切错
+
+V37.9.376（2026-10-27 用户决策 b）：10-24 22:44 第二次建连终止（408 握手超时）跨周末
+  停摆约 60h，告警每 3h 送达 Discord 无人处理，而恢复动作与 10-20 完全相同（restart.sh，
+  不扫码）。wa_keepalive 据本字段有界自动执行 restart.sh（每 6h 至多 1 次 / 24h 至多 2 次，
+  仍发告警并写明结果）。判定刻意收窄到「linked + stopped」：not linked / 已登出 → 扫码是
+  人工动作；仅 disconnected 可能是重连中的瞬态，不该被一次重启打断。
 
 V37.9.374（2026-10-20 血案）：告警原本不分状态一律建议「扫码登录」。10-20 02:28
   服务端 428 断开 → 4.27 重建连接时取 WhatsApp Web 版本号失败、静默回退到内置旧版本
@@ -88,6 +98,8 @@ def parse_whatsapp_state(status_text: str) -> dict:
       should_escalate: bool — present 且含明确负面信号才 True（FAIL-OPEN）
       action:         str  — "login"（未链接/已登出，需扫码）| "restart"（仍 linked，
                              先重启 Gateway）| "none"（不告警）
+      auto_restart_ok: bool — V37.9.376：action=restart 且 linked 且 stopped，
+                             wa_keepalive 可据此有界自动执行 restart.sh
       reason:         str  — 人类可读摘要（不含手机号）
     """
     line = _find_whatsapp_line(status_text)
@@ -101,6 +113,7 @@ def parse_whatsapp_state(status_text: str) -> dict:
             "error": None,
             "should_escalate": False,
             "action": "none",
+            "auto_restart_ok": False,
             "reason": "whatsapp_line_not_found",
         }
 
@@ -152,6 +165,10 @@ def parse_whatsapp_state(status_text: str) -> dict:
     else:
         action = "restart"
 
+    # V37.9.376: 自动重启只认「仍 linked 且已 stopped」= 4.27 建连阶段失败的终止态；
+    # 这里 linked 已排除 "not linked"，action=restart 已排除登出码。
+    auto_restart_ok = (action == "restart") and linked and stopped
+
     return {
         "present": True,
         "linked": linked,
@@ -161,17 +178,19 @@ def parse_whatsapp_state(status_text: str) -> dict:
         "error": error,
         "should_escalate": should_escalate,
         "action": action,
+        "auto_restart_ok": auto_restart_ok,
         "reason": reason,
     }
 
 
 def format_keepalive_output(state: dict) -> str:
-    """Format keepalive-consumable output: '{escalate}|{present}|{action}|{reason}'."""
+    """Format keepalive-consumable output: '{escalate}|{present}|{action}|{auto}|{reason}'."""
     escalate = "1" if state.get("should_escalate") else "0"
     present = "1" if state.get("present") else "0"
     action = state.get("action") or "none"
+    auto = "1" if state.get("auto_restart_ok") else "0"
     reason = state.get("reason", "")
-    return f"{escalate}|{present}|{action}|{reason}"
+    return f"{escalate}|{present}|{action}|{auto}|{reason}"
 
 
 def _cli() -> None:
@@ -184,14 +203,14 @@ def _cli() -> None:
             text = sys.stdin.read()
     except (IOError, OSError):
         # FAIL-OPEN：读取失败不告警
-        print("0|0|none|read_error")
+        print("0|0|none|0|read_error")
         return
 
     try:
         state = parse_whatsapp_state(text)
         print(format_keepalive_output(state))
     except Exception:  # noqa: BLE001 — FAIL-OPEN：解析 bug 绝不制造告警
-        print("0|0|none|parse_error")
+        print("0|0|none|0|parse_error")
 
 
 if __name__ == "__main__":

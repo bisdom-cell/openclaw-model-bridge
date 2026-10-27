@@ -1,6 +1,6 @@
 {
-  "updated": "2026-10-27 03:19:58",
-  "updated_by": "claude_code",
+  "updated": "2026-10-27 04:59:41",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-10-27",
+      "what": "V37.9.376 WhatsApp 建连终止有界自动重启（用户决策 b）：parser 5 段 auto 字段 + wa_keepalive 告警轮 _wa_auto_restart 每 6h≤1/24h≤2 先记账后执行 + 结果进告警 + WA_AUTO_RESTART 开关；守卫 35 单测 sabotage 六连；VERSION 0.37.9.188→0.37.9.189",
+      "by": "claude_code"
+    },
     {
       "date": "2026-10-27",
       "what": "V37.9.375 同日后记：Mac Mini brew upgrade node 26.5.0→26.12.1_1 + 27.5 核对命令「在区间」+ restart.sh 三服务健康 → 判据 ③ 我方侧回 ✅；eval doc 27.5 后记 / 前置 A 加注 / 头部待办行收口，纯记录 VERSION 不变",
@@ -266,7 +271,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-10-27 02:10:09",
+      "checked_at": "2026-10-27 04:43:27",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -396,7 +401,7 @@
       "【V37.9.371 被动观察】部署与首晚已验证（10-08 用户实跑）：运行副本与仓库副本修复特征均在（5/5）；10-07 22:00 evening ok / 22:30 deep_dive ok（前晚 parse_error）；当晚无 collector stderr 行（abstract_only 未解析 PDF，与预期一致）。剩余仅被动观察：日后某晚日志首次出现「collector stderr: N 行」而 last_run 仍为 ok = 修复路径在生产真实生效，可顺手对账一次。另 finance_news Yahoo Finance 404（10-07 首见）观察一周，持续则按 V37.9.266 NBER 先例剔除。",
       "【低优登记 · 2026-10-12 V37.9.372 收工发现】test_gen_readme_badges.test_write_is_idempotent 对真仓库执行 `gen_readme_badges.py --write`：徽章过期时（每次 CLAUDE.md 版本头先于徽章更新）会在 full_regression 中途改写 README/FEATURES/config.md → 工作树变脏 → 第 3.5 层混沌审计按「工作树不干净」跳过，只留一行 ⚠️（本日第一轮实录）。规避：提交前先 `gen_readme_badges.py --write` 预置徽章再跑回归。根治已作为独立任务建议提出（改为临时副本上跑 + 守卫真仓库文件不变），未在 V37.9.372 内扩大范围。",
       "【V37.9.373 Mac Mini 被动验证】合并同步后：10-26 周一 09:10 check_upgrade 应显「[2/6] 版本差距: 39+/50 主线 stable (剩 …; 另维护线 … / -N patch … 不计入)」且不推送 Discord 告警（若当周上游主线又发版，读数随之 +1）；可选跑 eval doc 7.2 两条只读命令记录 agents/bindings 与 openclaw cron 任务现状（PA 是否建过 announce 模式且带 session 的任务 = 前置 C 第 16 项的作用对象）。 【2026-10-20 已执行】用户已跑 7.2 两条只读命令（agents.list research/ops/main 无标记无 bindings；openclaw cron 仅 session-cleanup-daily 停用无 session → 第 16 项当前无对象）。剩余被动验证 = 10-26 check_upgrade 读数。可选（零行为变化）：给 research 加 default:true，见 unfinished [9]。",
-      "【WhatsApp 建连阶段终止 · 第二次发生 (2026-10-24 22:44 HKT, 408 握手超时, 跨周末 58h / 116 次 WARN) · 用户决策项】V37.9.374 的「下次评估纳入」已在第二十七节 27.4 收益侧兑现（10.6 #142434 是消息重试非建连重试，与两次建连终止无关；7.1+ 建连重试 12 次仍是 hold 成本）。4.27 dist 实读：isRetryableAuthUnstableError 只认 whatsapp-auth-unstable，其余建连失败 rethrow → markStopped → stopped（405 / 408 同一路径）。V37.9.374 告警文案在生产生效（08:30 告警已给 restart 建议）。✅ 10-27 11:18 用户 restart.sh 后经 WhatsApp 与 PA 对话正常 = connected，未扫码（停摆约 60h）。🔴 请用户三选一：(a) 维持人工处置（告警到了再 restart.sh）；(b) wa_keepalive 在「Gateway /health 200 + 频道 linked + 状态 stopped」同时成立时有界调用 restart.sh（每 6h ≤1 次、每日 ≤2 次、仍发告警；restart.sh 走 launchctl kickstart 不另起管理者，但自动重启是新故障面 原则 #8/#34）；(c) 接受为 hold 成本，升级受第二十七节判据门控。V37.9.374「刻意不自动重启」是在一次事故的数据上做的判断，现在是 4 天两次 + 58h，本版只登记不改决定。案例追记见 whatsapp_405_setup_failure_terminal_case.md「追记（2026-10-27）」。Mac Mini：restart.sh 后 openclaw channels status 应 connected；若 WhatsApp 推送有积压，下次 notify 调用自动重放队列，或手动 notify_queue_flush。"
+      "【WhatsApp 建连阶段终止 · 第二次发生 (2026-10-24 22:44 HKT, 408) · 用户决策 (b) 已落地 V37.9.376】wa_keepalive 告警轮对 linked+stopped 有界自动 restart.sh（每 6h ≤1 / 24h ≤2，结果写进告警，WA_AUTO_RESTART=0 关闭）。🔴 Mac Mini 待用户：合并 + git fetch+reset 同步（wa_keepalive.sh / wa_channel_status.py 走 FILE_MAP 零重启）→ 被动验证：下次频道 stopped 后 ≤1h Discord 告警正文带「自动重启: 已执行 restart.sh … 重启后频道: connected」，~/wa_keepalive.log 出现 AUTO_RESTART_DONE；首次真实触发后把告警正文发我做对账（原则 #36-4）。"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -405,14 +410,14 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6793,
-    "last_regression": "2026-10-27 02:30 pass",
+    "test_count": 6828,
+    "last_regression": "2026-10-27 04:59 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 206,
+    "test_suites": 207,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.188",
+    "version": "0.37.9.189",
     "observer": {}
   },
   "incidents": [
@@ -485,5 +490,6 @@
   ],
   "_meta": {
     "last_updated_by": "claude_code"
-  }
+  },
+  "version": "0.37.9.189"
 }

@@ -132,3 +132,4 @@ openclaw channels status
   (c) 接受为 hold 的成本——上游 7.1 起建连阶段重试 12 次（issue #125673 日志），升级即消除此类终止，但升级受第二十七节判据门控。
 - **不改的**：案例三层根因、上游 issue 状态（10-27 未复核）、告警文案契约与守卫（`test_wa_channel_status.py`）均不变。
 - **恢复确认（2026-10-27 11:18 HKT）**：用户执行 `restart.sh`（Adapter / Proxy 1×2s、Gateway 2×3s 后 200）后经 WhatsApp 与 PA 正常对话 = 频道 connected，未扫码，凭据未动。第二次终止自 10-24 22:44 起停摆约 **60 小时**至恢复。a/b/c 决策仍待用户。
+- **决策落地（2026-10-27，V37.9.376）**：用户三选一取 **(b)**。`wa_channel_status.py` 加 `auto` 段（linked+stopped 才 1）；`wa_keepalive.sh` 在升级告警那一轮 调 `_wa_auto_restart`：每 6h ≤1 次、24h ≤2 次（`~/.wa_auto_restart_stamps` 先记账后执行，失败也计配额），`restart.sh` 内部仍走 launchctl kickstart；重启后复查频道并写进同一条告警；`WA_AUTO_RESTART=0` 关闭。守卫 `test_v37_9_376_wa_bounded_auto_restart.py` 35 单测 + sabotage 六连。10-20 版「刻意不自动重启」的判断据此修订：自动化的是告警已经让人做的那条命令，且有人类也会遵守的配额。
