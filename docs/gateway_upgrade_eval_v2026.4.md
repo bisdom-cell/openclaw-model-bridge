@@ -18,11 +18,12 @@
 > **2026.9.8 追加读数：2026-10-05**（2026.9.8 stable 10-03 发布——25.5 预设跟踪点到期；三条判据与第十四次逐项相同 ❌🔴✅，且按 25.5 预注册口径无新默认自主行为（9.8 自述「No intentional capability changes」hotfix；Tool Search 门控函数 9.7↔9.8 逐字节相同；discord `allowBots ?? true` 不变）→ 按日落规则只在第二十五节追加 **25.6**，不新开节、不重置 LAST_EVAL_DATE。① 9.8 协议六点读数 12/0/35/12/16 按门槛不可判，按 19.8 本日修订的「hotfix 规模 stable」分支内容直判 → DIRTY 2（SQLite contention / Windows 9.4 schema transitions），连续干净计数仍 0；② 9.7→9.8 间隔 2.94 天 🔴；③ engines 六版逐字同 ✅；tripwire [2/6] 45/50 剩 5，预计 10-12 或 10-19 触发）
 > **2026.9.9 / 10.1 / 10.2 追加读数：2026-10-12**（9.8 之后 9 天连发 3 个 stable——9.9（10-08，hotfix）/ **10.1**（10-10，新 minor 线）/ 10.2（10-12）；三条判据与第十四次逐项相同 ❌🔴✅，且按 25.5 口径无新默认自主行为（10.2 provider-native compaction 默认只对 `openai` / `anthropic` provider 生效，我方 `qwen-local` openai-completions 不在门控路径；Claws 迁移是手动命令 + experimental 开关；Tool Search 门控函数与 9.8 逐字节相同；discord `allowBots` 不变）→ 第二十五节追加 **25.7**，不新开节、不重置 LAST_EVAL_DATE。① 9.9 DIRTY 1（hotfix 分支，结论不依赖该分支是否适用）/ 10.1 DIRTY 28 / 10.2 DIRTY 1，连续干净计数仍 0；② 间隔 5.31 / 2.55 / 1.28 天 🔴；③ engines 九版逐字同 ✅（9.3 起）。**前置 B 跟踪点兑现**：10.1 真删除 `config-runtime` / `channel-message` / `infra-runtime`（exports 与 dist 文件均无），weixin **2.4.10**（10-11）是迁移版本 → 目标 ≥10.1 须与 core 同窗口装 weixin ≥2.4.10；7.2 / 7.4 加 WhatsApp 凭据迁移核对（10.1 Doctor 把 legacy 共享根凭据移入 `credentials/whatsapp/default/`）；tripwire [2/6] 48/50 剩 2，预计 **10-19** 触发，处置按 23.5 预注册）
 > 十五次评估：2026-10-20（tripwire [2/6] 触发日（现行口径 52/50，10-19 周一 09:10 的运行触发）+ 2026.10.3 / 10.4 / 10.5 三个 stable → 继续 hold；判据与第十四次逐项相同 ❌🔴✅（① 10.3 DIRTY 4 / 10.4 按 hotfix 分支直判 DIRTY 1 / 10.5 DIRTY 21，计数仍 0；② 间隔 1.34 / 2.43 / 2.89 天，4 周窗主线 2.25/周为历次最高；③ engines 自 9.3 起十二版逐字同），但 dist 实证 owner-conversation automation repair 默认开（`cron` 在 PA 白名单）= 新默认自主行为 → 按日落规则新开节；前置 C 15 → 18（+ exec 空输出完成事件 / 多 agent 入站兜底改变）+ 1 项开窗前全量基线；**更正 25.7**：repair 代码自 10.1 起即在、10.1 changelog 未写 → 候选来源补 docs 默认值增量对比；tripwire 计数按 23.5 预注册由用户选「改口径」→ 主线 minor stable 52 → 39，第二十六节；同日 26.6：Mac Mini 实测 + dev 实跑两段 Doctor → 前置 D 两段式升级（7 月前安装须先过 2026.9.5）+ 第 18 项定档为给 research 加 `default: true`）
+> 十六次评估：2026-10-27（2026.10.6 / 10.7 两个 stable 触发——26.5 预设跟踪点到期，且判据 ③ 由 ✅ 变 ❌ = 日落规则「任一判据状态变化」→ 新开节 → 继续 hold；判据 ❌🔴❌：① 10.6 DIRTY 4 / 10.7 DIRTY 1 计数仍 0（连续第十六至十七个 DIRTY）、② 10.5→10.6 3.64 天 / 10.6→10.7 1.79 天 🔴（4 周窗主线 2.5/周历次最高）、③ **10.6 起 `engines.node` 收紧为 `>=24.22.1 <25 || >=26.12.1`**（根因 = Node 2026-10 安全发布拒绝 eMudhra 事件被攻破密钥签发的 TLS 链，非 SQLite；10.6+ 启动守卫与 `openclaw update` 预检都执行该下限）而 Mac Mini 26.5.0 在区间外；dist 复查七个门控函数 10.5↔10.7 哈希归一化后逐字同、docs 默认值对比仅 4 条新增（★ 1 登记不入）→ 无新默认自主行为，前置 C 保持 18 项；26.6 升级路径文档对比首次执行：桥接版本 2026.9.5 未变；行动 = `brew upgrade node` 至 ≥26.12.1 不等开窗（Node 安全修复本身就该做），第二十七节）
 > 评估者：Claude Code
 >
 > 🔴 **当前态（本行为单一真理源，其余章节均为各自时点快照）**
-> 部署版本 **v2026.4.27**（2026-06-11 起）| 上游 latest **2026.10.5**（2026-10-18；本次正式评估对象 10.3 / 10.4 / 10.5 见第二十六节，9.9 / 10.1 / 10.2 追加读数见 25.7）|
-> 决策 **继续 hold**（第十五次评估，2026-10-20）| 判据与下次跟踪点见 **第二十六节 26.5** | tripwire [2/6] 自 10-20 起按主线 minor stable 计数
+> 部署版本 **v2026.4.27**（2026-06-11 起）| 上游 latest **2026.10.7**（2026-10-24；本次正式评估对象 10.6 / 10.7 见第二十七节，10.3 / 10.4 / 10.5 见第二十六节）|
+> 决策 **继续 hold**（第十六次评估，2026-10-27）| 判据与下次跟踪点见 **第二十七节 27.5** | tripwire [2/6] 自 10-20 起按主线 minor stable 计数（10-27 读数 41/50）| 判据 ③ 我方侧待办：Mac Mini Node 26.5.0 → ≥26.12.1
 
 ---
 
@@ -160,13 +161,13 @@
 
 ### 7.0 前置条件
 
-> **目标版本不在本节硬编码**——由**最近一次评估的结论**决定（评估节按时间倒序：第二十六节 = 最新）。
-> 截至第十五次评估（2026-10-20）结论为**继续 hold，无目标版本**；本 SOP 仅在用户明确决定升级后启用。
+> **目标版本不在本节硬编码**——由**最近一次评估的结论**决定（评估节按时间倒序：第二十七节 = 最新）。
+> 截至第十六次评估（2026-10-27）结论为**继续 hold，无目标版本**；本 SOP 仅在用户明确决定升级后启用。
 
-- [ ] **目标版本**：读最新评估节的结论确定（当前第二十六节 26.5）。**禁止沿用本文档任何历史节里的版本号**——它们是当时的时点判断。
+- [ ] **目标版本**：读最新评估节的结论确定（当前第二十七节 27.5）。**禁止沿用本文档任何历史节里的版本号**——它们是当时的时点判断。
 - [ ] **时间窗口**：工作日白天，确保能快速处置（注意：回滚不再是无损的，见 7.5）
 - [ ] **在 Mac Mini 上 SSH 直连执行**（禁止通过 WhatsApp 触发）
-- [ ] **前置 A · Node 版本区间**（第七次评估 18.4 起）：确认 `node -v` 落在目标版本 `engines.node` 声明的区间内。7.1/8.1/8.2/9.1/9.2 的区间是 `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`（**区间黑名单**，排除 node 23.x 全部与 24.0–24.14），根因是 SQLite WAL 数据损坏安全；**9.3 起收紧为 `>=24.16.0 <25 || >=26.1.0`**（Node 22.x / 25.x 全部退出，根因是 SQLite 文本截断，第十次评估 21.3）——区间会随 stable 变动，**每次以目标版本 `npm view openclaw@<目标> engines.node` 实测为准，不能只确认「够新」**。**9.4 与 9.3 逐字相同**（第十一次评估 22.3）。**9.5 与 9.4 / 9.3 逐字相同**（第十二次评估 23.3，三版未变）。**9.6 与 9.5 / 9.4 / 9.3 逐字相同**（第十三次评估 24.3，四版未变）；9.6 继续修 updater 的 Node 路径（「complete managed Gateway upgrades after Node.js installation paths change」#145335 等）= 升级后 Node/服务环境核对仍必要。**9.7 与 9.6 / 9.5 / 9.4 / 9.3 逐字相同**（第十四次评估 25.3，五版未变）；9.7「macOS keeps saved Gateway runtime pins instead of replacing them automatically」与下述 updater 替换风险同向缓解，核对仍保留（以实测为准）。**9.4 起升级路径自身会动 Node**：updater 会在服务 Node 运行时不受支持时替换 launchd 托管服务的运行时（「replace unsupported service Node runtimes」#142195…#144031）+ CLI 在可用的受支持 Node 下重执行（#143464）+ 不兼容时主动提议 Node.js 更新（#142742/#143344）——**升级后核实 plist/服务实际执行的 node 未被 updater 替换**（V37.9.13 单一管理者语义；Mac Mini 26.5.0 在区间时不应触发，触发即异常）。
+- [ ] **前置 A · Node 版本区间**（第七次评估 18.4 起）：确认 `node -v` 落在目标版本 `engines.node` 声明的区间内。7.1/8.1/8.2/9.1/9.2 的区间是 `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`（**区间黑名单**，排除 node 23.x 全部与 24.0–24.14），根因是 SQLite WAL 数据损坏安全；**9.3 起收紧为 `>=24.16.0 <25 || >=26.1.0`**（Node 22.x / 25.x 全部退出，根因是 SQLite 文本截断，第十次评估 21.3）——区间会随 stable 变动，**每次以目标版本 `npm view openclaw@<目标> engines.node` 实测为准，不能只确认「够新」**。**9.4 与 9.3 逐字相同**（第十一次评估 22.3）。**9.5 与 9.4 / 9.3 逐字相同**（第十二次评估 23.3，三版未变）。**9.6 与 9.5 / 9.4 / 9.3 逐字相同**（第十三次评估 24.3，四版未变）；9.6 继续修 updater 的 Node 路径（「complete managed Gateway upgrades after Node.js installation paths change」#145335 等）= 升级后 Node/服务环境核对仍必要。**9.7 与 9.6 / 9.5 / 9.4 / 9.3 逐字相同**（第十四次评估 25.3，五版未变）；9.7「macOS keeps saved Gateway runtime pins instead of replacing them automatically」与下述 updater 替换风险同向缓解，核对仍保留（以实测为准）。**9.4 起升级路径自身会动 Node**：updater 会在服务 Node 运行时不受支持时替换 launchd 托管服务的运行时（「replace unsupported service Node runtimes」#142195…#144031）+ CLI 在可用的受支持 Node 下重执行（#143464）+ 不兼容时主动提议 Node.js 更新（#142742/#143344）——**升级后核实 plist/服务实际执行的 node 未被 updater 替换**（V37.9.13 单一管理者语义；Mac Mini 26.5.0 在区间时不应触发，触发即异常）。 **10.6 起收紧为 `>=24.22.1 <25 || >=26.12.1`**（第十六次评估 27.3；根因 = Node 2026-10 安全发布拒绝 eMudhra 事件被攻破密钥签发的 TLS 链，不是 SQLite；10.6+ 的启动守卫 `assertSupportedRuntime`、Gateway 运行时选择与 `openclaw update` 预检都执行该下限，旧 Node 上目标版本**拒绝启动**）——**Mac Mini 26.5.0 现在区间外**：开窗前须 `brew upgrade node` 至 ≥26.12.1，并用 restart.sh 验证 4.27 三服务健康（4.27 自身守卫只要求 `>=22.14.0`，与 2026-07-24 25.6.1 → 26.5.0 同款验证）；这一项**不等开窗**，Node 安全修复本身就该做。核对命令见 27.5。
 - [ ] **前置 B · 外部插件锁步**（第八次评估 19.5）：M1 插件外部化后，`@openclaw/whatsapp` / `@openclaw/discord` 与 core **同版本发布**且声明 `peerDependencies: { openclaw: '>=<同版本>' }`。确认目标版本对应的 channel 插件存在；同时确认第三方插件（如 `@tencent-weixin/openclaw-weixin`）的 `peerDependencies.openclaw` 与目标版本相容。**第十一次评估 22.4 追加**：`sdk-untrusted-context-identifier-aliases` 到期日（09-08）已过但 9.4 仍 `removal-pending`（#142708，等插件 reader 迁移验证 + 显式 breaking 接受，真移除时本项加 `MsgContext.Channel*` 核对）；`agent-harness-credential-prompt-string-argument` 09-09 起弃用、旧字符串签名支持至 **2026-11-30**（#143238）——第三方插件（weixin）若调用 `buildCredentialSafetyPrompt` 须已迁移到 `{ controlToolsAvailable }`。**第十二次评估 23.4 追加**：weixin **2.4.9 已转 stable**（09-17）但 peer 仍 `>=2026.5.12`（4.27 上限 2.4.4，落后 4 版 / 92 天）；9.5 新增 **Gateway V2 传输迁移**（Gateway handler / node-session imports 如实暴露 WebSocket / framed / HTTP polling 三种能力，WebSocket-only 操作前须 narrow `node.client.webSocket`，framed 操作 narrow `node.client.socket`，node wire protocol 不变，`/plugins/sdk-migration/compatibility-policy#gateway-node-transport-sdk-v2`）——第三方插件若直接消费这些 imports 须已迁移。**第十四次评估 25.4 追加**：9.7 把 `openclaw/plugin-sdk/config-runtime` / `channel-message` / `infra-runtime` 列为 **removal pending after 2026-10-01**（「removal-pending entries stay until supported external plugin migration is verified」= 等外部插件迁移验证后才真移除），而 weixin **2.4.9**（仍为 latest）包内三个都在 import（`infra-runtime` 4 处 / `config-runtime` 1 / `channel-message` 1）——升级时核对目标版本是否已移除这三个子路径、weixin 是否已发迁移版本（在 weixin 包目录跑 `grep -rhoE "openclaw/plugin-sdk/[a-z-]+" . | sort | uniq -c`），未迁移的插件会在真移除的那个版本之后加载失败。**25.7 追加（2026-10-12）**：跟踪点兑现——**10.1 真删除了这三个子路径**（`exports` 与 `dist/plugin-sdk/*.js` 均已不存在，同版另删 `command-auth` / `channel-lifecycle` / `channel-reply-pipeline` / `discord` / `telegram-account`，而 10.1 的弃用段文案仍写 removal-pending = 以包内容为准、不以文案为准）；weixin **2.4.10**（10-11）是迁移版本——改为导入 `channel-outbound` / `channel-ingress-runtime` / `config-mutation` / `temp-path`，仅在 `ERR_PACKAGE_PATH_NOT_EXPORTED` 时回退旧 `channel-message`，全部导入在 10.2 与 9.8 的 exports 中均可解析；2.4.9 在 10.x 上缺 4 个子路径、必然加载失败 → **目标 ≥10.1 时 weixin 须 ≥2.4.10，且与 core 在同一升级窗口安装**（先装 core、后装插件的空窗内 weixin 不可加载）；peer 仍 `>=2026.5.12`。
 - [ ] **前置 D · 两段式升级：7 月前的安装须先过桥接版本**（第十五次评估 26.6）：目标版本自带的 `docs/install/updating.md`「Upgrading very old versions」要求 2026-07-01 前的安装先升到它指名的桥接版本（10.5 时为 2026.9.5）、跑该版本的 `doctor --fix`、再升目标版本；4.27 发布于 2026-04-27 → 适用。直跳的后果分两半：7 月前退役的配置键，10.x 的 Doctor 拒绝改写并指向桥接版本（响亮）；7 月前的状态文件（JSON 插件安装索引、`credentials/oauth.json`、旧 tasks / flows / plugin-state SQLite）**不导入、原样留着**：Doctor 只对插件安装索引与 `credentials/oauth.json` 打一行「left unchanged」警告，不拒绝、不中止，其余不提示（近乎静默）。桥接期间 Gateway 保持停止，不在桥接版本上运行；第二段用 `npm install -g`，不用 `openclaw update`（9.5 起跳的托管更新在 9.7 之前每次都回滚，25.4）。前置 C 第 18 项的标记须在第一段 Doctor 之前加好
 - [ ] **前置 C · 默认行为审计**（第八次评估 19.4，**须在首次启动前完成**）：目标 ≥8.1 时，以下 **18 项默认变更**（8.1 的 7 项 = 6 项自主行为 + 1 项并发假设；8.2/9.2 追加 3 项会话可见性 / 跨 agent 访问 / 并发编排，第九次评估 20.5；9.3 追加 2 项递归委派 / 更新自动推理修复，第十次评估 21.4；**9.4 零新增**，两项候选经 dist 源码核实为门控/opt-in 登记不入，第十一次评估 22.4；**9.5 追加 1 项跨 provider 消息默认开**（`message` 在 PA 白名单内）+ 第 7 项并发假设原位加注 `cpus × 4`，第十二次评估 23.4；**9.6 追加 1 项 Tool Search 默认开**（预防性：dist 门控显示我方路由不触发，但上游文档宣称更宽默认，第十三次评估 24.4）；**9.7 追加 1 项 Discord 默认接收其他 bot 的消息**（预防性：当前 `groupPolicy` 空白名单下不触发，但保护来自运营配置而非代码门控，第十四次评估 25.4）；**10.1 / 10.5 追加 3 项** owner-conversation 自动修复回合 / exec 空输出完成事件 / 多 agent 入站兜底改变（第十五次评估 26.4；前两项此前评估漏核，见 26.4 更正）默认为开/生效，其中 12 项直接踩我们已立案的血案机制，逐项决定关闭或显式接受（另有 1 项开窗前全量基线，见第一个子项）：
@@ -363,7 +364,7 @@ openclaw message send --channel discord -t "user:$DISCORD_TARGET" -m "回滚完�
 
 > ⚠️ **2026-04 时点快照，勿作当前判断依据**。本节的收益/风险/建议（含选项 A/B/C = hold / 升 4.2 / 升 4.1）
 > 是首次评估时的判断；此后 4.27 已于 2026-06-11 升级完成，且第六/七/八次评估的方案 A/B/C 是**另一套语义**
-> （A=hold / B=中间版本 / C=现升最新）。**当前判断以最新评估节（第二十六节；第十四次见第二十五节）为准**，本节仅作历史留档。
+> （A=hold / B=中间版本 / C=现升最新）。**当前判断以最新评估节（第二十七节；第十五次见第二十六节）为准**，本节仅作历史留档。
 
 ### 升级收益
 1. **WhatsApp 稳定性提升**：bundled sidecar + crash fix + timestamp
@@ -1343,6 +1344,8 @@ Windows 2026.9.4 schema transitions」→ ❌）；**无命中 → 记 N/A_HOTFI
 | **2026.10.3**（第十五次评估追加） | **0** | 0 | 79 | **0** | **72** | ⚠️ 不可判 | 可判（仅行内引用过门槛）→ ❌ DIRTY(4) |
 | **2026.10.4**（第十五次评估追加） | **0** | 0 | 61 | **0** | **47** | ⚠️ 不可判 | 修订后仍不可判；hotfix 规模（自述 61 in-range + 0 seed-only + 无新功能与配置变更，三条件全满足）→ 内容直判 → ❌ DIRTY(1) |
 | **2026.10.5**（第十五次评估追加） | **206** | 0 | 1985 | **206** | **1222** | 可判 | 可判 → ❌ DIRTY(21) |
+| **2026.10.6**（第十六次评估追加） | **21** | 0 | 293 | **21** | **73** | ⚠️ 不可判 | 可判（仅行内引用过门槛；自述 293 in-range + 0 seed-only，hotfix 分支不适用）→ ❌ DIRTY(4) |
+| **2026.10.7**（第十六次评估追加） | **13** | 1 | 69 | **14** | **62** | ⚠️ 不可判 | 可判（仅行内引用过门槛；自述 49 in-range + 21 retained seed-only → hotfix 分支三条件之一不满足，且无需该分支）→ ❌ DIRTY(1) |
 
 9.1 的叙述段行内引用 924 个唯一 PR，**多于 8.1 的 802**——内容完整，只是粒度从 bullet 变成段落。原协议对它判
 「不可判」是**计量单位错了 ≠ 内容不够**：与 V37.9.288「搜索坏了 ≠ 没搜到」同族，只是这次坏的是尺子。若不重标定，
@@ -2179,3 +2182,106 @@ dev 实跑另见：两段 Doctor 各自按网络安装同版本的 `@openclaw/wh
   我方配置里有没有退役配置键、`~/.openclaw` 下有没有退役状态文件，dev 不可知——前者由第二段 Doctor 拒绝报出，后者由第一段 Doctor 导入，两段的输出都要看。
 - **已执行**：同日用户在 Mac Mini 备份 `openclaw.json` 后给 research 加了 `default: true`，7.2 命令复核 `agent: research default: True`、其余两个 agent 与 bindings 不变，Gateway `/health` 200。4.27 下路由与工作区不变，故不需要重启或清 session。
 - **不改的**：LAST_EVAL_DATE 仍为 2026-10-20；判据与 26.5 的 hold 结论不变；下一次追加读数的位置改为 26.7。
+
+---
+
+## 第二十七节：第十六次评估（2026-10-27，2026.10.6 / 10.7 两个 stable 触发判据跟踪——第十五次评估 26.5 预设「下一个 stable」到期，且判据 ③ 由 ✅ 变 ❌（10.6 起 engines 收紧为 `>=24.22.1 <25 || >=26.12.1`，Mac Mini 26.5.0 落到区间外）= 日落规则「任一判据状态变化」→ 新开节而非追加读数）
+
+> 触发：周二开工核对上游，10.5（10-18）之后又发 **2026.10.6**（10-22）/ **2026.10.7**（10-24）两个主线 stable + 维护线 9.34（10-24）→ 26.5 跟踪点 1 到期。
+> 方法沿用「代码即事实」：`npm pack` 10.5（对照）/ 10.6 / 10.7 / 9.34 / 4.27（追溯）+ `@openclaw/ai`、`@openclaw/discord` 10.5 与 10.7 + `@openclaw/whatsapp` 10.7 + weixin 2.4.10 →
+> 19.8 协议 + dist 函数体对照（构建产物的哈希后缀归一化后逐函数比较，不比文件名）+ engines + npm 元数据 + 26.4 docs 默认值增量对比 + 26.6 升级路径文档整份对比 + nodejs.org 发布索引。
+
+### 27.1 一句话结论
+
+**继续 hold（判据 ❌🔴❌）**。新开节的唯一原因是判据 ③ 的状态变化：10.6 起 `engines.node` 由 9.3 以来十二版逐字相同的 `>=24.16.0 <25 || >=26.1.0`
+收紧为 **`>=24.22.1 <25 || >=26.12.1`**，Mac Mini 的 Node **26.5.0**（2026-07-24 `brew upgrade node` 所得）落到区间外——③ 的我方侧由 ✅ 变 ❌。
+这次收紧的根因**不是 SQLite**（前两次 7.1 WAL 损坏 / 9.3 文本截断都是 Node↔SQLite 耦合），而是 **Node 2026-10 安全发布**：上游 changelog 写明
+24.22.1 / 26.12.1「reject TLS chains signed with the compromised certificate keys addressed in the October 2026 Node.js security releases」（#179992），
+node-compatibility.md 写明是「the public keys compromised in the October 2026 eMudhra incident」；nodejs.org 发布索引 v24.22.1（2026-10-20）/ v26.12.1（2026-10-21）均标 security。
+执行点有三处，不只是 package.json 的声明：10.6+ 的启动守卫 `assertSupportedRuntime`（10.7 dist 原文「openclaw requires Node >=24.22.1 <25, or >=26.12.1.」）、
+Gateway 运行时选择（node-compatibility.md「Startup and Gateway runtime selection also enforce the release floors above」）、以及 `openclaw update` 在旧 Node 上的预检拒绝
+（「refuses with recovery guidance before installing on an older Node instead of breaking the running install」）。
+**动作不等开窗**：Node 安全修复本身就该做（27.5），做完后 ③ 回 ✅。4.27 自身的启动守卫只要求 `>=22.14.0`（4.27 dist 实读），26.12.1 对 4.27 可接受，与 07-24 同款走 restart.sh 验证。
+
+### 27.2 上游现状（2026-10-27 实证）
+
+- latest **2026.10.7**（10-24 07:36Z；自述 49 in-range + 21 retained seed-only = 70 PR；Changes 仅「Google models: add Gemini 4 Argon support」#171852）；
+  **2026.10.6**（10-22 12:44Z；293 in-range + 0 seed-only；自述「This patch release contains focused reliability fixes only; it does not introduce new user-facing features」）。
+- beta 指针 **2026.10.10-beta.3**（10-21）；extended-stable **2026.9.34**（10-24 11:17Z）。
+- `@openclaw/whatsapp` / `@openclaw/discord` 2026.10.7 peer `>=2026.10.7`，锁步再证；`@tencent-weixin/openclaw-weixin` 仍 **2.4.10**（10-11），peer `>=2026.5.12`。
+- 4.27 仍未 deprecate（2026-04-29 发布，180 天）。
+- Node 侧：nodejs.org 发布索引 v26.12.1（2026-10-21，security）/ v24.22.1（2026-10-20，security）；Mac Mini 26.5.0 发布于 2026-07-08。
+
+### 27.3 三条收敛判据逐一核对
+
+- **判据 ①**（两版六点读数已追加进 20.4 表）：
+  - **10.6**：叙述 21 / 带描述 PR 0 / 裸 PR 293 / 语义量 21 / 行内引用 73 → 可判（仅行内引用过门槛）→ **DIRTY 4**：「Data-preserving migrations and backups: Doctor and migration paths now
+    refuse malformed or lossy workspace imports … keep deeply nested SQLite backups」/「Windows state and updates: … hide SQLite helper windows during update work」/
+    「Doctor and managed plugins: … clear resolved migration warnings」/「SQLite correctness: preserve transaction outcomes when warning handlers throw, settle peer closes after shared-worker refusal」。
+    自述 293 in-range ≥ 100 → 19.8 hotfix 分支不适用。
+  - **10.7**：13 / 1 / 69 / 14 / 62 → 可判（仅行内引用过门槛）→ **DIRTY 1**：「Safer update activation and recovery: … Windows deep or 8.3 state paths no longer abort onboarding or migration」。
+    自述 49 in-range + **21 retained seed-only** → hotfix 分支三条件之一不满足；且行内引用已过门槛，分支无需讨论，结论不依赖分支。
+  - → ❌，连续干净计数仍 0（10.6 / 10.7 = 连续第十六至十七个不干净的 stable）。维护线 9.34 协议读数 21 / 0 / 0 / 21 / 23 → 不可判；按历次惯例判据 ① 只看主线，维护线登记不计入。
+- **判据 ②**：10.5 → 10.6 **3.64 天** / 10.6 → 10.7 **1.79 天** → 🔴 状态不变；4 周窗（09-29 → 10-27）主线 10 个 stable
+  （9.7 / 9.8 / 9.9 / 10.1 / 10.2 / 10.3 / 10.4 / 10.5 / 10.6 / 10.7）= **2.5/周**（历次最高，26.3 为 2.25/周），维护线 4 个 tag（8.34 / 8.35 / 9.33 / 9.34），合计 14 个 tag / 4 周。
+- **判据 ③**：10.6 / 10.7 的 `engines.node` = **`>=24.22.1 <25 || >=26.12.1`**（10.5 仍为 `>=24.16.0 <25 || >=26.1.0`；9.3 起十二版相同的区间在 10.6 变动）；
+  **Mac Mini 26.5.0 < 26.12.1 → 区间外 → ❌**（由 ✅ 变）。上游侧与我方侧分开记：上游是第三次收紧 Node（7.1 WAL / 9.3 文本截断 / 10.6 证书信任），前两次我方都在区间内，这次不在。
+  执行点：package.json `engines` + 启动守卫 `assertSupportedRuntime` + Gateway 运行时选择 + `openclaw update` 预检（上游 changelog #179992 与 node-compatibility.md 10.7 版）。
+
+### 27.4 新默认行为核实（零新增）+ 升级路径文档对比 + 前置 B 复查 + 持有成本 + 收益侧
+
+候选来源 = changelog ∪ 26.4 docs 默认值增量对比。10.5 → 10.7 的 docs 对比只产出 **4** 条新增默认值句（★ 1）；changelog 侧 10.6 自述无新功能、10.7 Changes 仅 Gemini 4 Argon。按 25.5 口径逐项核实：
+
+| 候选 | 来源 | dist 实证 | 结论 |
+|------|------|----------|------|
+| session 工具 `action: "stop"`（concepts/session-tool.md，★） | docs | 新增的是一个动作能力，不是默认翻转；PA 白名单里的会话工具名 `sessions_spawn` / `sessions_send` / `sessions_history` 在 10.7 dist 仍存在（33 个文件引用 `sessions_spawn`，与 10.5 同），白名单不受影响 | 非默认自主行为 → 登记不入 |
+| Telegram DNS 结果顺序 / TTS 超时默认 / `install-cli.sh` 默认 Node 24.22.1 | docs | 前两项不在我方面上；第三项是安装器默认，与判据 ③ 同源 | 登记不入 |
+| Gemini 4 Argon（10.7 唯一 Changes，#171852） | changelog | 新模型支持，非默认行为 | 登记不入 |
+
+复查（26.5 跟踪点 3，10.5 ↔ 10.7 哈希后缀归一化后逐函数比较）：`resolveAgentToolSearchRuntimeConfig` 逐字相同 → 第 14 项维持预防性；`@openclaw/discord@2026.10.7` 的 `allowBots` 12 处函数体逐字相同 → 第 15 项继续成立；
+`allowAcrossProviders`（13 处）、`failure-repair` 分支与 `resolveFailureAlert`、`resolveNotifyOnExitEmptySuccess`、`resolveAgentRoute` 均逐字相同 → 第 13 / 16 / 17 / 18 项结论不变；
+`@openclaw/ai` 10.5 ↔ 10.7 的 `relocateNonBehavioralRegion` 与 `OPENCLAW-RELOCATABLE-BOUNDARY` 逐字相同 → 7.4 Runtime 行核对不变。**无新默认自主行为，前置 C 保持 18 项 + 1 项开窗前全量基线。**
+
+**升级路径文档整份对比（26.6 方法补丁首次执行，10.5 → 10.7）**：`docs/install/updating.md`「Upgrading very old versions」**桥接版本未变（2026.9.5）**，前置 D 不变；该文件新增「Update implementation contract」段（更新须尽力完成、候选 helper 用绝对 `TMPDIR`）+ Node 行 24.16+/26.1+ → 24.22.1+/26.12.1+ + pnpm 改用安装自己的 pnpm home。
+`docs/gateway/doctor/running.md` 新增「可在更新后不先启动 Gateway 就跑 Doctor」+ 迁移默认走高效完整性检查（整库 `quick_check` + 被改写表全检），`openclaw doctor --fix --full-integrity-check` 可全表检查；
+`docs/cli/doctor/sqlite-maintenance.md` 新增 `openclaw update status` 复核历史 transcript 发现；`docs/gateway/doctor/config-migrations.md` 空的 `plugins.installs: {}` 作退役键由 Doctor 删除。
+这些都是升级动作内部细节，不改前置 D 的两段配方；`--full-integrity-check` 是可选参数非前置，登记在此、开窗时由执行者决定是否加（代价是时间），不改 7.3。
+
+**前置 B 复查**：10.5 → 10.7 `exports` **零删除**、+1（`./plugin-sdk/path-existence-runtime`）；weixin 2.4.10 的 15 个 `openclaw/plugin-sdk/*` 引用里，`channel-message` 只在 `ERR_PACKAGE_PATH_NOT_EXPORTED` 回退分支（`src/messaging/typing.ts`），
+`channel-runtime` / `infra-runtime` 只出现在其 CHANGELOG，其余 12 个在 10.7 的 exports 中全部可解析 → 前置 B 不变。
+
+**持有成本 / tripwire**：4.27 → 10.7 共 **55** 个 stable（主线 minor **41** / 维护线 11：6.33–6.35 / 7.33–7.35 / 8.33–8.35 / 9.33 / 9.34 / -N patch 3）；check_upgrade dev 实跑 **[2/6] 41/50 主线 stable（剩 9）**，按 2.5/周约 3–4 周后（11 月下旬）触发，与 26.5 预估一致；
+weixin 4.27 上限仍 2.4.4，落后 **5 个已发布版本 / 127 天**；whatsapp / discord 锁步再证；4.27 未 deprecate 180 天。
+**新成本形态**：hold 期间我方 Node 不受 OpenClaw 的 engines 管束——4.27 的守卫只要 `>=22.14.0`，Node 的安全发布不会以「OpenClaw 拒绝启动」的形式提醒我们，Node 安全更新须自管（这次是上游 changelog 先于我方发现）。
+
+**收益侧登记（不改结论）**：10.6「`openclaw update` refuses … before installing on an older Node instead of breaking the running install」= 升级失败面保护再增一项（成功后仍单向门）；
+10.6 继续修 update / Doctor 自身（「package swaps now refuse unsafe service states」「retain staging evidence when restore inspection fails」）→ **方案 B（中间版本）第九次再证不可取**；
+10.6「Channel delivery correctness: WhatsApp retries and stickers … no longer lose or duplicate messages」（#142434）是消息重试不是建连重试，与我方 10-20 / 10-24 两次建连阶段终止（`whatsapp_405_setup_failure_terminal_case.md` 及其追记）无关，建连阶段 12 次重试仍是 7.1 起的既有收益；
+10.7「Gateway logging: prevent a deleted or stale temporary log directory from wedging the Gateway at full CPU during date rollover」（#160433）与 V37.9.325 挂起服务家族同源。
+
+### 27.5 结论与建议：**继续 hold（判据 ❌🔴❌）+ Node 安全更新不等开窗**
+
+- **方案 A（推荐，不变）**：hold 4.27。判据 ① / ② 与第十五次相同；③ 的变化是我方侧的动作项，不是上游收敛信号。
+- **Mac Mini 动作（本周内，不等开窗）**：`brew upgrade node` → `node -v` ≥ 26.12.1 → `bash ~/openclaw-model-bridge/restart.sh` → 三服务健康（与 2026-07-24 25.6.1 → 26.5.0 同款验证）。
+  4.27 启动守卫 `>=22.14.0` 接受 26.12.1；launchd plist 走 `/opt/homebrew/bin/node` 符号链接，brew 升级后自动指向新版本（7.0 前置 A 的「服务实际执行的 node」核对同样适用）。
+  做完后 ③ 回 ✅，开窗时不再有 Node 这道硬门（10.6+ 启动守卫在 26.5.0 上会直接拒绝启动）。核对命令（在 dev 用假 `node` 两向跑过，守卫同样跑）：
+
+```bash
+node -v | python3 -c 'import sys,re; v=tuple(int(x) for x in re.match(r"v?(\d+)\.(\d+)\.(\d+)", sys.stdin.read().strip()).groups()); ok=(24,22,1)<=v<(25,0,0) or v>=(26,12,1); print(("在区间" if ok else "区间外"), "node", ".".join(map(str,v)), "floor >=24.22.1 <25 || >=26.12.1"); sys.exit(0 if ok else 1)'
+```
+
+- **下次跟踪点**：
+  1. **下一个 stable 发布时**：(a) 走 19.8 修订后协议核对 ①；(b) 记与 10.7（10-24 07:36Z）的间隔判 ②（≥ 14 天 → ✅，< 7 天 → 🔴，之间 → 🟡），同时记 4 周窗滚动速率；
+     (c) `engines.node` 复核 ③，**且记 Mac Mini 实际 `node -v` 是否 ≥ 26.12.1**（③ 现在有上游、我方两半，任一半未满足即 ❌）；
+     (d) 候选来源 = changelog 候选 ∪ 26.4 docs 默认值增量对比的 ★ 候选 ∪ 26.6 升级路径文档整份对比，再按 25.5 口径 dist 核实；按 22.5 日落规则决定追加段还是新开节
+     （三项全同且无新默认自主行为 → 只在本节末追加「27.6 追加读数」，不新开评估节、不重置 LAST_EVAL_DATE；追加读数仍走 19.8 协议，不得简化为裸 grep）。
+  2. **weixin SDK 子路径**（前置 B）：复查 10.x 是否继续删导出、weixin 是否需要新的迁移版本。
+  3. **Discord / Tool Search 门控**：复查 `allowBots` 默认值与 `resolveAgentToolSearchRuntimeConfig`。
+  4. **19.5 持有成本**每次复测（本次 5 版 / 127 天；credential-prompt 弃用 11-30 到期后记录）。
+  5. 前置 C 仍为 **18 项 + 1 项开窗前全量基线**。
+- **方案 B（中间版本）**：仍不可取（第九次再证，见 27.4 收益侧）。
+- **方案 C（若用户决定现升）**：**先升 Node 到 ≥26.12.1（10.6+ 启动守卫硬门）** → 两段式（前置 D，26.6）；前置 A 区间以 10.6+ 为准；前置 B weixin ≥2.4.10 且同一升级窗口安装；
+  前置 C 18 项 + 开窗前全量基线；7.2 / 7.4 核对不变；升级为 migration-bearing，**自动回滚不适用，7.1 全量快照必做**。
+
+**LAST_EVAL_DATE 更新至 2026-10-27**（第十六次评估完成，重置时间 tripwire）。下次触发 = 任一 tripwire 跳红（[2/6] 按主线口径 41/50 预计 11 月下旬），
+或下一个 stable 发布时的判据 ①/②/③ 跟踪（① 走 19.8 修订后协议；三项全同且按 25.5 口径无新默认自主行为则追加读数不新开节）。

@@ -1130,20 +1130,22 @@ class TestFifteenthEvaluationPresent(unittest.TestCase):
     def setUp(self):
         self.doc = _read()
         self.head = self.doc[:self.doc.index("## 一、版本概览")]
-        self.sec26 = self.doc[self.doc.index("## 第二十六节"):]
+        self.sec26 = _slice(self.doc, "## 第二十六节", "## 第二十七节")  # V37.9.375 起收紧到下一节（镜像 V37.9.366 sec24）
         self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
         self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
         self.pre_check = _slice(self.sop, "### 7.2", "### 7.3")
         self.verify = _slice(self.sop, "### 7.4", "### 7.5")
 
-    def test_section26_is_latest_with_all_subsections(self):
-        self.assertEqual(_latest_eval(self.doc), ("第二十六节", "十五", "2026-10-20"))
+    def test_section26_present_with_all_subsections(self):
+        """V37.9.375 演进（第十六次评估新开第二十七节后不再是最新）：pin 改为「第二十六节仍在且标题日期不变」，意图逐字保留。"""
+        heads = [(m.group(1), m.group(2), m.group(3)) for m in _EVAL_HEADING.finditer(self.doc)]
+        self.assertIn(("第二十六节", "十五", "2026-10-20"), heads)
         for sub in ("### 26.1", "### 26.2", "### 26.3", "### 26.4", "### 26.5"):
             self.assertIn(sub, self.sec26, f"第二十六节缺 {sub}")
         self.assertIn("### 26.6", self.sec26, "26.6 = 同日实跑定档（V37.9.373 同日）")
         self.assertNotIn("### 26.7", self.sec26, "26.7 是下一次追加读数的位置，本次不得预先出现")
         self.assertIn("十五次评估", self.head)
-        self.assertIn("2026.10.5", self.head, "头部当前态须记上游 latest 2026.10.5")
+        self.assertIn("10.3 / 10.4 / 10.5", self.head, "头部评估列表须记第十五次评估对象 10.3 / 10.4 / 10.5（V37.9.375 演进：latest 已移到 10.7，不再 pin 当前态行）")
 
     def test_new_section_justified_by_default_flip_and_trigger_day(self):
         heading = self.sec26.splitlines()[0]
@@ -1322,6 +1324,140 @@ class TestFifteenthEvaluationPresent(unittest.TestCase):
             self.assertIn(f"| **{v}**（第十五次评估追加）", t)
 
 
+class TestSixteenthEvaluationPresent(unittest.TestCase):
+    """第十六次评估（V37.9.375，2026-10-27）：2026.10.6 / 10.7 两个 stable 触发。
+
+    判据 ① / ② 与第十五次相同，但 ③ 由 ✅ 变 ❌——10.6 起 engines.node 收紧为 `>=24.22.1 <25 || >=26.12.1`
+    （Node 2026-10 安全发布，非 SQLite），Mac Mini 26.5.0 落到区间外 → 按日落规则新开第二十七节。
+    本类钉住：新开节理由 / 判据如实（含 ③ 的上游、我方两半）/ 新区间逐字进 7.0 前置 A 并带可行动句（MR-8 跨节）/
+    七个门控函数复查与「无新默认自主行为」/ 26.6 升级路径文档对比已执行 / 前置 B 复查 / 20.4 表行 / 跟踪点 /
+    27.5 的 Node 核对命令从文档抽出来用假 node 两向真跑（原则 #35 补充）。
+    """
+
+    NODE_RANGE = ">=24.22.1 <25 || >=26.12.1"
+
+    def setUp(self):
+        self.doc = _read()
+        self.head = self.doc[:self.doc.index("## 一、版本概览")]
+        self.sec27 = self.doc[self.doc.index("## 第二十七节"):]
+        self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
+        self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
+
+    def test_section27_is_latest_with_all_subsections(self):
+        self.assertEqual(_latest_eval(self.doc), ("第二十七节", "十六", "2026-10-27"))
+        for sub in ("### 27.1", "### 27.2", "### 27.3", "### 27.4", "### 27.5"):
+            self.assertIn(sub, self.sec27, f"第二十七节缺 {sub}")
+        self.assertNotIn("### 27.6", self.sec27, "27.6 是下一次追加读数的位置，本次不得预先出现")
+        self.assertIn("十六次评估", self.head)
+        self.assertIn("2026.10.7", self.head, "头部当前态须记上游 latest 2026.10.7")
+
+    def test_new_section_justified_by_criterion3_change(self):
+        heading = self.sec27.splitlines()[0]
+        for kw in ("判据 ③", "✅ 变 ❌", "26.12.1", "26.5.0", "新开节"):
+            self.assertIn(kw, heading, f"节标题须写明新开理由「{kw}」")
+
+    def test_criteria_recorded_honestly(self):
+        s273 = _slice(self.sec27, "### 27.3", "### 27.4")
+        for kw in ("3.64", "1.79", "2.5/周", "DIRTY 4", "DIRTY 1", "计数仍 0", "26.5.0", "26.12.1", "🔴", "区间外", "由 ✅ 变",
+                   self.NODE_RANGE, "21 retained seed-only", "293 in-range"):
+            self.assertIn(kw, s273, f"27.3 缺「{kw}」")
+        for bad in ("10.6 干净", "10.7 干净", "计数 1", "② ✅", "③ ✅", "② 回 🟡", "与第十五次逐项相同", "判据未变"):
+            self.assertNotIn(bad, self.sec27, f"不得出现误记「{bad}」")
+        self.assertIn("❌🔴❌", self.sec27, "结论行须如实记 ③ 为 ❌")
+
+    def test_criterion3_root_cause_is_security_not_sqlite_with_enforcement_points(self):
+        """③ 这次的根因与执行点决定了动作的紧迫性，三处执行点都须写明。"""
+        s273 = _slice(self.sec27, "### 27.3", "### 27.4")
+        for kw in ("assertSupportedRuntime", "openclaw update", "Gateway 运行时选择"):
+            self.assertIn(kw, s273, f"27.3 缺执行点「{kw}」")
+        s271 = _slice(self.sec27, "### 27.1", "### 27.2")
+        for kw in ("不是 SQLite", "eMudhra", "security"):
+            self.assertIn(kw, s271, f"27.1 缺根因要素「{kw}」")
+
+    def test_node_range_10_6_present_in_sop_prereq_a_with_action(self):
+        """MR-8 跨节：10.6 的新区间须逐字进 7.0 前置 A，且带「26.5.0 在区间外 → brew upgrade node」可行动句。"""
+        norm = lambda t: t.replace("\\|", "|").replace(" ", "")
+        self.assertIn(norm(self.NODE_RANGE), norm(self.prereq), "7.0 前置 A 未携带 10.6 起的 node 区间")
+        lines = [l for l in self.prereq.splitlines() if "前置 A" in l and l.strip().startswith("- [ ]")]
+        self.assertEqual(len(lines), 1, "前置 A 须恰有一项")
+        a = lines[0]
+        for kw in ("26.5.0", "区间外", "brew upgrade node", "26.12.1", "不等开窗", "assertSupportedRuntime", "拒绝启动", "27.5"):
+            self.assertIn(kw, a, f"前置 A 缺「{kw}」")
+        self.assertIn("五版未变", a, "历史「9.3–9.7 五版未变」记录保留（10.6 之前的事实不改写，只追加）")
+
+    def test_prereq_c_unchanged_and_gates_recomputed(self):
+        s274 = _slice(self.sec27, "### 27.4", "### 27.5")
+        for fn in ("resolveAgentToolSearchRuntimeConfig", "allowBots", "allowAcrossProviders", "failure-repair",
+                   "resolveNotifyOnExitEmptySuccess", "resolveAgentRoute", "relocateNonBehavioralRegion"):
+            self.assertIn(fn, s274, f"27.4 须记录门控函数「{fn}」的复查结果")
+        self.assertIn("无新默认自主行为", s274)
+        self.assertIn("保持 18 项", s274)
+        self.assertIn("**18 项默认变更**", self.prereq)
+        self.assertEqual(self.prereq.count("- [ ]"), PREREQ_CHECKBOXES, "本次零新增前置项，清单计数不得变")
+
+    def test_registered_not_included_session_tool_rationale_tracks_whitelist(self):
+        """MR-8 跨文件：session 工具 ★ 候选登记不入的依据是白名单里的会话工具名在 10.7 仍存在。白名单若改名，本守卫先红提醒复核。"""
+        s274 = _slice(self.sec27, "### 27.4", "### 27.5")
+        self.assertIn('action: "stop"', s274)
+        self.assertIn("登记不入", s274)
+        import sys
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import proxy_filters
+        for name in ("sessions_spawn", "sessions_send", "sessions_history"):
+            self.assertIn(name, proxy_filters.ALLOWED_TOOLS, f"{name} 已不在白名单，复核 27.4 登记不入的结论")
+            self.assertIn(name, s274)
+
+    def test_upgrade_path_docs_comparison_executed_and_prereq_b_rechecked(self):
+        """26.6 方法补丁首次执行：升级路径文档整份对比须有结论（桥接版本未变）；前置 B 复查须记 exports 零删除与 weixin 回退分支。"""
+        s274 = _slice(self.sec27, "### 27.4", "### 27.5")
+        for kw in ("桥接版本未变（2026.9.5）", "updating.md", "--full-integrity-check", "update status", "不改 7.3"):
+            self.assertIn(kw, s274, f"27.4 升级路径文档对比缺「{kw}」")
+        for kw in ("零删除", "path-existence-runtime", "2.4.10", "ERR_PACKAGE_PATH_NOT_EXPORTED", "前置 B 不变"):
+            self.assertIn(kw, s274, f"27.4 前置 B 复查缺「{kw}」")
+        prereq_d = [l for l in self.prereq.splitlines() if "前置 D" in l]
+        self.assertTrue(prereq_d and "2026.9.5" in prereq_d[0], "前置 D 桥接版本须仍为 2026.9.5（27.4 结论「未变」的另一半）")
+
+    def test_protocol_table_rows_appended(self):
+        t = _slice(self.doc, "### 20.4", "### 20.5")
+        for v in ("2026.10.6", "2026.10.7"):
+            self.assertIn(f"| **{v}**（第十六次评估追加）", t)
+        self.assertIn("| **2026.10.7**（第十六次评估追加） | **13** | 1 | 69 | **14** | **62** |", t)
+
+    def test_tracking_point_routes_through_protocol_and_sunset_rule(self):
+        s275 = _slice(self.sec27, "### 27.5", "**LAST_EVAL_DATE")
+        for kw in ("19.8", "engines.node", "27.6 追加读数", "docs 默认值增量对比", "升级路径文档整份对比", "不新开评估节",
+                   "不重置 LAST_EVAL_DATE", "裸 grep", "18 项", "node -v", "两半", "第九次再证"):
+            self.assertIn(kw, s275, f"27.5 跟踪点缺「{kw}」")
+        self.assertIn("LAST_EVAL_DATE 更新至 2026-10-27", self.sec27)
+
+    def _node_check_block(self):
+        s275 = _slice(self.sec27, "### 27.5", "**LAST_EVAL_DATE")
+        blocks = [b for b in _bash_blocks(s275) if b.startswith("node -v")]
+        self.assertEqual(len(blocks), 1, "27.5 须有恰一条 Node 区间核对命令")
+        block = blocks[0]
+        self.assertFalse(any(l.lstrip().startswith("#") for l in block.splitlines()), "原则 #35：命令块无注释行")
+        return block
+
+    def _run_with_fake_node(self, block, version):
+        bindir = tempfile.mkdtemp(prefix="fakenode_")
+        with open(os.path.join(bindir, "node"), "w") as f:
+            f.write(f"#!/bin/sh\necho {version}\n")
+        os.chmod(os.path.join(bindir, "node"), 0o755)
+        env = os.environ.copy()
+        env["PATH"] = bindir + os.pathsep + env.get("PATH", "")
+        return subprocess.run(["bash", "-c", block], capture_output=True, text=True, env=env, timeout=30)
+
+    def test_node_check_command_runs_and_shows_conclusion(self):
+        """行为级（原则 #35 补充）：27.5 的核对命令从文档抽出来用假 node 跑——26.5.0 须判区间外 rc=1，26.12.1 / 24.22.1 在区间 rc=0，24.16.0 / 25.9.0 区间外。"""
+        block = self._node_check_block()
+        for ver, ok in (("v26.5.0", False), ("v26.12.1", True), ("v26.13.0", True), ("v24.22.1", True),
+                        ("v24.16.0", False), ("v25.9.0", False), ("v24.99.0", True)):
+            r = self._run_with_fake_node(block, ver)
+            self.assertEqual(r.returncode, 0 if ok else 1, f"{ver}: rc={r.returncode} out={r.stdout!r} err={r.stderr!r}")
+            self.assertIn("在区间" if ok else "区间外", r.stdout, f"{ver}: 结论须可读")
+            self.assertIn(ver.lstrip("v"), r.stdout, f"{ver}: 输出须回显实测版本")
+
+
 class TestSameDayRunbook266(unittest.TestCase):
     """V37.9.373 同日 26.6：Mac Mini 实测 agents.list = research / ops / main 无标记 → dev 用 9.5 / 10.5 真 Doctor 实跑。
 
@@ -1332,7 +1468,7 @@ class TestSameDayRunbook266(unittest.TestCase):
 
     def setUp(self):
         self.doc = _read()
-        self.sec26 = self.doc[self.doc.index("## 第二十六节"):]
+        self.sec26 = _slice(self.doc, "## 第二十六节", "## 第二十七节")  # V37.9.375 起收紧到下一节（镜像 V37.9.366 sec24）
         self.s266 = self.sec26[self.sec26.index("### 26.6"):]
         self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
         self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
