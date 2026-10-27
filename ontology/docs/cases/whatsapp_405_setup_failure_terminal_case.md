@@ -131,3 +131,4 @@ openclaw channels status
   同时成立时调用 `restart.sh`（它本身走 launchctl kickstart，不另起管理者），有界：每 6 小时至多 1 次、每日上限 2 次，仍发告警；
   (c) 接受为 hold 的成本——上游 7.1 起建连阶段重试 12 次（issue #125673 日志），升级即消除此类终止，但升级受第二十七节判据门控。
 - **不改的**：案例三层根因、上游 issue 状态（10-27 未复核）、告警文案契约与守卫（`test_wa_channel_status.py`）均不变。
+- **恢复确认（2026-10-27 11:18 HKT）**：用户执行 `restart.sh`（Adapter / Proxy 1×2s、Gateway 2×3s 后 200）后经 WhatsApp 与 PA 正常对话 = 频道 connected，未扫码，凭据未动。第二次终止自 10-24 22:44 起停摆约 **60 小时**至恢复。a/b/c 决策仍待用户。
