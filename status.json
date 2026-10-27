@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-20 08:59:11",
+  "updated": "2026-10-27 02:31:14",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -79,6 +79,16 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-10-27",
+      "what": "V37.9.375 OpenClaw 第十六次升级评估（eval doc 第二十七节）：2026.10.6 / 10.7 触发；判据 ❌🔴❌——③ 由 ✅ 变 ❌（10.6 起 engines >=24.22.1 <25 || >=26.12.1，根因 Node 2026-10 安全发布 eMudhra 被攻破密钥非 SQLite；启动守卫 + update 预检执行），Mac Mini 26.5.0 区间外 → 行动 brew upgrade node 不等开窗；① 10.6 DIRTY 4 / 10.7 DIRTY 1 计数仍 0；② 3.64 / 1.79 天 🔴 4 周窗 2.5/周；dist 七个门控函数 10.5↔10.7 逐字同 + docs 对比 4 条 → 无新默认自主行为前置 C 仍 18；26.6 升级路径文档对比首次执行桥接 2026.9.5 未变；tripwire 41/50。守卫 336: 121→132（+Sixteenth 11，含 27.5 Node 核对命令假 node 两向真跑），sabotage 八连开火；LAST_EVAL_DATE 10-27；VERSION 0.37.9.188 不变",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-10-27",
+      "what": "WhatsApp 第二次建连阶段终止 triage（用户转发 08:30 告警 116 次掉线）：10-24 22:44 HKT 408 握手超时 → 4.27 isRetryableAuthUnstableError 只认 auth-unstable → stopped（与 10-20 405 同路径）；跨周末 58h 无人处理；V37.9.374 告警文案生产生效；处置 restart.sh 不扫码；案例追记 + 用户三选一（人工 / 有界自动 restart / hold 成本）登记 unfinished [82]",
+      "by": "claude_code"
+    },
     {
       "date": "2026-10-20",
       "what": "V37.9.374 WhatsApp 405 停摆 12.5h triage: 02:28 服务端 428 → 4.27 重建连接取 WA 版本号失败静默回退 rc.9 内置旧版本 → 握手 405 → 建连阶段失败不重试直接 stopped（上游 openclaw#125673 未修, 10.5 同路径）。用户 curl 版本号源可达 → restart.sh → connected（H1 坐实）。修: wa_channel_status.py 加 action 段（not linked/401/403/419/logged out → login, 其余 → restart）, wa_keepalive 告警按状态给恢复建议（未知值落重启）; 案例 whatsapp_405_setup_failure_terminal_case.md; test_wa_channel_status 46→57",
@@ -251,7 +261,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-10-20 08:46:44",
+      "checked_at": "2026-10-27 02:10:09",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -285,7 +295,7 @@
     }
   },
   "session_context": {
-    "last_session": "2026-10-12",
+    "last_session": "2026-10-27",
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -307,7 +317,7 @@
       "V37.9.214 governance 审计间歇 fail — root-cause + B2 均已修 (剩 Mac Mini bash3.2 验证 + 潜在类): 根因 INV-REVIEW-001 kb_review.sh subprocess 负载超时 💥 已修 (timeout 45→90 + TimeoutExpired inconclusive)。 B2 假 FATAL line=101 = bash 3.2 errtrace re-enable landmine (3 次复发 whack-a-mole, dev bash5.x 不复现) 已日落法根治 (set +E 一次不再 re-enable, errexit+顶部 set -eEuo 保留)。 🔴 B2 修复只能 Mac Mini bash 3.2 验证: 同步后观察后续冷/负载失败是否还伴 FATAL 假告警 (预期消失); 仍出现则 bash -x ~/governance_audit_cron.sh 2>/tmp/gac_x.txt 抓 trace。 (潜在类, 不盲修) INV-WATCHDOG-SELF-001 6× 并行 ❌ = 自并行争用 artifact 非生产; '治理 runtime check 对负载敏感' 待系统性评估。 (清陈旧) bash ~/governance_audit_cron.sh 现全过写 pass 清 watchdog flag。 ｜✅ V37.9.285 (2026-08-03) 系统性评估兑现: yaml 结构化扫描 53 个 subprocess 型 runtime check 全量排查 (仅 2 个已硬化=历史真开火者, 44 个带 timeout 无 handler 同族裸奔), 执行器单点收口 (_exec_python_assert/_exec_command_succeeds/_exec_env_var_exists 各加 TimeoutExpired→skip+[LOAD-TIMEOUT], 零 yaml 编辑 44 check 一次性免疫); INV-WATCHDOG-SELF-001 并行 ❌ 为 fail-类争用 artifact 非 💥-类, 维持登记不动。剩 Mac Mini 被动观察: 负载日 07:00 审计出 ⏭ [LOAD-TIMEOUT] 行而非 💥。",
       "【2026-07-03 observer/治理/watchdog triage · findings 全部闭环 (V37.9.232-235/240) · 剩被动观察】(a) ✅ V37.9.247 兑现: 07-05 07:00 第二次再现 (07-03见/07-04干净/07-05再现=间歇负载) → 按预注册 V37.9.214 模式硬化两 runtime check (timeout 120→240 + TimeoutExpired→inconclusive+门控)。剩 Mac Mini 被动观察: 下次 07:00 不再 💥 + watchdog 治理 CORE 告警消失 (b) freight last_run 应已 07-03 14:00 自愈转 ok (仍 llm_failed=新问题贴我) (c) 修复生效信号: dblp 推送无「推测采用XX模型」类字眼 (V37.9.234) / last_run_deep_dive.json 见 banned_recent + 一周后 full-text 比例回升 (V37.9.233) / observer 报告 arxiv 截断 finding 消失 (V37.9.235) + dream 远期信号带「长期背景」标注 (V37.9.235) / observer deep_dive_repeat 告警仅违规时出现 (V37.9.240)。",
       "V37.9.236 follow-up: (a) Mac Mini 观察 alerts.log 不再新增 FATAL line=101 (下次告警推送撞冷调用即验证) (b) scanner 第8 pattern 候选诚实登记不现建 — sourced-lib $() 设计性可失败命令需跨文件 source-graph 分析=新机器, 11个 targeted 守卫已封死唯一日常失败站点(日落法); 若未来再有 sourced-lib 假 FATAL 实例再评估",
-      "【OpenClaw 升级判据跟踪 · 第十五次评估 (2026-10-20, V37.9.373) · 结论=继续 hold · 判据 ❌🔴✅】tripwire [2/6] 触发日（现行口径 52/50）按 23.5 预注册由用户选「改口径」→ check_upgrade 只数主线 minor stable（-N patch 与维护线 tag 分桶列出不计入, MAINT_PATCH_MIN=32），读数 39/50，按 2.25/周约 11 月下旬再触发 = 主线口径真信号, 届时按第二十六节判据再评估。① 10.3 DIRTY 4 / 10.4 hotfix 分支直判 DIRTY 1 / 10.5 DIRTY 21 计数仍 0 / ② 1.34·2.43·2.89 天 🔴 / ③ engines 自 9.3 起十二版逐字同。前置 C 15→18（owner-conversation automation repair 默认开 → cron.failureAlert.enabled:false / exec 空输出完成事件 → notifyOnExitEmptySuccess:false / 多 agent 入站兜底改变 → 首次启动前显式 WhatsApp binding）+ 开窗前全量 docs 基线（4.27→10.5 实测 1,669 条，目标版本确定后做）。下次跟踪点 = 下一个 stable：19.8 协议 ① + 与 10.5（10-18 21:16Z）间隔 ② + engines ③ + 候选来源 = changelog ∪ 26.4 docs 默认值增量对比 ★；三项全同且无新默认自主行为 → 追加 26.6 不新开节不重置 LAST_EVAL_DATE。详见 eval doc 第二十六节 26.5。 【同日 26.6 更正】第 18 项动作由「首次启动前显式 WhatsApp binding」改为「首次 Doctor 前给 research 加 default:true」（dev 真 Doctor 实跑：不加标记经桥接 → WhatsApp 落 main + workspace-main）；另新增前置 D 两段式升级：目标版本自带 docs 要求 2026-07-01 前的安装先升 2026.9.5 跑 Doctor 再升目标（9.7 起写入，此前四次评估漏核；10.x 对退役状态文件不导入、原样留着）→ 7.3 改为桥接→Doctor→目标→Doctor，7.4 加归属核对命令；方法补丁 = 每次整份对比升级路径文档；下次追加读数位置改为 26.7。 【同日后记】前置 C 第 18 项的标记已在 Mac Mini 加上并核对（research default: True / health 200），开窗当天复核即可勾选。",
+      "【OpenClaw 升级判据跟踪 · 第十六次评估 (2026-10-27, V37.9.375) · 结论=继续 hold · 判据 ❌🔴❌】2026.10.6 / 10.7 触发 26.5 跟踪点：① 10.6 DIRTY 4 / 10.7 DIRTY 1 计数仍 0；② 3.64 / 1.79 天 🔴，4 周窗主线 2.5/周历次最高；③ 由 ✅ 变 ❌：10.6 起 engines.node 收紧为 >=24.22.1 <25 || >=26.12.1（Node 2026-10 安全发布拒绝 eMudhra 被攻破密钥签发的 TLS 链，非 SQLite；10.6+ 启动守卫 assertSupportedRuntime / Gateway 运行时选择 / openclaw update 预检三处执行），Mac Mini 26.5.0 在区间外 → 新开第二十七节。🔴 Mac Mini 动作不等开窗：brew upgrade node → 27.5 核对命令 ≥26.12.1 → restart.sh 三服务健康（4.27 守卫只要 ≥22.14.0，07-24 同款验证）→ 做完告诉我把 ③ 记回 ✅。无新默认自主行为（七个门控函数 10.5↔10.7 哈希归一化后逐字同 + docs 对比仅 4 条 ★ 1 登记不入）→ 前置 C 保持 18 + 1 全量基线；26.6 升级路径文档对比首次执行：桥接 2026.9.5 未变；前置 B：exports 零删除、weixin 2.4.10 主导入全可解析。持有成本 55 stable（主线 41 / 维护线 11 / -N 3）、tripwire [2/6] 41/50 剩 9 约 11 月下旬触发、weixin 落后 5 版 / 127 天。下次跟踪点 = 下一个 stable：19.8 协议 ① + 与 10.7（10-24 07:36Z）间隔 ② + engines ③ 且记 Mac Mini 实际 node 是否 ≥26.12.1（③ 两半）+ 候选来源 changelog ∪ 26.4 docs 对比 ★ ∪ 26.6 升级路径文档对比；三项全同且无新默认自主行为 → 追加 27.6 不新开节不重置 LAST_EVAL_DATE。详见 eval doc 第二十七节 27.5。",
       "【2026-07-08 长 session Mac Mini 被动验证】同步后观察: (a) V37.9.260 ban-list 边界: 次日 deep_dive/dream 恰-14-天前论文/主题正确被 ban + observer deep_dive_repeat 恰-14-天误报消失 (b) V37.9.261 observer 降级桶: 次日 06:30 报告降级段自区分「无 OA 全文(结构性)」vs「PDF 抓取错误(HTTP/超时)」 (c) V37.9.263 OpenAlex 已回退 S2-only, deep_dive 闭源论文降级 abstract_only 正确。deep_dive 降级结论=接受现实(残余=真闭源 ACM/Elsevier 无 OA + 发布方反爬 MDPI/ScienceDirect 403, OA 解析器打不穿, 实测 0/7)。一周后可选复核 grep 抓取降级原因确认 ban-list 去重复后降级率下降(非 OpenAlex)。",
       "deep_dive OA 全文解析 follow-up (V37.9.183/184) — (1) ✅ 已闭合(V37.9.261/263): Mac Mini grep 实证降级主体=结构性付费墙(no PDF URL derivable, ACM/Elsevier 无 OA 版)非 fetch-path bug, ban-list(V37.9.260)是真杠杆; V37.9.262 OpenAlex 第二源 Mac Mini 实测 0/7 恢复且净负→V37.9.263 回退; 降级率下降 thesis 被证伪, 残余=接受现实(不爬付费墙). (2) 历史 KB 条目仍 PII link(仅新论文受益, V37.9.132 局限, 不补). (3) ✅ V37.9.186: pwc 死路径退役 + TIER↔registry drift 守卫.",
       "【H1-C / C2 (Q4, gated) · C1 选型已完成 V37.9.253】第二实例最小闭环真跑 = 非 Mac Linux host 上 E2E 绿: minimal_runtime + governance cron + 1-2 内容 job(arxiv/dblp) 真抓取→LLM→Discord + cron+nohup 重启存活。选型=PUSH-only 纯推送(绕 Gateway/WhatsApp/sessions), 见 docs/second_instance_poc_selection_20260707.md §5 验收标准。C2 前置(§3, 均可枚举无未知): 持久 Linux host(VPS/容器) + 可达 LLM 端点(REMOTE_BASE_URL) + Discord bot token/channel(DISCORD_CH_*) + 唯一真需新建=Linux bootstrap 脚本(装 py 依赖+起 adapter/proxy nohup+写 crontab, 并行 install_openclaw_macmini.sh)。C3=portability report EN/ZH 证据型文章(对两次评审可迁移性批评终局回答)。",
@@ -381,7 +391,7 @@
       "【V37.9.371 被动观察】部署与首晚已验证（10-08 用户实跑）：运行副本与仓库副本修复特征均在（5/5）；10-07 22:00 evening ok / 22:30 deep_dive ok（前晚 parse_error）；当晚无 collector stderr 行（abstract_only 未解析 PDF，与预期一致）。剩余仅被动观察：日后某晚日志首次出现「collector stderr: N 行」而 last_run 仍为 ok = 修复路径在生产真实生效，可顺手对账一次。另 finance_news Yahoo Finance 404（10-07 首见）观察一周，持续则按 V37.9.266 NBER 先例剔除。",
       "【低优登记 · 2026-10-12 V37.9.372 收工发现】test_gen_readme_badges.test_write_is_idempotent 对真仓库执行 `gen_readme_badges.py --write`：徽章过期时（每次 CLAUDE.md 版本头先于徽章更新）会在 full_regression 中途改写 README/FEATURES/config.md → 工作树变脏 → 第 3.5 层混沌审计按「工作树不干净」跳过，只留一行 ⚠️（本日第一轮实录）。规避：提交前先 `gen_readme_badges.py --write` 预置徽章再跑回归。根治已作为独立任务建议提出（改为临时副本上跑 + 守卫真仓库文件不变），未在 V37.9.372 内扩大范围。",
       "【V37.9.373 Mac Mini 被动验证】合并同步后：10-26 周一 09:10 check_upgrade 应显「[2/6] 版本差距: 39+/50 主线 stable (剩 …; 另维护线 … / -N patch … 不计入)」且不推送 Discord 告警（若当周上游主线又发版，读数随之 +1）；可选跑 eval doc 7.2 两条只读命令记录 agents/bindings 与 openclaw cron 任务现状（PA 是否建过 announce 模式且带 session 的任务 = 前置 C 第 16 项的作用对象）。 【2026-10-20 已执行】用户已跑 7.2 两条只读命令（agents.list research/ops/main 无标记无 bindings；openclaw cron 仅 session-cleanup-daily 停用无 session → 第 16 项当前无对象）。剩余被动验证 = 10-26 check_upgrade 读数。可选（零行为变化）：给 research 加 default:true，见 unfinished [9]。",
-      "【V37.9.374 下次 OpenClaw 升级评估纳入】(a) 4.27 建连阶段失败（含 405）对监听循环是终止性的, 一次失败即 stopped 不重试; 7.1+ 建连失败也重试 12 次 = hold 的具体成本 (b) 上游 openclaw#125673（取版本号失败静默回退内置版本 → 405）在 10.4/10.5 仍未修, 升级不能消除, 只能缩短停摆 (c) 内置版本号随时间静默过期 = 无代码变化即可触发的持有成本 (d) 对 V37.9.358 的补充: 09-22 停摆推断同一机制（建连失败码未取证）。Mac Mini: 合并同步后 wa_keepalive 下次频道告警应按状态给恢复建议; WhatsApp 已恢复, 积压 30 条随下次推送补发。"
+      "【WhatsApp 建连阶段终止 · 第二次发生 (2026-10-24 22:44 HKT, 408 握手超时, 跨周末 58h / 116 次 WARN) · 用户决策项】V37.9.374 的「下次评估纳入」已在第二十七节 27.4 收益侧兑现（10.6 #142434 是消息重试非建连重试，与两次建连终止无关；7.1+ 建连重试 12 次仍是 hold 成本）。4.27 dist 实读：isRetryableAuthUnstableError 只认 whatsapp-auth-unstable，其余建连失败 rethrow → markStopped → stopped（405 / 408 同一路径）。V37.9.374 告警文案在生产生效（08:30 告警已给 restart 建议）。🔴 请用户三选一：(a) 维持人工处置（告警到了再 restart.sh）；(b) wa_keepalive 在「Gateway /health 200 + 频道 linked + 状态 stopped」同时成立时有界调用 restart.sh（每 6h ≤1 次、每日 ≤2 次、仍发告警；restart.sh 走 launchctl kickstart 不另起管理者，但自动重启是新故障面 原则 #8/#34）；(c) 接受为 hold 成本，升级受第二十七节判据门控。V37.9.374「刻意不自动重启」是在一次事故的数据上做的判断，现在是 4 天两次 + 58h，本版只登记不改决定。案例追记见 whatsapp_405_setup_failure_terminal_case.md「追记（2026-10-27）」。Mac Mini：restart.sh 后 openclaw channels status 应 connected；若 WhatsApp 推送有积压，下次 notify 调用自动重放队列，或手动 notify_queue_flush。"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -390,8 +400,8 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6782,
-    "last_regression": "2026-10-20 08:58 pass",
+    "test_count": 6793,
+    "last_regression": "2026-10-27 02:30 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 206,
@@ -462,7 +472,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-10-20: OpenClaw 第十五次评估完成 (第二十六节, 继续 hold). tripwire [2/6] 触发日处置: 用户选改口径 → 主线 minor stable 52→39. 前置 C 15→18 + 开窗前全量基线; 更正 25.7 (repair 代码 10.1 起即在, changelog 未写) → 候选来源补 docs 默认值对比. 剩余: 论文 #2 期刊路线独立步骤 / cs.AI cross-list (若未勾选) / influence_metrics 纳入待首次可比引用. 被动验证: V37.9.373 check_upgrade 主线口径 / V37.9.365 周报模型行 / WAF 418 重试 / DBLP [69] / V37.9.370-371.",
+  "focus": "2026-10-27: OpenClaw 第十六次评估完成 (第二十七节, 继续 hold ❌🔴❌). 判据 ③ 由 ✅ 变 ❌: 10.6 起 Node 下限 >=24.22.1/>=26.12.1 (Node 2026-10 安全发布), Mac Mini 26.5.0 在区间外 → 🔴 brew upgrade node 不等开窗 + restart.sh 验证. 无新默认自主行为, 前置 C 保持 18. WhatsApp 第二次建连终止 (10-24 408, 跨周末 58h) → restart.sh 不扫码 + 用户三选一 (人工 / 有界自动 restart / 接受为 hold 成本). 剩余: 论文 #2 期刊路线 / influence_metrics 纳入待首次可比引用. 被动验证: V37.9.373 check_upgrade 主线口径 / V37.9.365 周报模型行 / WAF 418 重试 / DBLP [69] / V37.9.370-371.",
   "notes": "",
   "preferences": [
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",

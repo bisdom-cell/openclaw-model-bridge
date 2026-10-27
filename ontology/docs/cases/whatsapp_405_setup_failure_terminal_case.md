@@ -113,3 +113,21 @@ openclaw channels status
 ```
 
 只有重启后状态显示 `not linked`，才执行 `openclaw channels login --channel whatsapp`。
+
+## 追记（2026-10-27）：四天后第二次发生——同一终止路径，不同触发码
+
+- **事件**：2026-10-24 22:44 HKT（`2026-10-24T14:44:45.083Z`）WhatsApp 建连阶段 WebSocket 握手超时，Baileys 以 Boom **408**
+  `Request Time-out / WebSocket Error (Opening handshake has timed out)` 关闭 → 4.27 的 monitor catch 只对 `whatsapp-auth-unstable`
+  重试（4.27 dist `monitor-*.js` 实读：`isRetryableAuthUnstableError` 只认 `WhatsAppAuthUnstableError` 或 `code === "whatsapp-auth-unstable"`），
+  其余 rethrow → `finally markStopped()` → `stopped`。与 10-20 的 405 完全同一条路径，只是触发码从「握手被拒」换成「握手超时」；
+  凭据仍有效（`stopped` 非 `logged-out`）。
+- **时长**：wa_keepalive 连续 **116** 次 WARN（30 min × 116 ≈ 58 小时），从周五夜跨整个周末到周二 08:30；按 V37.8.13 节奏
+  Discord #alerts 约每 3 小时升级一次 ≈ 19 条，全部送达、全部无人处理——告警「准时响」但在无人值守的时段等于没响。
+- **V37.9.374 的修复在生产生效**：用户转发的 08:30 告警正文已是按状态分的建议（`stopped` + linked → 先 `restart.sh`，不要扫码；
+  `not linked` 才扫码），与本案例「恢复操作」一致。处置 = `bash ~/openclaw-model-bridge/restart.sh` → `openclaw channels status`。
+- **新数据点**：4 天内两次建连阶段终止（405 / 408），两次都在夜间，第二次横跨周末。10-20 版刻意不做自动重启（launchd 单一管理者 V37.9.13
+  + 原则 #8/#34 自动重启是新故障面）；这个判断是在「一次事故」的数据上做的，现在是两次 + 58 小时。**不在本追记里改决定**，
+  登记为用户决策项（status.json unfinished）：(a) 维持人工处置；(b) wa_keepalive 在「Gateway `/health` 200 + 频道 linked + 状态 stopped」
+  同时成立时调用 `restart.sh`（它本身走 launchctl kickstart，不另起管理者），有界：每 6 小时至多 1 次、每日上限 2 次，仍发告警；
+  (c) 接受为 hold 的成本——上游 7.1 起建连阶段重试 12 次（issue #125673 日志），升级即消除此类终止，但升级受第二十七节判据门控。
+- **不改的**：案例三层根因、上游 issue 状态（10-27 未复核）、告警文案契约与守卫（`test_wa_channel_status.py`）均不变。
