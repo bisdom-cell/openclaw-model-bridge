@@ -1606,7 +1606,10 @@ class TestAppendReading276(unittest.TestCase):
         self.assertIn("N/A_NO_CONTENT", out)
         self.assertNotIn("VERDICT=CLEAN", out)
         self.assertRegex(out, r"semantic_entries=0 narrative=0 ")
-        self.assertRegex(out, r"inline_pr_refs=33$", "fixture 的行内引用须与真实 10.9 的读数 33 一致（否则对门槛的行为级守卫可能空转）")
+        # 整行 pin（(?m) 多行模式——首版用无 MULTILINE 的 `$`，输出后面还有 VERDICT 行所以永远不匹配，
+        # 这条测试在未 sabotage 时就是红的，使第一次 S8「开火」无效；修后先证未 sabotage 时绿，再证 sabotage 时红）。
+        self.assertRegex(out, r"(?m)^semantic_entries=0 narrative=0 described_pr=0 bare_pr=48 inline_pr_refs=33$",
+                         "fixture 的行内引用须与真实 10.9 的读数 33 一致（否则对门槛的行为级守卫可能空转）")
         rc2, out2 = runner._run(self._shape_10_9(with_sqlite=False))
         self.assertEqual(3, rc2, out2)
         self.assertNotIn("VERDICT=CLEAN", out2, "无粗体 bullet 的小版本不得被读成干净（不可判 ≠ 干净）")
