@@ -1339,7 +1339,10 @@ class TestSixteenthEvaluationPresent(unittest.TestCase):
     def setUp(self):
         self.doc = _read()
         self.head = self.doc[:self.doc.index("## 一、版本概览")]
-        self.sec27 = self.doc[self.doc.index("## 第二十七节"):]
+        # V37.9.377 演进（镜像 V37.9.366 / V37.9.373 切片收紧）：原切到文末；27.6 追加读数加入后切到 "### 27.6"，
+        # 第十六次评估自身（27.1–27.5 + 同日后记）的覆盖范围不变，误记黑名单不扫到追加读数（它如实记 ③ ✅）。
+        tail = self.doc[self.doc.index("## 第二十七节"):]
+        self.sec27 = tail[:tail.index("### 27.6")] if "### 27.6" in tail else tail
         self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
         self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
 
@@ -1347,9 +1350,16 @@ class TestSixteenthEvaluationPresent(unittest.TestCase):
         self.assertEqual(_latest_eval(self.doc), ("第二十七节", "十六", "2026-10-27"))
         for sub in ("### 27.1", "### 27.2", "### 27.3", "### 27.4", "### 27.5"):
             self.assertIn(sub, self.sec27, f"第二十七节缺 {sub}")
-        self.assertNotIn("### 27.6", self.sec27, "27.6 是下一次追加读数的位置，本次不得预先出现")
+        # V37.9.377 演进（V37.9.131 alternation）：原断言「27.6 不得预先出现」是第十六次评估当时的状态；
+        # 2026-11-02 的 10.8 / 10.9 读数按日落规则追加 27.6 后，改为断言它只能以追加段形态存在于第二十七节内部，
+        # 且不得伪造第二十八节。意图（27.6 只能由下一次读数产生）不变。
+        tail = self.doc[self.doc.index("## 第二十七节"):]
+        self.assertIn("### 27.6", tail, "27.6 追加读数须位于第二十七节内部")
+        self.assertNotIn("## 第二十八节", self.doc, "追加读数不得伪造成新评估节")
         self.assertIn("十六次评估", self.head)
-        self.assertIn("2026.10.7", self.head, "头部当前态须记上游 latest 2026.10.7")
+        # V37.9.377 演进：原 pin「头部当前态须记上游 latest 2026.10.7」是第十六次评估当时的状态；10.8 / 10.9 追加读数后
+        # 当前态的 latest 由 TestAppendReading276 钉 2026.10.9，本类改为钉第十六次评估的对象 10.6 / 10.7 仍在头部（意图：头部记录本次评估对象，不变）。
+        self.assertIn("10.6 / 10.7", self.head, "头部须保留第十六次评估的对象 10.6 / 10.7")
 
     def test_new_section_justified_by_criterion3_change(self):
         heading = self.sec27.splitlines()[0]
@@ -1456,6 +1466,153 @@ class TestSixteenthEvaluationPresent(unittest.TestCase):
             self.assertEqual(r.returncode, 0 if ok else 1, f"{ver}: rc={r.returncode} out={r.stdout!r} err={r.stderr!r}")
             self.assertIn("在区间" if ok else "区间外", r.stdout, f"{ver}: 结论须可读")
             self.assertIn(ver.lstrip("v"), r.stdout, f"{ver}: 输出须回显实测版本")
+
+
+class TestAppendReading276(unittest.TestCase):
+    """2026.10.8 / 10.9 追加读数（V37.9.377，2026-11-02）的落地守卫。
+
+    两个 stable 在 10.7 之后 5 天内发布；三条判据与第二十七节 10-27 后记记录的状态逐项相同（❌🔴✅），
+    按 25.5 口径经 dist 核实无新默认自主行为 → 按日落规则只追加 27.6，不新开第二十八节、不重置 LAST_EVAL_DATE。
+    本类钉住：追加段形态 / 判据如实（含 ③ 的变化归属于 10-27 后记而非本次读数）/ 10.9 hotfix 分支边际披露且结论不依赖 /
+    七个门控函数复查 + 前置 C 不变 / 候选登记不入不得混进前置 C / 26.6 升级路径文档对比 + 前置 B 复查 / 20.4 表行 /
+    持有成本与 tripwire 读数 / **MR-8 跨文件**：check_upgrade.sh 的 LAST_EVAL_DATE 不得随追加读数重置、
+    `tools.fs.workspaceOnly` 登记不入的依据（我方文档零引用）/ **行为级**：10.9 形态（无粗体 bullet + 48 裸 PR）的
+    changelog 喂 19.8 协议必须 rc=3 不可判而不是 CLEAN。
+    """
+
+    def setUp(self):
+        self.doc = _read()
+        self.head = self.doc[:self.doc.index("## 一、版本概览")]
+        self.sec27 = self.doc[self.doc.index("## 第二十七节"):]
+        self.s276 = _slice(self.sec27, "### 27.6", "\n---\n")
+        self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
+        self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
+
+    def test_appended_not_new_section(self):
+        """三项判据全同 + 无新默认自主行为 → 追加读数：最新评估节仍是第二十七节（2026-10-27），不得出现第二十八节。"""
+        self.assertEqual(_latest_eval(self.doc), ("第二十七节", "十六", "2026-10-27"))
+        self.assertIn("### 27.6", self.sec27, "27.6 必须位于第二十七节内部（追加段）")
+        self.assertNotIn("## 第二十八节", self.doc, "追加读数不得伪造成新评估节")
+        first = self.s276.splitlines()[0]
+        for kw in ("不新开节", "不重置 LAST_EVAL_DATE", "后记记录的状态全同", "无新默认自主行为"):
+            self.assertIn(kw, first, f"27.6 标题须写明追加理由「{kw}」")
+        self.assertIn("10.8 / 10.9 追加读数", self.head, "头部评估列表须记本次追加读数")
+        self.assertIn("27.6", self.head)
+        self.assertIn("2026.10.9", self.head, "头部当前态须记上游 latest 2026.10.9")
+        self.assertIn("10.6 / 10.7 见第二十七节", self.head, "当前态须仍指向第十六次评估的对象 10.6 / 10.7（只追加不改写）")
+
+    def test_criteria_recorded_honestly(self):
+        for kw in ("3.16", "2.18", "🔴", "DIRTY 2", "计数仍 0", "2.5/周", ">=24.22.1 <25 || >=26.12.1", "26.12.1",
+                   "两半", "逐字同", "第十八个"):
+            self.assertIn(kw, self.s276, f"27.6 缺「{kw}」")
+        for bad in ("10.8 干净", "10.9 干净", "计数 1", "② ✅", "② 回 🟡", "③ ❌", "判据未变"):
+            self.assertNotIn(bad, self.s276, f"不得出现误记「{bad}」")
+        self.assertIn("❌🔴✅", self.s276, "结论行须如实记 ③ 为 ✅（Node 已升）")
+        self.assertIn("LAST_EVAL_DATE 保持 2026-10-27", self.s276)
+
+    def test_criterion3_change_attributed_to_postscript_not_this_reading(self):
+        """③ 由 ❌ 回 ✅ 是 10-27 后记登记的我方动作；27.6 走追加读数的依据是「相对后记记录的状态无变化」。
+        后记若被删，这个依据就没了——两段互为承重。"""
+        self.assertIn("判据 ③ 的我方侧自此回 ✅", self.sec27, "10-27 后记须保留（27.6 的追加依据）")
+        self.assertIn("本次读数相对后记记录的状态无变化", self.s276)
+        self.assertIn("Node 升级前的时点", self.s276, "须说明 27.5 正文 ❌🔴❌ 是时点快照而非被改写")
+        self.assertIn("❌🔴❌", self.sec27[:self.sec27.index("### 27.6")], "27.5 正文的 ❌🔴❌ 不得被改写（只追加不改写）")
+
+    def test_hotfix_branch_ambiguity_disclosed_with_invariant_conclusion(self):
+        """10.9 的 hotfix 分支适用有边际（含 workspaceOnly 作用面扩展）；须写明结论不依赖这个选择。"""
+        for kw in ("结论不依赖这个选择", "rc=3", "workspaceOnly", "不计入任一侧", "无粗体"):
+            self.assertIn(kw, self.s276, f"27.6 缺「{kw}」")
+
+    def test_gates_recomputed_and_prereq_c_unchanged(self):
+        for fn in ("resolveAgentToolSearchRuntimeConfig", "allowBots", "allowAcrossProviders", "failure-repair",
+                   "resolveFailureAlert", "resolveNotifyOnExitEmptySuccess", "resolveAgentRoute",
+                   "relocateNonBehavioralRegion", "assertSupportedRuntime"):
+            self.assertIn(fn, self.s276, f"27.6 须记录门控函数「{fn}」的复查结果")
+        self.assertIn("无新默认自主行为", self.s276)
+        self.assertIn("保持 18 项", self.s276)
+        self.assertIn("**18 项默认变更**", self.prereq)
+        self.assertEqual(self.prereq.count("- [ ]"), PREREQ_CHECKBOXES, "追加读数零新增前置项，清单计数不得变")
+
+    def test_candidates_registered_not_added_to_prereq_c(self):
+        for pr in ("#185094", "#180880", "#175945"):
+            self.assertIn(pr, self.s276, f"27.6 候选表缺 {pr}")
+            self.assertNotIn(pr, self.prereq, f"登记不入的 {pr} 不得进前置 C")
+        self.assertIn("登记不入", self.s276)
+
+    def test_workspace_only_rationale_grounded_in_our_config_docs(self):
+        """MR-8 跨文件：27.6 判定 `tools.fs.workspaceOnly` 不在我方面上的依据是「我方 openclaw.json 未设该键（仓库文档零引用）」。
+        docs/config.md 是 openclaw.json 的仓库侧记录；若未来开始登记该键，本守卫先红提醒复核 10.9 那条结论。"""
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "config.md")
+        with open(path, encoding="utf-8") as f:
+            cfg = f.read()
+        self.assertIn("openclaw.json", cfg, "防空转：docs/config.md 应是 openclaw.json 的仓库侧记录")
+        self.assertNotIn("workspaceOnly", cfg, "我方文档开始记录 tools.fs.workspaceOnly → 复核 27.6 的登记不入结论")
+        self.assertIn("仓库文档零引用", self.s276)
+
+    def test_upgrade_path_docs_comparison_and_prereq_b_rechecked(self):
+        for kw in ("桥接版本未变（2026.9.5）", "updating.md", "state-migrations.md", "config-migrations.md",
+                   "sqlite-maintenance.md", "不改 7.x 两段配方", "plugin host links"):
+            self.assertIn(kw, self.s276, f"27.6 升级路径文档对比缺「{kw}」")
+        for kw in ("零删除零新增", "347", "2.4.10", "前置 B 不变"):
+            self.assertIn(kw, self.s276, f"27.6 前置 B 复查缺「{kw}」")
+        prereq_d = [l for l in self.prereq.splitlines() if "前置 D" in l]
+        self.assertTrue(prereq_d and "2026.9.5" in prereq_d[0], "前置 D 桥接版本须仍为 2026.9.5")
+
+    def test_protocol_table_rows_appended(self):
+        t = _slice(self.doc, "### 20.4", "### 20.5")
+        self.assertIn("| **2026.10.8**（2026-11-02 追加读数） | **28** | 0 | 162 | **28** | **167** |", t)
+        self.assertIn("| **2026.10.9**（2026-11-02 追加读数） | **0** | 0 | 48 | **0** | **33** |", t)
+        row109 = next(l for l in t.splitlines() if l.startswith("| **2026.10.9**"))
+        self.assertIn("rc=3 不计入", row109, "10.9 行须写明分支不适用时不计入")
+
+    def test_tripwire_and_holding_cost_recorded_without_changing_machine(self):
+        for kw in ("43/50", "主线 minor **43**", "维护线 13", "59", "11-23", "23.5", "不预先改机器", "133 天", "187 天",
+                   ">=2026.10.9"):
+            self.assertIn(kw, self.s276, f"27.6 缺持有成本 / tripwire 要素「{kw}」")
+
+    def test_check_upgrade_last_eval_date_not_reset_by_append(self):
+        """MR-8 跨文件：追加读数不重置正式评估日期——check_upgrade.sh 的默认 LAST_EVAL_DATE 须仍是 2026-10-27。"""
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "check_upgrade.sh")
+        with open(path, encoding="utf-8") as f:
+            src = f.read()
+        m = re.search(r'LAST_EVAL_DATE="\$\{OPENCLAW_LAST_EVAL_DATE:-(\d{4}-\d{2}-\d{2})\}"', src)
+        self.assertIsNotNone(m, "check_upgrade.sh 应有 LAST_EVAL_DATE 默认值")
+        self.assertEqual(m.group(1), "2026-10-27", "追加读数不得重置 LAST_EVAL_DATE（_latest_eval 与 tripwire 语义漂移）")
+        self.assertEqual(_latest_eval(self.doc)[2], m.group(1))
+
+    @staticmethod
+    def _shape_10_9(with_sqlite=True):
+        """10.9 形态：Highlights / Fixes 是无粗体 `- ` bullet，贡献记录 48 条裸 PR 行，行内引用 ~33 个。"""
+        hi = [f"- Patch item {i} describing a maintenance fix. (#{185000 + i}) Thanks @x." for i in range(7)]
+        if with_sqlite:
+            hi[4] = "- Recover intact agent databases and stale full-text indexes after SQLite tokenizer changes. (#176234) Thanks @x."
+        # 行内引用对齐真实 10.9 的读数 33（7 + 13×2）：首轮 sabotage（门槛 50→30）没开火，因为 fixture 只有 29 个引用够不着 30——
+        # sabotage 本身也要验证真变异了（V37.9.354 S7 同款）；下面的 assertRegex 钉死 33，防 fixture 再漂到门槛之下。
+        fx = [f"- Fix item {i} for a narrow regression. (#{184000 + i}, #{183000 + i}) Thanks @y." for i in range(13)]
+        bare = [f"- **PR #{186000 + i}** Thanks @z." for i in range(48)]
+        return ("# Changelog\n\n## 0.0.0\n\n### Highlights\n\n" + "\n".join(hi) +
+                "\n\n### Changes\n\nThis maintenance release focuses on security dependency patches, recovery, data preservation, and reliability fixes.\n\n"
+                "### Fixes\n\n" + "\n".join(fx) +
+                "\n\n### Complete contribution record\n\nThis audited record covers 48 in-range PRs + 0 retained seed-only PRs = 48 unique PRs.\n\n"
+                "#### Pull requests\n\n" + "\n".join(bare) + "\n")
+
+    def test_protocol_on_10_9_shape_is_not_decidable_not_clean(self):
+        """行为级：10.9 形态喂 19.8 协议 → rc=3 不可判（叙述条目 0 + 行内引用 < 50），且绝不输出 CLEAN——
+        即使含 SQLite 关键词也不计 DIRTY（不可判优先）；hotfix 分支的内容直判由执行者按自述数字做，协议块本身不改。"""
+        TestCriterion1ProtocolBehavior.setUpClass()
+        runner = TestCriterion1ProtocolBehavior("test_skeleton_is_not_decidable")
+        rc, out = runner._run(self._shape_10_9(with_sqlite=True))
+        self.assertEqual(3, rc, out)
+        self.assertIn("N/A_NO_CONTENT", out)
+        self.assertNotIn("VERDICT=CLEAN", out)
+        self.assertRegex(out, r"semantic_entries=0 narrative=0 ")
+        # 整行 pin（(?m) 多行模式——首版用无 MULTILINE 的 `$`，输出后面还有 VERDICT 行所以永远不匹配，
+        # 这条测试在未 sabotage 时就是红的，使第一次 S8「开火」无效；修后先证未 sabotage 时绿，再证 sabotage 时红）。
+        self.assertRegex(out, r"(?m)^semantic_entries=0 narrative=0 described_pr=0 bare_pr=48 inline_pr_refs=33$",
+                         "fixture 的行内引用须与真实 10.9 的读数 33 一致（否则对门槛的行为级守卫可能空转）")
+        rc2, out2 = runner._run(self._shape_10_9(with_sqlite=False))
+        self.assertEqual(3, rc2, out2)
+        self.assertNotIn("VERDICT=CLEAN", out2, "无粗体 bullet 的小版本不得被读成干净（不可判 ≠ 干净）")
 
 
 class TestSameDayRunbook266(unittest.TestCase):
