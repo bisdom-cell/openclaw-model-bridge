@@ -1,0 +1,136 @@
+row,version,date,kind,discovery_channel,title,note
+0,V37.9.99-pkg,2026-06-02,feature,,ontology-engine pip 包化第一块 (Phase 5 chunk 1 — 终极目标奠基),
+1,V37.9.99-docs,2026-06-02,docs,self-observation,failure_modes_catalog 单一权威版整合 (MR-8 兑现 + 外部评审 doc-drift 回应),"doc catalog duplicated; documentation defect, not production"
+2,V37.9.99,2026-06-02,feature,,"""全部执行""批次 — 🧹 清理重复 unfinished + #7 SLO 样本门槛 + #7 README 徽章自动生成 + #5 Opportunity Radar Stage 5 kb_radar（同 V37.9.98 session, 用户""全部执行清除所有能处理的待办""指令）",
+3,V37.9.98,2026-06-02,feature,,来源可信度评级 source_credibility.py — observer 5/28 proposal #2 兑现 (MR-7 治理自观察延伸 + V37.9.83 AI Partnership 闭环: observer 自己提议 → Claude 实施),"observer-proposed improvement, not a failure"
+4,V37.9.97,2026-06-01,feature,,services_to_launchd Plan B 升级 machine_sync — convergence framework 最后一个 alert_only spec 收尾 + per-spec dry-run (dry_run_default 字段功能化) + INV-CONVERGENCE-SERVICES-001 扩 +9 ,
+5,V37.9.96,2026-06-01,feature,,"INV-PROXY-PLIST-ENV-001 立 governance — proxy plist ARK env 守卫 (V37.9.91 Doubao expert_escalate 真生产缺口闭环, 镜像 V37.9.54 adapter plist 模式) + audit_metadata 计数漂移修 + 自洽守卫",governance guard following V37.9.91 deployment gap
+6,V37.9.95,2026-06-01,feature,,"ai_leaders_x 多元化扩展 19→31 跨 12 派别 (周一 #32 用户视角反馈第一次正向兑现, V37.9.92/93/94 后同 session 第 4 阶段)","user feedback (product), not a failure"
+7,V37.9.94,2026-06-01,feature,,"MR-15 framework 化 INV-CROSS-ENV-PATH-001 + V37.9.92 血案文档 (V37.9.92→93→94 三阶段同 session 闭环, scanner 首扫即抓 V37.9.91 隐藏 5th near-miss)",scanner framework; first scan caught a latent near-miss (not manifested)
+8,V37.9.93,2026-06-01,followup,,"Observer 采样 false-positive 修复 — Smart head+tail sampling + CRITIQUE_SYSTEM 明示采样 (V37.9.92 后用户视角""下一个遗留问题""驱动, V37.9.84 Observer 自我限制发现 + 修复双闭环)",observer sampling false positive; part of corpus #21 saga (two bugs in observer)
+9,V37.9.92,2026-06-01,corpus,self-observation,V37.9.88 Mac Mini 路径修复 + V37.9.84 status.json 闭环 (周一 Observer 数据驱动复盘 → 同 session 双 bug 闭环),corpus #21 observer path blind spot (V37.9.92)
+10,V37.9.90-r1,2026-05-29,feature,,Expert Escalation Capability 重设计 — Doubao backend (Claude pending) / 同 session 用户 push back 触发 redesign,
+11,V37.9.90,2026-05-29,feature,,(v1 路径 — 当日 redesigned 为 V37.9.90-r1) Claude Escalation Capability PoC (Direction 2),
+12,V37.9.89,2026-05-29,failure,llm-observer,LEVEL_6_DREAM_CROSS_DOMAIN_AWARE — Dream 反链式幻觉手术 (V37.9.84 observer 自发现 + 同日闭环),dream cross-domain necessity-chain fabrication; found by daily_observer LLM critique 5/28
+13,V37.9.88,2026-05-29,failure,log-forensics,"observer registry-driven enabled filter + stale last_run 检测 (V37.9.84 trend review 二级发现, MR-8 SoT 兑现)",observer hardcoded job list drift + false alarm; found by human trend review of observer data
+14,V37.9.87,2026-05-29,failure,log-forensics,daily_observer single-call architecture (P0 双写血案修),daily_observer double-write polluted score_history; found by operator reading data files
+15,V37.9.83,2026-05-20,feature,,"AI Partnership 战略沉淀 — 三大第一性原理 + 思想升华文档 + 三方向登记 deferred (Stage 2 → Stage 3 拐点, 今日不动代码)",
+16,V37.9.81,2026-05-19,followup,,MOVESPEED FDA 真生效 24h 数据回归闭环 + V37.9.30 取证盲区根因修复 (A + B 同 PR),corpus #3 24h regression closure
+17,V37.9.80,2026-05-18,corpus,log-forensics,MOVESPEED EPERM 60 天血案真因终结 — macOS TCC Sandbox 拒绝 cron 派生进程访问外置卷,corpus #3 TCC sandbox 60 days (V37.9.80)
+18,V37.9.79,2026-05-18,failure,user-view,SLO 三项修复（数据驱动诊断 9 轮，未盲改一次）— V37.9.78 周报暴露的 3 个用户感知问题闭环,weekly SLO report showed contradictory numbers; found by reading the pushed report
+19,V37.9.78-hotfix,2026-05-18,failure,operator-e2e,safe_call helper macOS BSD timeout 命令兼容性修复 — Mac Mini 实测同 session 30 分钟闭环,macOS lacks timeout cmd; found by operator running health_check after deploy
+20,V37.9.78,2026-05-18,feature,,"health_check.sh 周报重定位 v1.1 → v2.0 ""系统证据周报"" — 用户视角原则 #13 第 N+2 次正向兑现 + INV-HEALTHCHECK-001 立",user feedback (report too thin)
+21,V37.9.77,2026-05-18,feature,,Capability Router enforcement (?provider=X query param + ROUTER_ENFORCE env feature flag) — V37.9.76 PoC shadow → enforcement 框架就位,
+22,V37.9.76-hotfix,2026-05-18,failure,operator-e2e,router_decide.py deployment-layout 修复 — Mac Mini 首跑发现 PATH+FALLBACK 重合 silent fail,router_decide silent fail; found by Mac Mini first-run smoke test
+23,V37.9.76,2026-05-18,feature,,Capability-Based Dynamic Router PoC (shadow mode) — V3 路标 declarative capability framework 落地,
+24,V37.9.75,2026-05-18,failure,auto-check,kb_dream DEEP LLM partial content 修复 — DEEP retry 兜底（镜像 V37.9.74 RADAR retry 同款模式，用户决策 Option B）,Dream DEEP partial content; [SYSTEM_ALERT] fired 03:02 (user also noticed)
+25,V37.9.74,2026-05-17,failure,user-view,kb_dream RADAR LLM drift 修复 — 方案 2 prompt 强化 + 方案 3 retry 兜底（用户决策 A 路径，B 路径 doubao 试水登记 V37.9.75）,Dream RADAR drift two days <600 chars; user asked why
+26,V37.9.73,2026-05-17,failure,user-view,kb_dream split_dream_into_chunks 生产 caller 形态修复 — V37.9.68-hotfix 测试盲区闭环（MR-4 silent-failure 第 28 次演出 + V37.9.66 类别 B 第 N+1 次演出 + 用户视角原则 #13 第 21 次正向兑现）,Dream only 3 windows two days; user reported
+27,V37.9.72,2026-05-15,failure,auto-check,(i) CORE 项调查闭环 — 治理审计契约对齐 + auto_deploy 阈值修 V37.9.59 设计错配,watchdog CORE alerts (false positives from cross-script contract mismatch)
+28,V37.9.71,2026-05-15,docs,,(g) README 其他 badge 数字漂移修复 — long-term doc rot 清零,
+29,V37.9.70,2026-05-15,docs,,(e) README 8 providers 漂移修 — V37.9.52 doubao 加入但 README 未刷新外部评审 P0 兑现,
+30,V37.9.69,2026-05-15,dev,,"B+C 双修闭环 — V37.9.69+ 候选 (b)(c) 兑现, 历史遗留测试漂移 + bash 计数 bug 短工作量低风险双修",test drift + bash count bug in test tooling
+31,V37.9.68-hotfix,2026-05-15,failure,user-view,Mac Mini 5/15 03:00 cron 真激活验证发现 4 段被合并成 3 chunks 血案修复（V37.9.66 类别 B 设计假设错配 + 用户视角原则 #13 第 20 次正向兑现）,WhatsApp [3/3] instead of [4/4]; user reported
+32,V37.9.68,2026-05-14,failure,user-view,Agent Dream 三阶推送重设计 — Qwen-BIM 连续几周血案闭环 + 6 因子涌现行为防御（MR-4 第 26 次演出新形态）,Dream repeated Qwen-BIM theme for weeks; user noticed
+33,V37.9.67,2026-05-13,feature,,P0 行动 1 兑现 — INV-CROSS-OS-001 跨 OS quirk scanner (反思文档行动 1) + 16 violations 修齐,cross-OS quirk scanner; 16 latent violations fixed (not manifested)
+34,V37.9.66,2026-05-13,failure,operator-e2e,convergence framework 双向 sync primitives + `_format_cron_line` path bug 修复 (V37.9.65 用户实测发现 framework 单向 gap + 潜伏 path bug),convergence one-way sync gap + path bug; user Mac Mini activation test
+35,V37.9.65,2026-05-13,feature,,crontab_safe.sh 加 `remove` command — V37.9.64 用户痛点闭环 (不需 vim) + convergence framework 双向 sync 下半截,
+36,V37.9.64,2026-05-13,feature,,货代 Watcher 推送频率 3次/天 → 1次/天 (用户视角原则 #13 + #32 减少告警疲劳),
+37,V37.9.63,2026-05-13,latent,self-observation,MR-8 抽公共 fatal_handler helper — MR-19 framework 化推广后第一次 MR-8 正向兑现 + 顺势修 V37.9.60 6 个 fatal_handler 第二层 FAIL-OPEN CLI 参数 bug,6 fatal_handler CLI arg bugs found during MR-8 code audit (not manifested)
+38,V37.9.62,2026-05-13,feature,,"6 脚本 batch 升级 6 字段 — 用户视角 100% 彻底处理 (Sub-Stage 4b 续完结, ALIGNED_SCRIPTS 11→17 = 81% LLM cron 候选)",user feedback (shallow fields)
+39,V37.9.61,2026-05-13,failure,log-forensics,MR-19 扩到 LLM-task 类 — V37.9.60-hotfix3 揭露的 framework gap 闭环 (3 LLM-task 脚本合规 + cron_monitor_scanner 监管范围 4→7),kb_deep_dive silent abort 5 days (send_wa_parts && sleep); found by data-driven forensics
+40,V37.9.60,2026-05-13,feature,,MR-19 err_trap_handler 契约横向推广 — V37.9.58-hotfix3 立 MR-19 后第一次 framework 化扩展,
+41,V37.9.59,2026-05-12,feature,,watchdog 监控覆盖率扩展 47%→74%+,
+42,V37.9.58-hotfix5,2026-05-12,failure,user-view,"V37.9.27 rsync 输出可观察性补丁 — 用户视角发现 watchdog 告警 ""(时间戳缺失)"" 8 个 jobs 噪声驱动",watchdog alerts showing (timestamp missing) noise; user read alerts
+43,V37.9.58-hotfix4,2026-05-12,failure,operator-e2e,修 V37.9.58-hotfix3 两个落地漏洞 — set -E + caller || ALERT (Mac Mini 实测才暴露),hotfix3 ERR trap not firing + canary not written; user Mac Mini verification
+44,V37.9.58-hotfix3,2026-05-12,failure,user-view,"治本 watchdog silent abort 7 天血案 — MR-19 立案 + INV-WATCHDOG-SELF-001 framework 级监控自观察 (用户深问""为什么静默失败不提前告警""驱动)",watchdog silent abort 7 days (28 runs); user noticed 5 pushes missing
+45,V37.9.58-hotfix2,2026-05-12,feature,,治理债清零 — MR-18 立案 + INV-HEREDOC-IMPORT-001 framework 级 import 一致性 scanner (V37.9.58-hotfix 反思转化为机制),
+46,V37.9.58-hotfix,2026-05-12,failure,user-view,V37.9.57 自动注入工具盲点 — 8 ALIGNED jobs HG_LEVEL_4_TEXT 注入未补 import os 系统性 NameError 血案修复 (与 V37.9.50-hotfix 同款 fix 但 V37.9.57 引入第二处缺漏),8 jobs NameError (missing import os); user saw HN push format abnormal
+47,V37.9.58,2026-05-12,feature,,"Plan B 渐进 escalation 终态兑现 — machine_sync 真激活 (5/3-5/11 一周观察期零漂移, V37.9.23/24 收工承诺兑现)",
+48,V37.9.57,2026-05-12,feature,,架构级公共反幻觉守卫模板 + 9 task 全量接入 — MR-8 single-source-of-truth + MR-7 治理自观察兑现 (V37.9.56-hotfix3 血案的真正结构性修复),
+49,V37.9.56-hotfix3,2026-05-12,failure,user-view,"kb_evening LLM 编造 ""OpenClaw 社区发布 v26"" 幻觉血案闭环 — V37.9.56 链式幻觉副作用修复 (原则 #23 典型实证)",evening fabricated OpenClaw community release v26 (paper D4); user noticed
+50,V37.9.56-hotfix2,2026-05-12,dev,operator-e2e,kb_evening.sh DAYS 数字校验防御 (V37.9.56 诊断暴露的 zsh # 注释坑 root-cause fix),zsh # comment pitfall on manual invocation; not a cron-path failure
+51,V37.9.56-hotfix,2026-05-12,failure,operator-e2e,"V37.9.56 picker cache_paths 多 layout 修复 (Mac Mini 实测 0 picks 死局, MR-10 understand-before-fix 兑现)",picker 0 picks in production (deploy layout); operator ran on Mac Mini
+52,V37.9.56,2026-05-12,feature,,Sub-Stage 4c Top 5 高对齐推送 picker 完整兑现 — Opportunity Radar #2 三件套全量集成 (kb_dream + kb_evening 双路注入),
+53,V37.9.55,2026-05-11,feature,,doubao flip verified_tool_calling + verified_streaming — Mac Mini E2E 双 capability 实测通过 + framework 视角 doubao 超越 Qwen3,
+54,V37.9.54,2026-05-11,failure,operator-e2e,ABC 三件套同 PR — A restart.sh marker-based plist reload + B doubao verified_vision flip + C INV-PLIST-ENV-001 治理 plist EnvironmentVariables 同步,launchctl kickstart does not reload plist; doubao never entered fallback chain; Mac Mini test
+55,V37.9.53,2026-05-11,feature,,Doubao flip verified_text + reasoning capability 落地 — Mac Mini E2E 实测通过后 framework 升级,
+56,V37.9.52,2026-05-11,feature,,"Doubao Seed 2.0 Pro 接入第 8 个 provider (主力级 LLM, 与 Qwen3 同级) + V37 Provider Plugin Interface 首个真实插件触发 module 重入 bug 闭环",module re-entry bug found during integration (dev)
+57,V37.9.51,2026-05-11,feature,,Sub-Stage 4b 续 batch: 6 论文/repo/tweet 类脚本批量 5→6 字段 + rule_check 机械迁移 (V37.9.45 hf_papers / V37.9.50 semantic_scholar PoC 模板横向应用),
+58,V37.9.50-hotfix,2026-05-10,failure,operator-e2e,"emit heredoc 缺 `os` import 导致 rule_check FAIL-OPEN 跳过 (Mac Mini 实测发现, 高对齐统计虚假为 0)","missing os import -> rule_check FAIL-OPEN, false 0 stat; operator ran script"
+59,V37.9.50,2026-05-10,feature,,Sub-Stage 4b 1 脚本 PoC: semantic_scholar 5→6 字段升级 + rule_check 集成 (V37.9.45 hf_papers PoC 横向迁移),
+60,V37.9.49,2026-05-10,feature,,Stage 4a 三件套 cascade 集成: #1 + #3 接入 kb_dream/evening 推送链 (信号入推送链),
+61,V37.9.48,2026-05-10,feature,,Opportunity Radar Stage 3 — 趋势加速检测 (4 周历史关键词加速度 + 5 档分类),
+62,V37.9.47,2026-05-10,feature,,Opportunity Radar Stage 2 — 项目对齐度 rule_check 验证层 + hf_papers 集成,
+63,V37.9.46,2026-05-10,feature,,"Opportunity Radar Stage 1 PoC — 跨 source 弱信号聚合器（V37.9.45 收工承诺""下次 session 干净启动 Stage 1""兑现）",
+64,V37.9.45,2026-05-09,feature,,"hf_papers 6 字段深度迁移（audit P1 完结 + Opportunity Radar #2 PoC 单点验证, ALIGNED_SCRIPTS 10→11）",
+65,V37.9.44,2026-05-09,feature,,"github_trending 5 字段深度迁移（用户视角原则 #13 第 15 次兑现 — WhatsApp 收到旧 4 字段浅表 GitHub 推送后立即提""按 S2 同款格式优化""）",user feedback (shallow format)
+66,V37.9.43-hotfix2,2026-05-09,dev,operator-e2e,wa_e2e_test.sh macOS bash 3.2 全角括号变量解析 bug（V37.9.43-hotfix W3 部署后 Mac Mini 实测苏醒，PR #458 沉睡）,"wa_e2e_test.sh bash 3.2 bug; test tooling, not production job"
+67,V37.9.43-hotfix,2026-05-09,failure,auto-check,"Mac Mini preflight 81/0/3 三警告闭环（W1 freight schema + W3 wa_e2e FILE_MAP, W2 KB lag 不修）",preflight 3 warnings; W1 freight deep_dive skipped (real bug since V37.9.31)
+68,V37.9.43,2026-05-09,feature,,"arxiv_monitor 5 字段深度迁移 (V37.9.41 audit P1 续 — 机械迁移 V37.9.39 S2 / V37.9.40 DBLP+AI Leaders X / V37.9.41 HN 同款模式, ALIGNED_SCRIPTS 8→9)",
+69,V37.9.42,2026-05-09,failure,operator-e2e,HN V37.9.41 三个 bash 整数处理 hotfix（Mac Mini 实测发现）,HN three bash integer bugs; user manually ran HN on Mac Mini
+70,V37.9.41,2026-05-08,feature,,"HN 5 字段深度迁移 (V37.9.40 同款扩展, ALIGNED_SCRIPTS 7→8)",
+71,V37.9.40,2026-05-08,feature,,"DBLP + AI Leaders X 双脚本批次 5 字段深度迁移 (V37.9.39 同款 V37.9.36-37 模式横向扩展, 用户视角原则 #13 第 11 次正向兑现)",
+72,V37.9.39,2026-05-08,feature,,"V37.9.38 audit 工具识别 P1 第一个 PoC fix — semantic_scholar 5 字段深度迁移（V37.9.36-37 rss_blogs 模式横向扩展, 用户视角原则 #13 第 10 次正向兑现）",
+73,V37.9.38,2026-05-08,dev,self-observation,双交付：① status_update.py 双路径 bug 闭环 (V37.9.36 候选) + ② LLM cron fail-fast audit 视野+预防+路线图三件套 (V37.9.36 教训横向扩展),status_update dual-path bug (dev tooling)
+74,V37.9.37,2026-05-07,feature,,"rss_blogs 深度分析升级（用户反馈""博客精选都是值得读的好文章, 不能只是题目摘要""）+ V37.9.36 fail-fast 契约保留",
+75,V37.9.36,2026-05-07,failure,user-view,rss_blogs LLM fail-fast 闭环（MR-4 silent-failure 第 26 次演出 + 用户视角 #13 第 8 次正向兑现）,"rss_blogs placeholder pushes after LLM 502, last_run lied ok; user saw placeholders"
+76,V37.9.35,2026-05-07,corpus,user-view,WhatsApp 客户端显示折叠架构发现 → budget 1400→4000 (Path A 保守路径),corpus #4 WhatsApp client display folding
+77,V37.9.34,2026-05-07,failure,operator-e2e,"V37.9.33 hotfix: PROMPT 内嵌 ASCII 双引号导致 bash 字符串提前终止 (Mac Mini 实测发现, MR-4 silent-failure 第 25 次演出)",PROMPT embedded quotes broke bash string; operator ran run_freight.sh
+78,V37.9.33,2026-05-07,feature,,"货代任务深度优化：Tier 1/2 权威源扩展 + LLM 三层深度分析（""全球发货是经济晴雨表""用户论点兑现）",
+79,V37.9.32,2026-05-07,failure,operator-e2e,playwright-stealth 1.x → 2.x API 兼容修复（V37.9.31 Mac Mini 实测发现）,playwright-stealth 2.x API mismatch WARN; operator run
+80,V37.9.31,2026-05-07,corpus,auto-check,V37.9.27 rsync_helper 回归修复 (fail-open exit 0) + 货代 schema 完整 + ImportYeti 反爬升级 (MR-4 第 24 次演出: 修复引入更深 silent failure),corpus #20 rsync helper set -e regression; preflight report
+81,V37.9.30,2026-05-07,followup,,V37.9.29 假说部分证伪 → 取证扩展第 9-11 维度 (ACL/xattr + lsof handles + TM snapshots) + 35 新单测,corpus #3 forensics extension
+82,V37.9.29,2026-05-06,corpus,log-forensics,MOVESPEED EPERM 60 天 silent failure 真因终于触底 — noowners + UID 错位 (path D' chown + enableOwnership + remount 闭环) + V37.9.29 (a) incident_capture mount 截断 bug + 24h 验证窗口至 5/7,corpus #2 noowners UID mismatch
+83,V37.9.28,2026-05-05,failure,user-view,周一用户视角观察 (周二补做) 5 finding 单日全闭环 + V37.9.27 helper 实战破证为 F2 数据驱动诊断 + V37.9.22 Tripwire 框架首次复评,weekly user-view observation: 5 alert-quality findings from one watchdog screenshot
+84,V37.9.27,2026-05-04,followup,,B 问题真正修复 — movespeed_rsync_helper.sh (jitter+retry+fail-loud+capture wrapper) 替代 20 个 inline rsync site / V37.9.26 主动告警立即抓真问题 / V37.9.4 闭环假设失败的 60 天 silent failure 终结,MOVESPEED helper replacing 20 inline rsync sites; corpus #3/#11 saga (monitor alert)
+85,V37.9.26,2026-05-04,feature,,watchdog 主动告警升级 — 24h 窗口 ≥5 条 MOVESPEED incident 推 [SYSTEM_ALERT]（V37.9.15 候选闭环 watchdog 部分 + 从被动证据收集升级为主动告警链）,
+86,V37.9.25,2026-05-04,feature,,第 5 个 convergence spec services_to_launchd — V37.9.13 候选 launchd plist 持久化方向闭环 + framework 第 5 次扩展验证,
+87,V37.9.24,2026-05-04,feature,,三件套并行：kb_sources_to_index machine_sync 升级 (named-dispatch 重构) + openclaw_config_to_runtime mock 化加固 + 立场文章 Why Control Plane = Convergence Engine,
+88,V37.9.23,2026-05-04,feature,,`jobs_to_crontab` → `machine_sync` 升级 (Plan B 渐进 dry-run) + spec yaml command 字段读取层 mock 化加固 (V37.9.22 hotfix 教训闭环),
+89,V37.9.22,2026-04-29,feature,,OpenClaw 升级 tripwire 决策框架 + 双小迭代 + Phase 4 Layer 5 闭合 (一日 5 commits),
+90,V37.9.21,2026-04-27,feature,,kb_deep_dive WhatsApp 多窗口分片（Dream-style）— 用户视角发现 → 同日闭环（原则 #13 兑现）,user feedback: deep_dive truncated in one WhatsApp window (UX)
+91,V37.9.20,2026-04-27,feature,,第二个 convergence spec providers_to_adapter — V37.9.19 named-dispatch 扩展性首次兑现 (MR-8 正向案例 + Phase 4 Layer 5 从单 spec demo 升级为可扩展抽象),
+92,V37.9.19,2026-04-26,feature,,"Phase 4 Layer 5 上线 — Convergence Framework + MR-17 + 第一个 spec jobs_to_crontab（declared→runtime 同步从""靠记忆""升级为""机器化""）",
+93,V37.9.18,2026-04-26,corpus,user-view,kb_deep_dive cron 未注册血案修复（MR-4 silent-failure 第 16 次演出 — 三层 silent 协同掩护简单运维遗漏 2 天）,corpus #18 deep_dive cron unregistered
+94,V37.9.17,2026-04-24,feature,,kb_deep_dive picker tier-aware fallback（方案 C）— V37.9.16 首跑用户感知问题闭环,picker tier-blind design choice; operator first run
+95,V37.9.16,2026-04-24,feature,,"每日深度分析（kb_deep_dive）全新上线 — 从""周度覆盖""升级为""每日纵深""",
+96,V37.9.15,2026-04-24,feature,,"Phase 4 P3 三阶段门控 shadow wiring — policy 引擎从""可查询""升级为""在请求路径上被调用并产可观测 log""",
+97,V37.9.14,2026-04-23,followup,,MOVESPEED SSD rsync 失败取证埋点（证据导向修复，不盲猜根因）,corpus #3 forensic instrumentation
+98,V37.9.13+arch-cleanup,2026-04-23,failure,operator-e2e,restart.sh 架构清理 — 单一 manager 契约（消除 nohup + launchd 双管理血案）,launchd + nohup dual manager crash loop; Mac Mini test
+99,V37.9.13,2026-04-23,feature,,Phase 4 P2 context evaluator + 第二条 policy 切换（max-tool-calls-per-task）,
+100,V37.9.12,2026-04-22,feature,,Phase 4 P1 wiring 落地 — engine.py 三纯函数 API + max-tools-per-agent policy 首切换,
+101,V37.9.11,2026-04-22,latent,auto-check,MRD-RESERVED-FILES-001 闭环：BOOTSTRAP.md + SKILL.md 加入保留文件列表,governance MRD scanner found 2 reserved files missing from list (not manifested)
+102,V37.9.10,2026-04-22,feature,,audit_log 原子导出 + fsync 持久化加固（数据完整性 13→15 满分）,
+103,V37.9.9,2026-04-22,feature,,路线 C Step 4: security_score library 直调 + Ontology Phase 4 骨架,
+104,V37.9.6,2026-04-21,failure,user-view,告警噪声治理 + watchdog 行级时间戳过滤 (MR-4 反向变种修复),watchdog pushed 6 stale alerts out of 12; user read alerts
+105,V37.9.5,2026-04-21,feature,,数据全景审计 + workspace .md 接入 KB 索引（接缝盲区闭合）,
+106,V37.9.4,2026-04-21,corpus,log-forensics,B 问题闭环 + MR-4 silent-failure 第 14 次演出系统化预防,corpus #11 exFAT silent backup failure
+107,V37.9.3,2026-04-21,failure,log-forensics,四项顺序推进：X 僵尸告警可观测性 + MR-6 9 项 high 补齐 + audit-of-audit 4 维度扩展 + 路线 C Step 3 终态,X zombie alert never arrived 3 days; Mac Mini log forensics
+108,V37.9 / V37.9.1 / V37.9.2,2026-04-20,feature,,Stage 2 验证者阶段四轮交付：路线 A 血案回填 + 路线 B 对抗审计 + V37.8.18 盲区修复 + V37.9 结构加固 + V37.9.1 安全统一 + V37.9.2 MR-6 深度补齐,
+109,V37.8.16,2026-04-20,corpus,user-view,PA 自残 HEARTBEAT.md 血案闭环（MR-4 silent-failure 第 12 次演出 + MR-15 新元规则立案）,corpus #17 HEARTBEAT.md self-silencing
+110,V37.8.15,2026-04-17,failure,user-view,preflight push test 垃圾消息修复 + Mac Mini 分支错位修复 + GitHub 全面刷新 + 外部评审吸收,preflight push test spam every 2 min; user received 12 messages
+111,V37.8.13,2026-04-16,corpus,user-view,Gateway 宕 9h 静默血案闭环 + auto_deploy FILE_MAP 自复制修复 + status.json 形状修复（MR-4 第 11 次演出）,corpus #22 gateway silent death
+112,V37.8.11,2026-04-15,failure,user-view,auto_deploy 每小时漂移告警噪声闭环（MR-4 第 10 次演出：expected-behavior 被错分类为 error）,hourly drift alert noise (long-standing); user reported
+113,V37.8.10,2026-04-15,corpus,user-view,"kb_evening 连续 2 天 22:00 告警""HTTP 502: Bad Gateway""血案闭环 — LLM 错误链三层稀释（MR-4 第 9 次演出）",corpus #10 evening fallback quota chain
+114,V37.8.9,2026-04-15,feature,,"MR-11 / MR-12 运行时检测落地 — 元规则从""声明层""升级为""CI 可检测层""",
+115,V37.8.8,2026-04-15,feature,,双元规则正式立案：MR-11 (log→stderr) + MR-12 (LLM-output-key-based),
+116,V37.8.7,2026-04-15,corpus,user-view,ontology_sources 推送格式错位血案闭环（MR-4 第 8 次演出，同日双血案）,corpus #7 positional parser cascade
+117,V37.8.6,2026-04-15,corpus,user-view,Dream 自引用幻觉血案闭环（MR-4 第 7 次演出 + 原则 #23 链式幻觉典型实证）,corpus #13 dream self-referential fabrication
+118,V37.8.5,2026-04-15,corpus,user-view,僵尸检测边缘盲区闭合（V37.8.4 修复的修复，MR-10 第 2 次演出）,corpus #6 zombie detection closure
+119,V37.8.4,2026-04-14,corpus,user-view,finance_news X 僵尸账号血案闭环 + INV-X-001 + 原则 #27 升级,corpus #5 syndication zombie accounts
+120,V37.8.3,2026-04-13,corpus,auto-check,连锁修复血案教训 + 方法论升级 + 运维修复,corpus #19 cascading preflight fixes
+121,V37.8.2,2026-04-12,failure,user-view,finance_news 全球财经/政策新闻 job 上线 + 反幻觉修复 + 运维巩固,evening fabricated open-source release (04-12); user noticed (plus new job feature)
+122,V37.8,2026-04-11,failure,auto-check,"MR-6 深度补齐 + MRD-NOTIFY-002 语义修复（治理自观察第二轮：治理深度从""建议""升级为""硬强制""）",governance MRD: detector false positive + unenforced meta-rule; found by governance self-check
+123,V37.7,2026-04-11,failure,self-observation,双跑审计闭环 — 三合一修复 + MR-8/MR-9 元规则形式化（MR-4 第 4/5 次演出 + 元规则预防层首次加入）,run_discussions 16th missed migration site; found by dual-run audit
+124,V37.6,2026-04-11,corpus,auto-check,数据层 P0 三合一修复 + P1 kb_evening 架构对齐（MR-4 第三次演出 + MR-8 正向兑现）,corpus #9 KB content/source dedup (kb_dedup dry-run report)
+125,V37.5.1,2026-04-11,failure,operator-e2e,kb_review.sh `pipe+heredoc` stdin 冲突热修复（V37.5 第一次 Mac Mini E2E 即触发的子血案）,kb_review pipe+heredoc crash on first Mac Mini run
+126,V37.5,2026-04-11,corpus,user-view,kb_review 6-issue silent degradation 血案闭环修复（fail-fast + registry-driven + H2 drill-down）,corpus #14 kb_review silent degradation
+127,V37.4.3,2026-04-11,corpus,user-view,PA 告警污染血案闭环修复（A+C 双防线）,corpus #15 alert contaminates chat context
+128,V37.4.2,2026-04-11,followup,,Dream Reduce 短输出 bug 二段闭环修复,Dream reduce short output; corpus #1 saga
+129,V37.4.1,2026-04-11,followup,,Dream Reduce 重试降级机制 第一次尝试,Dream reduce retry; corpus #1 saga
+130,V37.4,2026-04-11,corpus,log-forensics,Dream Map 预算溢出 + cache key 稳定性 三层修复,corpus #1 dream map budget overflow
+131,V37.3,2026-04-11,corpus,self-observation,Governance 自观察元规则 MR-7 + INV-GOV-001 summary-counts-all-non-pass,corpus #8 governance summary swallows error
+132,V37.2+,2026-04-11,followup,,Governance INV-CRON 三层 bug 修复 + silent error detection 加固,governance INV-CRON false positives + exec scope; corpus #8 saga
+133,V37.2,2026-04-10,corpus,user-view,系统韧性加固 + Adapter Hot-Reload + 幻觉工具过滤 + 异常分析宪法,corpus #12 dream quota blast radius (plus features)
+134,V37.1,2026-04-09,corpus,user-view,Ontology 信息源 + 对话数据零丢失 + 治理主动监控 + PA 批判性思考,corpus #16 assistant echo chamber (plus features)
