@@ -331,10 +331,14 @@ Class E is the largest; Class D is the only class whose artifact carries the *fo
 | 12 | D | C | quota exhaustion reported as a bare 502 |
 | 13 | D | A, C | surrogate byte (A); diagnostics captured as data (C) |
 | 14 | D | C, B | six mutually masking defects |
-| 15 | D | B | alert persisted into chat history by design |
 | 20 | E | A | `set -e` propagation quirk |
 | 21 | E | B | path assumption in the observer |
-| others | — | none | single-mechanism chains |
+| others | — | none recorded | single-mechanism chains, or chains whose secondary step belongs to the same class |
+
+Secondary classes are taken from the `notes` field of the released label file; the one exception is
+#13, whose secondary classes are read off the chain in §5.4 (the label file records it as the clean D
+regression case). A `secondary_classes` field in the label file itself is the obvious next step and is
+listed as an open item.
 
 The full records, including causal chains and fixes, are in the repository. The labels are in
 `docs/llm_observer_ground_truth.yaml`, which is the file the benchmark in §7 consumes.
