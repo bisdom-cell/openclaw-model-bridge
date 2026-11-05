@@ -60,7 +60,7 @@
 - [docs/technical_charter_20260705.md](technical_charter_20260705.md) — "要不要做 X" 以纲领 §8 判据门控为准
 
 ### 我是 **研究者（论文 / bench）**
-- [docs/paper/silent_failures_taxonomy/](paper/silent_failures_taxonomy/) — 论文 #1（arXiv:2606.14589 已发表；IEEE Software in-review；ISSRE 已拒稿 → 期刊优先）
+- [docs/paper/silent_failures_taxonomy/](paper/silent_failures_taxonomy/) — 论文 #1（arXiv:2606.14589 已发表；IEEE Software 2026-11-04 拒稿 + ISSRE 2026-08-14 拒稿 → 期刊优先；`submissions/journal_submission_v3.md` 期刊底稿 + `denominator_study_20261105.md` 分母研究 + `IEEE_SOFTWARE_DECISION_20261104.md` 三审分诊）
 - [docs/paper/mechanizing_the_eye/](paper/mechanizing_the_eye/) — 论文 #2 LLM-Observer（已发表 [arXiv:2610.05981](https://arxiv.org/abs/2610.05981)，2026-10-06）
 - [docs/llm_observer_design.md](llm_observer_design.md) — 机械化人眼设计文档（Stage 0-6 + §9.1 flip 预注册 + §9.2 数据口径预注册）
 - [docs/llm_observer_ground_truth.yaml](llm_observer_ground_truth.yaml) — 24 incident 带标注验证集

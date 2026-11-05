@@ -1,6 +1,19 @@
 # Submission Guide — Silent Failures Taxonomy paper
 
-> **Status:** the paper is published as a preprint (arXiv:2606.14589). This package converts it
+> ## 🔴 Venue status as of 2026-11-05 (single truth for this folder)
+>
+> | Venue | Status | Record |
+> |---|---|---|
+> | arXiv:2606.14589 | ✅ published 2026-06-15 (v1) — **v2 pending** (built from `journal_submission_v3.md`) | `../data_inventory.md` |
+> | IEEE Software SW-2026-06-0312 | ❌ **rejected 2026-11-04** (3 reviewers; evidence/framing, not topic) | `IEEE_SOFTWARE_DECISION_20261104.md` |
+> | ISSRE 2026 Industry Track (Submission 395) | ❌ rejected 2026-08-14 | V37.9.307 |
+> | QA4AGENTS workshop / industry talks | ⛔ cancelled by venue filter (paid registration + attendance) | `QA4AGENTS_RUNBOOK.md` |
+> | **Next** | arXiv v2 + one archival journal that needs neither registration nor attendance (EMSE first, JSS "In Practice" fallback — author decision) | `journal_submission_v3.md` + `denominator_study_20261105.md` |
+>
+> Everything below this box is the original guide, kept for the venue facts and checklists it holds.
+> Its §2 (IEEE Software step-by-step) and §3 (ISSRE) are **historical**; do not act on them.
+
+> **Status (original, 2026-06):** the paper is published as a preprint (arXiv:2606.14589). This package converts it
 > into a *formally publishable* version for a single, unaffiliated, AI-assisted author who is
 > willing to do major revisions and for whom a recognized practitioner magazine counts as
 > "formal publication."
@@ -39,11 +52,11 @@
 
 | Tier | Venue | Why it fits you | Deliverable to use |
 |---|---|---|---|
-| 🟢 High | **IEEE Software** (feature / experience report) | Magazine explicitly welcomes "limitations and failures of past projects"; practitioner bar; rolling submission; not double-blind; magazines count for you | `ieee_software_experience_report.md` |
-| 🟢 High | **ISSRE Industry Track** | Reliability flagship; track seeks "experiences and lessons learned"; silent failures = reliability; single author / no affiliation fine for industry track | arXiv full paper + section **(b)** |
-| 🟢 High | **AGENT workshop @ ICSE** (or similar agent/reliability workshop) | Scope = risk/robustness/observability in agentic systems; accepts experience reports + position papers; workshops have high acceptance | condensed full paper + **(b)** |
-| 🟡 Medium | **JSS "In Practice" track** | Journal; accepts Experience Reports; no affiliation requirement; archival | full paper + **(b)** + **(c)** |
-| 🟡 Medium | **EMSE** | Accepts industrial experience reports; rigorous; n=1 defensible via **(b)** | full paper + **(b)** + **(c)** |
+| ❌ Done | **IEEE Software** (feature / experience report) | **Rejected 2026-11-04** — reviewers accepted the topic and concept, rejected the evidence/framing (selection effect, undefined percentages, no coding rules, over-claims, missing hallucination literature, reproducibility). All points absorbed into `journal_submission_v3.md`. | `IEEE_SOFTWARE_DECISION_20261104.md` |
+| ❌ Done | **ISSRE Industry Track** | Rejected 2026-08-14 (1/1/2); concept endorsed; same evidence complaints | V37.9.307 |
+| ⛔ Closed | **AGENT workshop @ ICSE** / QA4AGENTS / any conference track | Venue filter: paid registration + attendance required for proceedings → not for this author (2026-08-14 decision) | — |
+| 🟢 **Primary** | **EMSE** | Accepts industrial experience reports and case studies; rigor bar matches the two review rounds; no registration/attendance; verify current GenAI policy and whether a Registered Report / case-study track fits | `journal_submission_v3.md` + **(b)** + **(c)** |
+| 🟢 Fallback | **JSS "In Practice" track** | Journal; explicit Experience Report track; no affiliation requirement; archival | `journal_submission_v3.md` + **(b)** + **(c)** |
 | 🟡 Medium | **ICSE SEIP** | Practice track; **not** double-blind (favorable); arXiv OK; competitive | full paper + **(b)** |
 | 🔴 Lower (for you) | FSE Industry | Good fit but **double-anonymous + discourages arXiv** → your public preprint creates an anonymization conflict | — |
 | 🔴 Lower (cold) | ACM Queue / CACM Practice | **Invitation/commissioned** — can't cold-submit; path is to interest an editor in the topic | pitch, not submit |
@@ -208,6 +221,13 @@ fail-plausible class, and an audited defense framework (0% prevention / 87% regr
 ---
 
 ## 5. Recommended first three moves
+
+> **Superseded 2026-11-05.** The three moves below were executed (IEEE Software → rejected, ISSRE →
+> rejected, journal held back). The current moves are: (1) author re-codes
+> `denominator_coding_20261105.csv` or accepts the provisional pass with its caveat; (2) post
+> **arXiv v2** from `journal_submission_v3.md` (no gate, no fee; v1 still says ~70% and "complete
+> population"); (3) submit to **one** archival journal (EMSE first) with sections **(b)** + **(c)**.
+> Decisions D1–D5 are listed in `IEEE_SOFTWARE_DECISION_20261104.md` §4.
 
 1. **This week — IEEE Software.** It is rolling (no deadline), the best magazine fit, and the
    `ieee_software_experience_report.md` draft is submission-ready. Do the two once-only steps (§0),
