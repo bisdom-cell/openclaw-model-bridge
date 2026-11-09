@@ -34,7 +34,6 @@ LLM_CRON_CANDIDATES = (
     "jobs/arxiv_monitor/run_arxiv.sh",
     "jobs/hf_papers/run_hf_papers.sh",
     "jobs/semantic_scholar/run_semantic_scholar.sh",
-    "jobs/dblp/run_dblp.sh",
     "jobs/acl_anthology/run_acl_anthology.sh",
     "jobs/github_trending/run_github_trending.sh",
     "jobs/rss_blogs/run_rss_blogs.sh",
@@ -109,7 +108,6 @@ ALIGNED_SCRIPTS = {
     "kb_review.sh":                      "V37.5",
     "kb_deep_dive.sh":                   "V37.9.16",
     "jobs/semantic_scholar/run_semantic_scholar.sh": "V37.9.50",  # 6 字段 + alignment + rule_check (V37.9.45 hf_papers PoC 横向 Sub-Stage 4b 模板验证)
-    "jobs/dblp/run_dblp.sh":             "V37.9.51",  # V37.9.51 Sub-Stage 4b 2/6: 6 字段 + rule_check (DBLP 无 abstract, rule_content 用 title + venue)
     "jobs/ai_leaders_x/run_ai_leaders_x.sh": "V37.9.51",  # V37.9.51 Sub-Stage 4b 5/6: 6 字段 + rule_check (tweet 场景, rule_content 用 author + text)
     "jobs/hn_watcher/run_hn_fixed.sh":                   "V37.9.51",  # V37.9.51 Sub-Stage 4b 6/6: 6 字段 + rule_check (HN 场景, rule_content 用 title + desc 清理 HTML)
     "jobs/arxiv_monitor/run_arxiv.sh":   "V37.9.51",  # V37.9.51 Sub-Stage 4b 3/6: 6 字段 + rule_check (rule_content 用 title + abstract, V37.9.43 fallback 同款)

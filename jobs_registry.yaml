@@ -85,7 +85,7 @@ jobs:
     interval: "0 12 * * *"             # 每天 12:00 HKT
     log: ~/.openclaw/logs/jobs/dblp.log
     needs_api_key: true
-    enabled: true
+    enabled: false                   # V37.9.383 退役: 2026-09-19 起 dblp.org 对本 job 下发 Anubis 反爬挑战页，抓取 100% 失败 7 周（每轮 watchdog 告警）；S2/arxiv/ACL 已覆盖同类论文。删除脚本 + 保留 entry 作历史档案（pwc V37.8.13 先例，避免 ID 复用）；KB 归档 dblp_daily.md 保留可搜
     tier: auxiliary                   # 补充源
     kb_source_file: dblp_daily.md
     kb_source_label: 📚 DBLP CS论文

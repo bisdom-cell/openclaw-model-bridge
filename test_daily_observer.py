@@ -121,14 +121,15 @@ class TestScanJobStatuses(unittest.TestCase):
 
     def test_corrupted_json(self):
         with tempfile.TemporaryDirectory() as td:
-            job_dir = os.path.join(td, "dblp", "cache")
+            # V37.9.383: 样本由 dblp（已退役, registry enabled=false → observer 不扫）换成仍运行的 S2
+            job_dir = os.path.join(td, "semantic_scholar", "cache")
             os.makedirs(job_dir)
             with open(os.path.join(job_dir, "last_run.json"), "w") as f:
                 f.write("{bad json")
             results = obs.scan_job_statuses(td, datetime(2026, 5, 25))
-            dblp = [r for r in results if r["job_id"] == "dblp"][0]
-            self.assertTrue(dblp["found"])
-            self.assertEqual(dblp["status"], "parse_error")
+            s2 = [r for r in results if r["job_id"] == "semantic_scholar"][0]
+            self.assertTrue(s2["found"])
+            self.assertEqual(s2["status"], "parse_error")
 
     def test_boolean_new_field(self):
         """sent=true (bool) should become new=1."""

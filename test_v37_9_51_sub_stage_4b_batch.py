@@ -42,7 +42,6 @@ def _read(path):
 # 6 个目标脚本路径 + 显示名 (用于断言失败时定位)
 SUB_STAGE_4B_SCRIPTS = [
     ("rss_blogs", "jobs/rss_blogs/run_rss_blogs.sh"),
-    ("dblp", "jobs/dblp/run_dblp.sh"),
     ("arxiv_monitor", "jobs/arxiv_monitor/run_arxiv.sh"),
     ("github_trending", "jobs/github_trending/run_github_trending.sh"),
     ("ai_leaders_x", "jobs/ai_leaders_x/run_ai_leaders_x.sh"),
@@ -233,10 +232,6 @@ class TestV37951PerScriptRuleContent(unittest.TestCase):
         # rule_content 拼接 article.get('title', '') + article.get('description')
         self.assertIn("article.get('title', '') + ' ' + (article.get('description')", src)
 
-    def test_dblp_uses_title_plus_venue(self):
-        """dblp: rule_content = title + venue (DBLP 无 abstract 用 venue 元数据)."""
-        src = _read(os.path.join(REPO_ROOT, "jobs/dblp/run_dblp.sh"))
-        self.assertIn("paper.get('title', '') + ' ' + paper.get('venue', '')", src)
 
     def test_arxiv_uses_title_plus_abstract(self):
         """arxiv_monitor: rule_content = title + abstract (V37.9.43 同款 fallback 数据源)."""
@@ -269,7 +264,6 @@ class TestV37951PerScriptRuleContent(unittest.TestCase):
         # 不同脚本用不同变量名 (total_articles / total_papers / total_repos / total_tweets / total_items)
         expected = {
             "jobs/rss_blogs/run_rss_blogs.sh": "total_articles",
-            "jobs/dblp/run_dblp.sh": "total_papers",
             "jobs/arxiv_monitor/run_arxiv.sh": "total_papers",
             "jobs/github_trending/run_github_trending.sh": "total_repos",
             "jobs/ai_leaders_x/run_ai_leaders_x.sh": "total_tweets",
@@ -308,7 +302,6 @@ class TestV37951AlignedScriptsAudit(unittest.TestCase):
         """6 个 Sub-Stage 4b 脚本都应在 ALIGNED_SCRIPTS 标记为 V37.9.51."""
         expected_paths = {
             "jobs/rss_blogs/run_rss_blogs.sh",
-            "jobs/dblp/run_dblp.sh",
             "jobs/arxiv_monitor/run_arxiv.sh",
             "jobs/github_trending/run_github_trending.sh",
             "jobs/ai_leaders_x/run_ai_leaders_x.sh",
@@ -326,7 +319,6 @@ class TestV37951AlignedScriptsAudit(unittest.TestCase):
         """端到端: 跑 audit_script 6 个脚本应全部 aligned=True + findings=0."""
         scripts = [
             "jobs/rss_blogs/run_rss_blogs.sh",
-            "jobs/dblp/run_dblp.sh",
             "jobs/arxiv_monitor/run_arxiv.sh",
             "jobs/github_trending/run_github_trending.sh",
             "jobs/ai_leaders_x/run_ai_leaders_x.sh",

@@ -30,7 +30,6 @@ _XML_MULTI = ("jobs/rss_blogs/run_rss_blogs.sh",
               "jobs/ai_leaders_blogs/run_ai_leaders_blogs.sh")
 _ALL_EIGHT = _XML_MULTI + (
     "jobs/ai_leaders_bsky/run_ai_leaders_bsky.sh",
-    "jobs/dblp/run_dblp.sh",
     "jobs/semantic_scholar/run_semantic_scholar.sh",
     "jobs/hn_watcher/run_hn_fixed.sh",
     "jobs/chaspark/run_chaspark.sh",
@@ -110,8 +109,6 @@ class TestMergedJsonGuards(unittest.TestCase):
         self.assertIn('"status":"parse_failed"', src.replace("'", '"'),
                       f"{rel}: parse_failed 状态写入须存在")
 
-    def test_dblp_guard(self):
-        self._assert_guard("jobs/dblp/run_dblp.sh", "dblp")
 
     def test_s2_guard(self):
         self._assert_guard("jobs/semantic_scholar/run_semantic_scholar.sh", "s2")

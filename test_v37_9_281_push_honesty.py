@@ -90,7 +90,6 @@ class TestJobPushGuards(unittest.TestCase):
 
     def test_ontology_push_guarded(self):
         for rel in ("jobs/arxiv_monitor/run_arxiv.sh",
-                    "jobs/dblp/run_dblp.sh",
                     "jobs/semantic_scholar/run_semantic_scholar.sh"):
             src = _read(rel)
             self.assertRegex(
@@ -172,7 +171,6 @@ class TestSourceMarkers(unittest.TestCase):
         for rel in ("notify.sh", "wa_keepalive.sh",
                     "jobs/chaspark/run_chaspark.sh",
                     "jobs/arxiv_monitor/run_arxiv.sh",
-                    "jobs/dblp/run_dblp.sh",
                     "jobs/semantic_scholar/run_semantic_scholar.sh",
                     "jobs/finance_news/run_finance_news.sh"):
             self.assertIn("V37.9.281", _read(rel), rel)
@@ -181,7 +179,6 @@ class TestSourceMarkers(unittest.TestCase):
         for rel in ("notify.sh", "wa_keepalive.sh",
                     "jobs/chaspark/run_chaspark.sh",
                     "jobs/arxiv_monitor/run_arxiv.sh",
-                    "jobs/dblp/run_dblp.sh",
                     "jobs/semantic_scholar/run_semantic_scholar.sh",
                     "jobs/finance_news/run_finance_news.sh"):
             r = subprocess.run(["bash", "-n", os.path.join(BASE, rel)],

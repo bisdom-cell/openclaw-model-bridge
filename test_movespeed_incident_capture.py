@@ -34,7 +34,6 @@ EXPECTED_RSYNC_SITES = [
     "jobs/hn_watcher/run_hn_fixed.sh",
     "jobs/hf_papers/run_hf_papers.sh",
     "jobs/semantic_scholar/run_semantic_scholar.sh",
-    "jobs/dblp/run_dblp.sh",
     "jobs/ontology_sources/run_ontology_sources.sh",
     "jobs/karpathy_x/run_karpathy_x.sh",
     "jobs/rss_blogs/run_rss_blogs.sh",

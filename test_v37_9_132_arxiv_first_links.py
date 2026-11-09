@@ -23,7 +23,7 @@ import unittest
 
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 
-DBLP_SH = os.path.join(REPO_ROOT, "jobs/dblp/run_dblp.sh")
+# V37.9.383: dblp 已退役删除, TestDblpArxivFirstLink 随脚本移除 (hf/S2 两源守卫保留)
 HF_SH = os.path.join(REPO_ROOT, "jobs/hf_papers/run_hf_papers.sh")
 S2_SH = os.path.join(REPO_ROOT, "jobs/semantic_scholar/run_semantic_scholar.sh")
 
@@ -63,45 +63,6 @@ def _run_logic(logic, namespace):
     ns["re"] = re
     exec(code, ns)  # noqa: S102 — 受控 literal, 与源码同步由守卫保证
     return ns
-
-
-class TestDblpArxivFirstLink(unittest.TestCase):
-    """dblp: arxiv (ee) 优先 > doi > url"""
-
-    @classmethod
-    def setUpClass(cls):
-        cls.src = _read(DBLP_SH)
-
-    def test_literal_in_source(self):
-        """literal-as-guard: 测试逻辑块必须与源码逐字一致"""
-        self.assertIn(DBLP_LINK_LOGIC, self.src,
-                      "dblp 链接逻辑与测试 literal 漂移 — 同步更新两侧")
-
-    def test_v37_9_132_marker(self):
-        self.assertIn("V37.9.132", self.src)
-
-    def test_old_doi_first_pattern_removed(self):
-        """反模式守卫: 旧 doi-优先单行三元已退役"""
-        self.assertNotIn(
-            'link = f"https://doi.org/{doi}" if doi else url', self.src,
-            "dblp 不得回退到 doi 优先 (压掉 arxiv → deep_dive 必然摘要级)")
-
-    def test_behavior_arxiv_wins_over_doi(self):
-        """血案核心场景: ee=arxiv + doi 都有 → arxiv 胜"""
-        ns = _run_logic(DBLP_LINK_LOGIC, {
-            "url": "https://arxiv.org/abs/2506.11111",
-            "doi": "10.1234/test"})
-        self.assertEqual(ns["link"], "https://arxiv.org/abs/2506.11111")
-
-    def test_behavior_doi_when_no_arxiv(self):
-        ns = _run_logic(DBLP_LINK_LOGIC, {
-            "url": "https://dl.acm.org/doi/10.1234", "doi": "10.1234/test"})
-        self.assertEqual(ns["link"], "https://doi.org/10.1234/test")
-
-    def test_behavior_url_fallback(self):
-        ns = _run_logic(DBLP_LINK_LOGIC, {
-            "url": "https://example.org/paper", "doi": ""})
-        self.assertEqual(ns["link"], "https://example.org/paper")
 
 
 class TestHfArxivFirstLink(unittest.TestCase):

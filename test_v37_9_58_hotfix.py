@@ -24,13 +24,12 @@ import unittest
 # 仓库根 (test 文件应放仓库根)
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 
-# V37.9.57 注入的 8 个 ALIGNED jobs (清单与 inject_level_4_to_aligned_jobs.py 同源)
+# V37.9.57 注入的 8 个 ALIGNED jobs (清单与 inject_level_4_to_aligned_jobs.py 同源); V37.9.383 dblp 退役删除 → 7
 ALIGNED_JOB_SCRIPTS = [
     "jobs/hn_watcher/run_hn_fixed.sh",
     "jobs/hf_papers/run_hf_papers.sh",
     "jobs/arxiv_monitor/run_arxiv.sh",
     "jobs/semantic_scholar/run_semantic_scholar.sh",
-    "jobs/dblp/run_dblp.sh",
     "jobs/github_trending/run_github_trending.sh",
     "jobs/rss_blogs/run_rss_blogs.sh",
     "jobs/ai_leaders_x/run_ai_leaders_x.sh",
@@ -71,8 +70,8 @@ class TestV37958HotfixOsImport(unittest.TestCase):
     必须配套 import os in 同一 heredoc 顶部, 否则触发 NameError 5/5 → broken push.
     """
 
-    def test_v37_9_57_injection_present_in_all_8_jobs(self):
-        """V37.9.57 注入了 HG_LEVEL_4_TEXT 在 8 个 ALIGNED jobs (1 是 hn + 7 是 jobs/)."""
+    def test_v37_9_57_injection_present_in_all_7_jobs(self):
+        """V37.9.57 注入了 HG_LEVEL_4_TEXT 在 8 个 ALIGNED jobs; V37.9.383 dblp 退役删除后余 7 个."""
         injected_count = 0
         for script in ALIGNED_JOB_SCRIPTS:
             fp = os.path.join(REPO_ROOT, script)
@@ -82,8 +81,8 @@ class TestV37958HotfixOsImport(unittest.TestCase):
             if HG_INJECTION_LITERAL in src:
                 injected_count += 1
         self.assertEqual(
-            injected_count, 8,
-            f"V37.9.57 注入应覆盖 8 个 ALIGNED jobs, 实际 {injected_count} 个含 HG_INJECTION_LITERAL"
+            injected_count, 7,
+            f"V37.9.57 注入应覆盖 7 个 ALIGNED jobs (dblp V37.9.383 退役), 实际 {injected_count} 个含 HG_INJECTION_LITERAL"
         )
 
     def test_every_hg_injection_heredoc_has_os_import_at_top(self):

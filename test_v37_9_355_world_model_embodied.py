@@ -211,23 +211,17 @@ class TestPaperKeywordFamilies(unittest.TestCase):
                  "description logic OWL", "semantic web linked data", "knowledge representation reasoning",
                  "LLM judge", "tool learning", "hallucination detection", "agent memory")
 
-    def test_each_source_has_18_with_v348_preserved(self):
+    # V37.9.383: DBLP 退役（脚本已删），本类收为 S2 单源；V348_DBLP 留作历史记录不再断言
+    def test_s2_has_18_with_v348_preserved(self):
         s2 = _bash_array(_read("jobs/semantic_scholar/run_semantic_scholar.sh"), "KEYWORDS")
-        dblp = _bash_array(_read("jobs/dblp/run_dblp.sh"), "KEYWORDS")
         self.assertEqual(len(s2), 18, s2)
-        self.assertEqual(len(dblp), 18, dblp)
         for kw in self.V348_S2:
             self.assertIn(kw, s2, "V37.9.348 关键词不得误删")
-        for kw in self.V348_DBLP:
-            self.assertIn(kw, dblp, "V37.9.348 关键词不得误删")
 
-    def test_new_domain_family_in_both_sources(self):
+    def test_new_domain_family_in_s2(self):
         s2 = " | ".join(_bash_array(_read("jobs/semantic_scholar/run_semantic_scholar.sh"), "KEYWORDS")).lower()
-        dblp = " | ".join(_bash_array(_read("jobs/dblp/run_dblp.sh"), "KEYWORDS")).lower()
         self.assertIn("world model", s2)
-        self.assertIn("world model", dblp)
         self.assertTrue("vision-language-action" in s2 or "embodied" in s2, s2)
-        self.assertIn("vision language action", dblp, "DBLP 是 token 前缀 AND 匹配, 用无连字符三 token 形态")
 
 
 # ══════════════════════════════════════════════════════════════════════

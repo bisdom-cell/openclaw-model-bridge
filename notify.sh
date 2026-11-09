@@ -16,7 +16,7 @@
 #   - notify_queue_flush 可手动触发重放
 #
 # Topic 频道映射（Discord Server 频道）：
-#   papers  → #论文（arxiv/hf/s2/dblp/acl）
+#   papers  → #论文（arxiv/hf/s2/acl；dblp V37.9.383 退役）
 #   freight → #货代（freight_watcher）
 #   alerts  → #告警（auto_deploy/watchdog/preflight）
 #   daily    → #日报（kb_dream/kb_review/health_check）

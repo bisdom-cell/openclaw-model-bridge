@@ -2864,7 +2864,7 @@ invariants:
               ("jobs/semantic_scholar/run_semantic_scholar.sh", 1),
               # V37.8.13: pwc 脚本已删除 (jobs_registry.yaml entry pwc.enabled=false)
               ("jobs/hf_papers/run_hf_papers.sh", 1),
-              ("jobs/dblp/run_dblp.sh", 1),
+              # V37.9.383: dblp 脚本已删除 (jobs_registry.yaml entry dblp.enabled=false)
               ("jobs/acl_anthology/run_acl_anthology.sh", 1),
               ("jobs/ontology_sources/run_ontology_sources.sh", 1),
               ("jobs/freight_watcher/run_freight.sh", 2),
@@ -7077,7 +7077,7 @@ invariants:
           # V37.9.51 Sub-Stage 4b 6 个脚本必须都出现在 ALIGNED_SCRIPTS dict 中
           required_paths = [
               "jobs/rss_blogs/run_rss_blogs.sh",
-              "jobs/dblp/run_dblp.sh",
+              # V37.9.383: jobs/dblp/run_dblp.sh 已退役删除
               "jobs/arxiv_monitor/run_arxiv.sh",
               "jobs/github_trending/run_github_trending.sh",
               "jobs/ai_leaders_x/run_ai_leaders_x.sh",

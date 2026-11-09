@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-09 06:09:57",
+  "updated": "2026-11-09 07:29:02",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -248,6 +248,11 @@
       "date": "2026-11-09",
       "what": "V37.9.382 后记: 关思考拒答生产定性——切换后 26 条逐条结果 + 16 个文件零拒答（probe 短题 2/9），判定为短指令型、真实批量提示未受影响；不改代码，触发条件登记",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-11-09",
+      "what": "V37.9.383 DBLP 退役删除（用户决策）：09-19 起 Anubis 反爬 100% 失败 7 周；pwc 先例删脚本+保留 disabled entry；运行时 7 处清单移除 + 按类守卫 TestRetiredJobsLeaveNoRuntimeWiring（sabotage 四连开火）；发现 Top 5 挑选器不看结果文件新旧（登记）",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -296,7 +301,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-11-09 06:01:52",
+      "checked_at": "2026-11-09 07:21:12",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -413,7 +418,7 @@
       "V37.9.357 5 脚本转义 bug 修复 Mac Mini 验证 3/4 已闭环 (09-23 实测: finance_news 07:30 / ontology_sources 09-22 20:00 / hn_watcher 09-22 20:45+09-23 08:45 均为修复后干净运行, 运行时副本 5/5 grep -cF 'cd \\\"'=0): 剩 freight 09-23 14:00 后 ~/.openclaw/logs/jobs/freight_watcher.log 的 cd 错误计数应停在 39 不再增长",
       "V37.9.358 auto_deploy 原子复制 Mac Mini 被动验证 (合并同步后零重启, 本次同步是旧就地 cp 的最后一次执行): (a) ls ~/.openclaw/jobs/*/*.deploy.* 2>/dev/null 应恒空 (b) 下次改到长 job 脚本 (S2/kb_dream/rss_blogs) 的部署与其运行重叠时, 该 job 日志不再出现 'syntax error near unexpected token' 且状态文件正常写入 (c) 09-23 11:05 后 cat ~/.openclaw/jobs/semantic_scholar/cache/last_run.json 应为 09-23 时间戳 (修复后首轮 + V37.9.355 18 词首轮)",
       "【✅ V37.9.359 已修 · 剩 Mac Mini 被动验证】notify 返回码对齐 V37.9.174 声明契约「≥1 通道送达即 0」: 部分失败→失败通道入队 + stderr [notify] PARTIAL: 信号 + rc 0; 全失败/--channel 单发失败仍 rc 1; preflight 16/19 部分失败→warn(不 stamp 小时缓存)。同步后下次任一通道掉线观察: job 记 sent 非 send_failed / watchdog 无 arxiv CORE 假告警 / arxiv 正常标 seen 不重推 / preflight 显 ⚠️ 推送部分通道失败。",
-      "🔴 DBLP 自 ~09-19 起 100% 失败 = dblp.org 上 Anubis 反爬闸 (raw 文件为 'Making sure you're not a bot' 挑战页, 本 job 非浏览器 UA 也被挑战; V37.9.282 parse_failed 守卫正确开火, 与 V37.9.355 关键词无关): 待用户 12:00 前对 dblp.uni-trier.de / dblp.dagstuhl.de 镜像同 UA 探针 → 镜像返回 JSON 则换 DBLP_API 到镜像; 同闸则评估退役 dblp job (日落法; S2/arxiv/acl 覆盖学术面)【2026-11-09 复核: 仍 100% 失败已 7 周（11-08 12:00 fetch_failed「所有关键词搜索均失败」），镜像探针结果仍未回传；dev 出口代理对 dblp 三域名 CONNECT 403 无法代做。若用户不打算做探针，按日落法建议直接 enabled:false 退役（S2/arxiv/acl 覆盖学术面），由用户决定】",
+      "【✅ 已关闭 · DBLP 退役 V37.9.383 · 2026-11-09】09-19 起 dblp.org Anubis 反爬致 100% 抓取失败 7 周、每轮 watchdog 告警 → 用户决策直接删除（镜像探针不再等）。pwc V37.8.13 先例：删 jobs/dblp/run_dblp.sh + registry 保留 enabled:false 条目；FILE_MAP / watchdog 状态与锁清单 / config.yaml 超时 / Top 5 挑选器 / 深读 TIER_1 / LLM cron 审计 / 治理 TOPIC_JOB_MAP 全部移除；KB 归档 dblp_daily.md 保留（search_kb 仍可搜、日报按日期过滤不会读旧内容）。新守卫 test_check_registry.TestRetiredJobsLeaveNoRuntimeWiring 从 registry 推导退役集合按类守五处清单。剩 Mac Mini：crontab_safe.sh remove 'run_dblp.sh' + 删运行时目录脚本（见交接）。",
       "OpenClaw 4.27 WhatsApp 428 Precondition Required「Connection Terminated」(2026-09-22T15:28Z) 后通道 stopped 不自动重连, 需 restart.sh 才恢复 (凭据未丢, 不需扫码) → 下次升级评估收益侧 B2「WhatsApp 重连改进仅 ≥6.x」的本地实证数据点; 另: 6 月 408 血案教训再确认——状态 stopped≠logged out 时绝不扫码",
       "arxiv 09-23 08:00 因 notify rc=1 记 send_failed 未标 seen → 20:00 会重推同 10 篇 (Discord 重复); 已交接一次性 new_ids.txt >> seen_ids.txt 去重命令, 用户执行与否均可 (LLM 成本 10 次调用级)",
       "【finance_news short_content:13 · 2026-09-24 · 已处置 V37.9.361】用户取证: llm_raw_last.json 已被次日成功运行覆盖(992 token 正常分析) → 09-24 那 13 字符永久不可知, 次日已恢复, 不做推测性修复。V37.9.361 起失败时写 cache/llm_raw_failed.json(成功不触碰)。剩被动观察: 若再现, 读该文件的 content/finish_reason 定性。",
@@ -443,7 +448,8 @@
       {
         "item": "【🟡 已定性 · 观察中 · tokenhub 关思考拒答 · 2026-11-09】探针 A（批量形态 + thinking:disabled）返回固定拒答「针对这个需求我无法为你提供相应帮助…」，判定行只看思考 token 误报 ✅（原则 #36-1）。用户 Mac Mini 两条复测：refusal_probe.py 关思考 ×9 = 原题 1/3、论文摘要 0/3、新闻 1/3（共 2/9），不关思考对照 1/1 正常但 77.6 秒；refusal_scan.py：10:55 切换后 26 条逐条结果（chaspark 5 / semantic_scholar 10 / github_trending 10 / ai_leaders_blogs 1）+ 16 个 KB/原始响应文件零拒答零过短零失败。这些任务只在 HTTP 错误/解析失败/空内容时重试，拒答是非空内容会被当成功记录 → 0/26 是真实首答。若生产拒答率同为 2/9，26 条全无拒答的概率约 0.15% → 拒答集中在探针这类短而无上下文的单句指令，真实批量提示目前未受影响。复测脚本判定行把「短题被拒」写成「批量任务受影响」= 又一次越过证据。不改代码，关思考维持（对照组 77.6s 是去掉它的代价）。🔴 触发条件：生产产物里一旦出现拒答文案（重跑 ~/refusal_scan.py 即可查，SCAN_SINCE 可改起点）→ 在 adapter 批量路径加「检出拒答文案即以同参数重试一次」，一处覆盖全部批量调用方；届时需同步考虑 per-item 任务会把拒答当成功推送这一面。",
         "added": "2026-11-09"
-      }
+      },
+      "【🟡 新 finding · Top 5 挑选器不看结果文件新旧 · 2026-11-09】top_alignment_picker.scan_source_results 只读 cache/llm_results.jsonl，不看 mtime/日期；多数 job 在抓取失败（fetch_failed/parse_failed）时提前 exit，不会清空上一轮的 llm_results.jsonl → 该源的旧条目会被当成「今日高对齐 Top 5」进 kb_dream / kb_evening / kb_radar。dblp 09-19→11-09 正是此形态（已随 V37.9.383 退役消除）。类修复候选：picker 跳过 mtime 超过该源 cron 周期（日更 36h / ACL 周更 8 天）的结果文件，或 job 在 fetch 前先清空结果文件。先用 Mac Mini 实测看历史 Top 5 是否真出现过 DBLP 旧条目再定（原则 #28）。"
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -452,8 +458,8 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6870,
-    "last_regression": "2026-11-09 06:09 pass",
+    "test_count": 6855,
+    "last_regression": "2026-11-09 07:29 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 208,

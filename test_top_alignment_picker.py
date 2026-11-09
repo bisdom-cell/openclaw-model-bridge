@@ -433,13 +433,17 @@ class TestSourceLevelGuards(unittest.TestCase):
         self.assertIn("V37.9.56", self.src)
         self.assertIn("Sub-Stage 4c", self.src)
 
-    def test_10_aligned_sources_registered(self):
-        """ALIGNED_SOURCES 必须含全部 10 个 source id (V37.9.112: +ai_leaders_bsky)."""
-        for src_id in ["hf_papers", "semantic_scholar", "arxiv", "dblp",
+    def test_9_aligned_sources_registered(self):
+        """ALIGNED_SOURCES 必须含全部 9 个 source id (V37.9.112: +ai_leaders_bsky; V37.9.383: dblp 退役)."""
+        for src_id in ["hf_papers", "semantic_scholar", "arxiv",
                        "github_trending", "rss_blogs", "ai_leaders_blogs",
                        "ai_leaders_x", "ai_leaders_bsky", "hn"]:
             self.assertIn(f'"id": "{src_id}"', self.src,
                           f"ALIGNED_SOURCES 缺 {src_id}")
+        # V37.9.383: dblp 已退役。抓取失败时提前退出不清空 llm_results.jsonl，
+        # 而 picker 不看文件新旧 → 残留会把退役前的旧论文当今日 Top 5 推出去
+        import top_alignment_picker as tap
+        self.assertNotIn("dblp", [s["id"] for s in tap.ALIGNED_SOURCES])
 
     def test_ai_leaders_blogs_is_blog_tier_priority_5(self):
         """V37.9.108: ai_leaders_blogs (长文学者观点) = 博客档 priority 5 (同 rss_blogs, > tweet 类 6)."""

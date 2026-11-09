@@ -24,7 +24,6 @@ _REPO = os.path.dirname(os.path.abspath(__file__))
 # job 相对路径 → 期望 notify topic
 CONVERTED_JOBS = {
     "jobs/hf_papers/run_hf_papers.sh": "papers",
-    "jobs/dblp/run_dblp.sh": "papers",
     "jobs/acl_anthology/run_acl_anthology.sh": "papers",
     "jobs/hn_watcher/run_hn_fixed.sh": "tech",
     "jobs/rss_blogs/run_rss_blogs.sh": "tech",

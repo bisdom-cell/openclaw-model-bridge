@@ -147,15 +147,11 @@ class TestV379135KeywordRestore(unittest.TestCase):
         self.assertEqual(len(kws), 18,
                          f"V37.9.355: 16 + 2 新跟踪领域 = 18 关键词, 实际 {len(kws)}: {kws}")
 
-    def test_v348_reliability_family_in_both_sources(self):
-        """V37.9.348: 纲领 T2/T5/T6/T8 可靠性族在 S2 与 DBLP 同族存在 (措辞按各自 API, 不逐字)。"""
-        dblp = os.path.join(_REPO, "jobs", "dblp", "run_dblp.sh")
-        with open(dblp, encoding="utf-8") as f:
-            dblp_kws = " | ".join(self._keywords(f.read())).lower()
+    def test_v348_reliability_family_in_s2(self):
+        """V37.9.348: 纲领 T2/T5/T6/T8 可靠性族在 S2 存在（V37.9.383 DBLP 退役，双源断言收为单源）。"""
         s2_kws = " | ".join(self._keywords(self.src)).lower()
         for token in ("judge", "tool learning", "hallucination", "memory"):
             self.assertIn(token, s2_kws, f"S2 可靠性族缺 '{token}'")
-            self.assertIn(token, dblp_kws, f"DBLP 可靠性族缺 '{token}'")
 
     def test_original_six_preserved(self):
         """V37.8.13 保留的 6 个核心关键词不得丢失 (向后兼容)"""
@@ -172,18 +168,13 @@ class TestV379135KeywordRestore(unittest.TestCase):
                    "semantic web linked data", "knowledge representation reasoning"):
             self.assertIn(kw, kws, f"ontology/KR 关键词 '{kw}' 必须恢复")
 
-    def test_aligned_with_dblp_keyword_family(self):
-        """与 DBLP 同源 12 关键词集语义对齐 (MR-8 精神, 6 个补回项逐字一致)"""
-        dblp = os.path.join(_REPO, "jobs", "dblp", "run_dblp.sh")
-        with open(dblp, encoding="utf-8") as f:
-            dblp_src = f.read()
-        dblp_kws = self._keywords(dblp_src)
+    def test_ontology_keyword_family_preserved(self):
+        """V37.9.135 补回的 6 个 ontology 关键词必须逐字保留（原与 DBLP 对齐；V37.9.383 DBLP 退役后只守 S2）"""
         s2_kws = self._keywords(self.src)
         for kw in ("neuro-symbolic reasoning", "enterprise ontology",
                    "formal ontology information systems", "description logic OWL",
                    "semantic web linked data", "knowledge representation reasoning"):
-            self.assertIn(kw, dblp_kws, f"DBLP 必含同源关键词 '{kw}'")
-            self.assertIn(kw, s2_kws, f"S2 必含同源关键词 '{kw}'")
+            self.assertIn(kw, s2_kws, f"S2 必含 ontology 关键词 '{kw}'")
 
     def test_v37_9_135_marker_present(self):
         self.assertIn("V37.9.135", self.src)

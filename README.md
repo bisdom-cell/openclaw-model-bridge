@@ -5,7 +5,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-6870%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-6855%20passed-brightgreen.svg)]()
 [![Providers](https://img.shields.io/badge/providers-12%20supported-orange.svg)]()
 [![Governance](https://img.shields.io/badge/invariants-91%2F91%20%2B%2023%20MR-blueviolet.svg)]()
 [![Security](https://img.shields.io/badge/security-95%2F100-green.svg)]()
@@ -13,7 +13,7 @@
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-17%2F21%20aligned-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.382` / `0.37.9.192` (2026-11-09) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.9.383` / `0.37.9.193` (2026-11-09) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 > **Latest milestone:** 📄 **ArXiv paper #2 published** — [**arXiv:2610.05981**](https://arxiv.org/abs/2610.05981) (2026-10-06, cs.SE): *Mechanizing the User's Eye* — pre-registered shadow→on deployment of a sabotage-validated fail-plausible observer, the observer's own incident log (O1–O10), and a quiet-window negative result reported as undefined precision rather than success. Follow-up to paper #1 [**arXiv:2606.14589**](https://arxiv.org/abs/2606.14589) (2026-06-15, cs.SE): the *fail-plausible* concept + a 5-class taxonomy of silent failures from 22 production incident postmortems (IEEE Software in review; ISSRE rejected 2026-08-14, conference track closed — journal-first strategy V37.9.307). **Constitutional priority now: LLM-Observer (机械化人眼)** — an automated user-perspective observer that catches *fail-plausible* silent failures **before the user does** (the paper's headline open problem: ~70% of silent failures were caught by looking at the product, while tests/governance caught ≈0%). Stages 0-6 built: design doc → 22-incident labelled ground-truth → 2-layer detector (deterministic S1-S5 pre-filter + LLM-judge) → sabotage self-validation harness → community-runnable [fail-plausible bench](docs/fail_plausible_bench.md). Guiding principle: **日落法 (Sunset Law) — reduce complexity before adding features** (原则 #34 + MR-22/MR-23).
 
 ## Product Layers: What's Core vs. What's the Author's PA Instance
@@ -24,7 +24,7 @@
 |-------|-----------|-----------|------------------|------------|
 | **1 · Core Runtime** | Provider abstraction + tool-governance proxy + SLO / fallback / circuit breaker | `adapter.py` · `providers.py` (+ `providers.d/` plugins) · `tool_proxy.py` · `proxy_filters.py` · `config_loader.py` · `slo_*.py` | **None — Python stdlib only** | The reusable framework |
 | **2 · Governance-Ontology** | Declarative tool ontology + governance engine (invariants / meta-rules — counts in badges above) + convergence framework + three-gate (shadow) | `ontology/` — on PyPI as [`openclaw-ontology-engine`](https://pypi.org/project/openclaw-ontology-engine/) | **PyYAML ≥ 5.4** | A `pip install`-able engine; bring your own YAML |
-| **3 · Personal-PA-Example** | The author's WhatsApp/Discord assistant: 41 active cron jobs (47 registered), KB memory plane, SOUL.md persona, paper/news radars | `jobs/` · `kb_*.{sh,py}` · `SOUL.md` · `notify.sh` · `jobs_registry.yaml` | Optional extras (`requirements-rag/-mm.txt`) | A worked example — the live system **is** effectively `examples/personal_pa` |
+| **3 · Personal-PA-Example** | The author's WhatsApp/Discord assistant: 40 active cron jobs (47 registered), KB memory plane, SOUL.md persona, paper/news radars | `jobs/` · `kb_*.{sh,py}` · `SOUL.md` · `notify.sh` · `jobs_registry.yaml` | Optional extras (`requirements-rag/-mm.txt`) | A worked example — the live system **is** effectively `examples/personal_pa` |
 
 Layer 3 is not product clutter — it is the **production evidence** for layers 1–2: every SLO number, blood-lesson case study, and governance check in this README comes from it running 24/7 since March 2026. But you need none of it to use layers 1–2.
 
@@ -72,7 +72,7 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
 
 ② Memory plane    KB notes/sources → local embedding (384-dim, 0 API call) → RAG (kb_rag.py)
                   media files → Gemini Embedding 2 → semantic search (mm_search.py)
-③ Scheduled jobs  41 active / 47 registered — 5-source paper radar (ArXiv/HF/S2/DBLP/ACL) · HN ·
+③ Scheduled jobs  40 active / 47 registered — 4-source paper radar (ArXiv/HF/S2/ACL) · HN ·
                   KB digest / dream / deep-dive · freight · health & SLO watchdogs
                   → notify.sh (default Discord, 6 topic channels; dual-channel when WhatsApp restored)
 ④ Control plane   config.yaml (70+ thresholds, 9 sections) · SLO (5 metrics) · preflight full-body checks
@@ -272,7 +272,7 @@ This is a deliberate architecture decision: **every dependency you remove is one
 | `gameday.sh` | **V33** GameDay fault injection — 5 scenarios (GPU timeout, circuit breaker, snapshot, SLO, watchdog) |
 | `smoke_test.sh` | End-to-end smoke test (unit tests + registry + doc drift + connectivity) |
 
-### Scheduled Jobs (47 registered, 41 active — schedules below mirror `jobs_registry.yaml`)
+### Scheduled Jobs (47 registered, 40 active — schedules below mirror `jobs_registry.yaml`)
 
 All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.py`
 
@@ -281,7 +281,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 | `jobs/arxiv_monitor/run_arxiv.sh` | Daily 08:00 / 20:00 | ArXiv AI paper monitoring + KB + notify (default Discord) |
 | `jobs/hf_papers/run_hf_papers.sh` | Daily 10:00 | **V30.5** HuggingFace Daily Papers + KB + dual-channel push |
 | `jobs/semantic_scholar/run_semantic_scholar.sh` | Daily 11:00 | **V30.5** Semantic Scholar papers (citation-ranked) + KB + dual-channel |
-| `jobs/dblp/run_dblp.sh` | Daily 12:00 | **V30.5** DBLP CS papers (multi-keyword, free API) + KB + dual-channel |
+| ~~`jobs/dblp/run_dblp.sh`~~ | ~~Daily 12:00~~ | **Retired V37.9.383** — dblp.org served an anti-bot challenge page from 2026-09-19, 100% fetch failure; script deleted, registry entry kept disabled, KB archive still searchable |
 | `jobs/acl_anthology/run_acl_anthology.sh` | Wed 09:30 | **V30.5** ACL Anthology NLP top-venue papers + KB + dual-channel |
 | `jobs/finance_news/run_finance_news.sh` | Daily 07:30 | **V37.8.2** Global finance/policy news — 14 RSS + 10 X accounts + LLM analysis + zombie detection |
 | `jobs/chaspark/run_chaspark.sh` | Daily 11:00 | **V37.8.14** 茶思屋科技(Chaspark) — HTML API deep analysis + KB + dual-channel |
@@ -320,7 +320,7 @@ All jobs registered in `jobs_registry.yaml`. Validate: `python3 check_registry.p
 
 | File | Description |
 |------|-------------|
-| `jobs_registry.yaml` | Unified job registry — 47 jobs (41 active, 6 disabled), system cron |
+| `jobs_registry.yaml` | Unified job registry — 47 jobs (40 active, 7 disabled), system cron |
 | `check_registry.py` | Registry validator — ID uniqueness, paths, fields |
 | `gen_jobs_doc.py` | Auto-generate job docs from registry + drift detection |
 | `test_providers.py` | Unit tests for providers |
@@ -463,7 +463,7 @@ notify "Deploy alert" --topic alerts   # → Discord #alerts channel
 
 | Discord Channel | Content |
 |----------------|---------|
-| #papers | ArXiv, HF Papers, Semantic Scholar, DBLP, ACL |
+| #papers | ArXiv, HF Papers, Semantic Scholar, ACL |
 | #freight | Freight intelligence reports |
 | #alerts | Deploy alerts, watchdog, preflight failures |
 | #daily | KB digest, health reports, reviews |
@@ -524,7 +524,7 @@ The `auto_deploy.sh` script maps ~118 repo files to runtime locations (FILE_MAP)
 ## Testing
 
 ```bash
-# Full regression (208 suites / 6870 tests / 0 fail; must ALL pass before push)
+# Full regression (208 suites / 6855 tests / 0 fail; must ALL pass before push)
 bash full_regression.sh
 
 # Individual test suites (run full_regression.sh for totals)

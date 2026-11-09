@@ -184,7 +184,8 @@ class TestAllFetchFailedWritersRenderCleanly(unittest.TestCase):
     def test_writer_discovery_not_empty(self):
         self.assertGreaterEqual(len(self.writers), 10, self.writers)
         paths = {p for p, _ in self.writers}
-        self.assertTrue(any("run_dblp.sh" in p for p in paths), paths)
+        # V37.9.383: 血案写入方 dblp 已退役删除，改钉同为单源旧形态的 S2
+        self.assertTrue(any("run_semantic_scholar.sh" in p for p in paths), paths)
         self.assertTrue(any("run_finance_news.sh" in p for p in paths), paths)
 
     def test_every_writer_renders_without_empty_parenthesis(self):
@@ -198,9 +199,9 @@ class TestAllFetchFailedWritersRenderCleanly(unittest.TestCase):
                 self.assertEqual(len(alerts), 1, (path, lines))
                 self.assertIsNone(_EMPTY_PAREN.search(alerts[0]), (path, alerts[0]))
 
-    def test_dblp_and_s2_write_errors_count(self):
-        """生产端：dblp / s2 的多关键词 fetch_failed 带 errors 计数（镜像 blogs/bsky/finance/ontology/rss_blogs）。"""
-        for rel in ("jobs/dblp/run_dblp.sh", "jobs/semantic_scholar/run_semantic_scholar.sh"):
+    def test_s2_writes_errors_count(self):
+        """生产端：s2 的多关键词 fetch_failed 带 errors 计数（镜像 blogs/bsky/finance/ontology/rss_blogs；dblp V37.9.383 退役）。"""
+        for rel in ("jobs/semantic_scholar/run_semantic_scholar.sh",):
             with self.subTest(script=rel):
                 src = _strip_comments(_read(rel))
                 self.assertRegex(
@@ -229,7 +230,7 @@ class TestSourceGuards(unittest.TestCase):
         self.assertIn("test_v37_9_379_watchdog_fetch_failed_render.py", _read("full_regression.sh"))
 
     def test_bash_syntax(self):
-        for rel in ("job_watchdog.sh", "jobs/dblp/run_dblp.sh", "jobs/semantic_scholar/run_semantic_scholar.sh"):
+        for rel in ("job_watchdog.sh", "jobs/semantic_scholar/run_semantic_scholar.sh"):
             r = subprocess.run(["bash", "-n", os.path.join(_HERE, rel)], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, (rel, r.stderr))
 
