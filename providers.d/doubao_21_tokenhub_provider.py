@@ -92,7 +92,7 @@ class Doubao21TokenhubProvider(BaseProvider):
     # verified_* = **本平台 (ai-tokenhub)** 的实证 → 全 False 待探针 (平台证据不迁移)。
     capabilities = ProviderCapabilities(
         text=True,
-        vision=True,           # 模型多模态; Bifrost 网关 image_url 透传待实测
+        vision=True,           # 模型多模态; V37.9.382 Bifrost 网关 image_url 透传实测通过
         audio=False,
         video=False,
         tool_calling=True,
@@ -104,19 +104,22 @@ class Doubao21TokenhubProvider(BaseProvider):
         # V37.9.341 平台维度重置 → V37.9.342 ai-tokenhub 路径 E2E 逐项 flip
         verified_text=True,          # V37.9.343 纯文本探针: content 4 字符 + finish_reason=stop
                                      #   (V37.9.342 那轮带 tools 故 content 空, 见 docstring 说明)
-        verified_vision=False,       # Bifrost 网关 image_url 透传未测
+        verified_vision=True,        # V37.9.382 E2E: 64x64 纯红 PNG data URI → content「红色」+ finish_reason=stop
+                                     #   (2026-11-09 主力切换当日探针; 同日 PA 生产看图请求路由到本槽位)
         verified_tool_calling=True,  # V37.9.342 E2E: finish_reason=tool_calls + tool_calls 长度 1
         verified_streaming=False,    # 本平台未单测
         verified_reasoning=True,     # V37.9.342 E2E: reasoning 字段填充 (tokenhub 字段名 reasoning)
         verified_fallback=False,     # 未真生产 fallback 接管 (本平台)
         verification_tier="feature_verified",
-        tier_note="2026-09-02 槽位更正 doubao-2.1 @ ai-tokenhub (V37.9.341) 后 E2E 升档 (V37.9.342 tool_calling+reasoning, V37.9.343 补 text)",
+        tier_note="2026-09-02 槽位更正 doubao-2.1 @ ai-tokenhub (V37.9.341) 后 E2E 升档 (V37.9.342 tool_calling+reasoning, V37.9.343 补 text, V37.9.382 补 vision)",
         tier_evidence="ai-tokenhub E2E 探针 2026-09-02 (V37.9.342, model=doubao-seed-2-1-pro-260628): "
                       "tool_calling+reasoning 2/2 通过 (finish_reason=tool_calls + tool_calls 长度 1 + "
                       "reasoning 字段填充, usage 466/94, 响应 model 回显本 model id = ai-tokenhub 路由正确)；"
                       "V37.9.343 补跑不带 tools 的纯文本探针: content 4 字符 + finish_reason=stop + "
                       "reasoning 字段, usage 76/247 → verified_text 达标 flip True "
                       "(V37.9.342 那轮带 tools 故 content 为空, 够不着「有 content + finish_reason=stop」标准)；"
-                      "vision/streaming/json_mode 本平台未测; Ark 侧 doubao_21 的 5/5 证据不跨平台迁移；"
+                      "V37.9.382 (2026-11-09 主力切换当日) 看图探针: 64x64 纯红 PNG 以 data URI 经 image_url 发送 → "
+                      "content「红色」+ finish_reason=stop → verified_vision flip True；"
+                      "streaming/json_mode 本平台未测; Ark 侧 doubao_21 的 5/5 证据不跨平台迁移；"
                       "V37.9.381 起为生产 primary (方舟版退役), 生产观察期未满不升 production_observed",
     )

@@ -150,8 +150,8 @@ class TestDoubaoCapScoreRanking(unittest.TestCase):
         # V37.9.341 更正 doubao-2.1 声明 6 → V37.9.342 E2E flip tool_calling+reasoning
         # (6 base + 2 verified*2) = 10
         self.assertEqual(
-            score, 12,
-            f"V37.9.343 doubao-2.1 三项 verified cap_score 锁定 12, got {score}",
+            score, 14,
+            f"V37.9.382 doubao-2.1 四项 verified (V37.9.343 三项 + 看图) cap_score 锁定 14, got {score}",
         )
 
     def test_gemini_cap_score_unchanged(self):
@@ -183,8 +183,8 @@ class TestVerifiedFeaturesIncludesReasoning(unittest.TestCase):
         # 史: V37.9.55 五项 (Ark) → V37.9.290 重置空集 → V37.9.291 半升档 → V37.9.339 换模型空集
         # → V37.9.341 doubao-2.1 空集 → V37.9.342 ai-tokenhub E2E tool_calling+reasoning
         self.assertEqual(
-            set(features), {"text", "tool_calling", "reasoning"},
-            f"V37.9.343 应为 text+tool_calling+reasoning, got {features}",
+            set(features), {"text", "vision", "tool_calling", "reasoning"},
+            f"V37.9.382 应为 text+vision+tool_calling+reasoning (V37.9.343 三项 + 看图实测), got {features}",
         )
 
     def test_other_providers_no_reasoning_in_verified(self):

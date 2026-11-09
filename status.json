@@ -80,11 +80,6 @@
   ],
   "recent_changes": [
     {
-      "date": "2026-11-05",
-      "what": "V37.9.378 论文 #1 IEEE Software SW-2026-06-0312 拒稿分诊（三审 14 条逐条三元判定，无整体反驳；与 ISSRE 三审收敛同四条）+ 期刊改投底稿 v3（journal_submission_v3.md：编码规则/逐类计数/运行时配置/「自动化断言了什么」/全量分母/四处过度声称收敛/Ji 2023+Kalai 2025/幸存者偏差）+ 59 例分母研究（135 条 changelog 行逐条编码：人 51/59=86% 首发现、运行时自动化 8/59=14%、user-view 47%、操作者部署后验证 20%；语料=文档选择子集；编造事件 4 例是下界；provisional 单编码者）；venue 状态表入 SUBMISSION_GUIDE 顶部；VERSION 0.37.9.189 不变",
-      "by": "claude_code"
-    },
-    {
       "date": "2026-11-02",
       "what": "V37.9.377 OpenClaw 2026.10.8 / 10.9 追加读数（eval doc 27.6）：三判据与 10-27 后记状态逐项相同 ❌🔴✅（① 10.8 DIRTY 2 / 10.9 hotfix 分支直判 DIRTY 2 计数仍 0；② 3.16 / 2.18 天 🔴 4 周窗 2.5/周；③ engines 逐字同 + Mac Mini 26.12.1 在区间），七个门控函数 10.7↔10.9 逐字同 + docs 对比 4 条 ★1 登记不入 + exports 零变化 + 桥接 2026.9.5 未变 → 无新默认自主行为 → 按日落规则追加不新开节、LAST_EVAL_DATE 保持 10-27；tripwire 43/50 剩 7 预计 11-23 触发；守卫 +TestAppendReading276 12（132→144）+ Sixteenth 三 pin 演进，sabotage 八连开火；VERSION 0.37.9.189 不变",
       "by": "claude_code"
@@ -247,6 +242,11 @@
     {
       "date": "2026-11-09",
       "what": "V37.9.381: 主力 Ark key 被停用 12 天分诊闭环——方舟版 doubao_21 退役，主力切同模型 doubao_21_tokenhub（Mac Mini 已切换验证 200/closed），插件+FILE_MAP+ARK_* env 退役，12 provider，router 赢家连带变 kimi_k3 已登记",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-11-09",
+      "what": "V37.9.382: doubao_21_tokenhub 本平台看图实测 flip verified_vision（探针 C 纯红 PNG → 「红色」），cap_score 12→14，router text+prefer reasoning 重回生产主力（shadow，零运行时影响）；同时登记探针 A 关思考拒答（判定行漏看内容），交付扫描 + 复测两条命令待回传",
       "by": "claude_code"
     }
   ],
@@ -437,7 +437,11 @@
         "added": "2026-11-09"
       },
       {
-        "item": "【V37.9.381 连带效应 · router 赢家变 kimi_k3】方舟版退出 available 后 find_best_provider(text, prefer reasoning) = kimi_k3（13+10）> doubao_21_tokenhub（12+10），差在 verified_vision 未在 ai-tokenhub 实测。kb_dream radar retry 只在其 shell env ROUTER_ENFORCE=on 时真走 ?provider=；待 Mac Mini 回传: grep -c ROUTER_ENFORCE ~/.env_shared + router_decisions.jsonl 最近几条 mode。处置: tokenhub 看图探针 ✅ → flip verified_vision（+2 → 24 > 23）router 回到主力同模型；若 ❌ 再议是否给 kb_dream 画像加 exclude kimi_k3 或接受。另候选 V37.9.382: watchdog SLO 降级告警行附 /health 断路器状态 + adapter.log 最近一条 PRIMARY FAILED 原因（消费端读既有产出零新机制，让第一条告警就说出「primary 401」）。【2026-11-09 回传】.env_shared 无 ROUTER_ENFORCE；router_decisions.jsonl 最后一条是 2026-07-01，06-08/06-13 两条 mode=on → radar retry 4 个多月没有触发过，router 赢家变化实际影响近零（降为低优）。kb_dream 先 source ~/.bash_profile，是否 enforce 以 bash -lc 读到的 ROUTER_ENFORCE 为准，待回传。另：用户 preflight 结果 61 通过/10 跳过 = 跳过项打印 (skipped, use --full) → 是 DEV 模式，部署一致性/env/连通性未检，需 --full 重跑。🔴 升为高优的是 tokenhub 看图：主力现在直接处理 PA 图片，ai-tokenhub 上 vision 从未实测；失败则每张图 400 + 记断路器失败 + 落到 qwen VL。",
+        "item": "【✅ 已闭环 V37.9.382 · 2026-11-09】router 赢家变 kimi_k3 的连带效应：Mac Mini 回传 ROUTER_ENFORCE=unset (cron env 未设, router 仅 shadow 记录, radar retry 自 07-01 未触发 = 零运行时影响) + tokenhub 看图探针 C 返回「红色」finish=stop → V37.9.382 flip verified_vision, cap_score 12→14, text+prefer reasoning 重回 doubao_21_tokenhub (24 > kimi_k3 23)；无 prefer 时与 qwen 并列 14, 稳定排序取 qwen。",
+        "added": "2026-11-09"
+      },
+      {
+        "item": "【🔴 新 · tokenhub 关思考拒答 · 待 Mac Mini 回传 · 2026-11-09】探针 A（批量形态 + thinking:disabled）2.1s 返回固定拒答文案「针对这个需求我无法为你提供相应帮助。你可以尝试提供其他话题…」，同一题不关思考（B）37.7s 正常回答。探针判定行只看了思考 token 没看内容，误报 ✅（原则 #36-1 在我自己的探针上违反）。单样本，未定性：可能是这段题目文字触发内容审核，也可能关思考下普遍更易拒答。批量任务（无 tools 请求）全部注入 thinking:disabled（B1），若后者成立则 10:59 切换后所有批量产出受影响。已交付两条 dev 验证过的命令：refusal_scan.py（扫 ~/.openclaw/jobs/*/cache/llm_results.jsonl + 当日 KB 产物里的拒答文案）+ refusal_probe.py（三类题目各关思考 ×3 + 不关思考对照 1 次，判定区分「仅原题」/「普通内容也被拒」/「不可判」）。回传前不改代码（原则 #28）。若普通内容也被拒：候选处置 = 去掉 tokenhub 的 reasoning_off_body（批量变慢，V37.9.220 超时风险）或 adapter 遇拒答文案时去掉 thinking 重试一次，用数据再选。旁证待查：finance_news 09-24 short_content:13 当时也是关思考批量请求（Ark 期）。",
         "added": "2026-11-09"
       }
     ],

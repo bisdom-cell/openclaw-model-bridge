@@ -18,7 +18,7 @@
 | GLM (Zhipu AI) | glm-5, glm-5v-turbo | text, vision | Yes | Yes | 202K | none |
 | DeepSeek-V4-Pro 满血版 (ai-tokenhub) | deepseek-v4-pro-ga-260813 | text | Yes | Yes | 1048K | text, reasoning |
 | DeepSeek-V4-Pro | DeepSeek-V4-Pro | text | Yes | Yes | 65K | text, tool_calling, streaming |
-| Doubao Seed 2.1 Pro (ai-tokenhub) | doubao-seed-2-1-pro-260628 | text, vision | Yes | Yes | 262K | text, tool_calling, reasoning |
+| Doubao Seed 2.1 Pro (ai-tokenhub) | doubao-seed-2-1-pro-260628 | text, vision | Yes | Yes | 262K | text, vision, tool_calling, reasoning |
 | GLM-5.3 Coding (ai-tokenhub) | glm-5-3-260814 | text | Yes | Yes | 131K | text, reasoning |
 | Kimi K3 (ai-tokenhub) | kimi-k3-260716 | text | Yes | Yes | 262K | text, tool_calling, streaming, reasoning |
 
@@ -40,7 +40,7 @@
 | GLM (Zhipu AI) | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 | DeepSeek-V4-Pro 满血版 (ai-tokenhub) | **feature_verified**（2026-09-02 槽位换 GA 模型 (V37.9.339) 后 E2E 半升档 (text+reasoning, V37.9.340)） | ai-tokenhub E2E 探针 2026-09-02 (V37.9.340, model=deepseek-v4-pro-ga-260813): text+reasoning 2/2 通过 (200 + finish_reason=stop + bat-ball 题 4 字符答案 + reasoning 字段填充, usage 113/145, 响应 model 回显 GA 名 = 路由正确)；tool_calling/streaming 未在 GA 模型探针保持 False; -huakun 时代史见 docstring |
 | DeepSeek-V4-Pro | **feature_verified** | Mac Mini E2E 实测 2026-06-30: text/streaming/tool_calling/json_mode 4/4 通过 (content+finish_reason / SSE chunk+[DONE] / finish_reason=tool_calls+arguments / response_format=json_object 干净 JSON)；vision 实测不支持 (400 非多模态) / reasoning 无 R1 reasoning_content 通道 / 未真生产 fallback 接管。部署=w4a8-mtp 量化, 推理响应偶发乱码 token |
-| Doubao Seed 2.1 Pro (ai-tokenhub) | **feature_verified**（2026-09-02 槽位更正 doubao-2.1 @ ai-tokenhub (V37.9.341) 后 E2E 升档 (V37.9.342 tool_calling+reasoning, V37.9.343 补 text)） | ai-tokenhub E2E 探针 2026-09-02 (V37.9.342, model=doubao-seed-2-1-pro-260628): tool_calling+reasoning 2/2 通过 (finish_reason=tool_calls + tool_calls 长度 1 + reasoning 字段填充, usage 466/94, 响应 model 回显本 model id = ai-tokenhub 路由正确)；V37.9.343 补跑不带 tools 的纯文本探针: content 4 字符 + finish_reason=stop + reasoning 字段, usage 76/247 → verified_text 达标 flip True (V37.9.342 那轮带 tools 故 content 为空, 够不着「有 content + finish_reason=stop」标准)；vision/streaming/json_mode 本平台未测; Ark 侧 doubao_21 的 5/5 证据不跨平台迁移；V37.9.381 起为生产 primary (方舟版退役), 生产观察期未满不升 production_observed |
+| Doubao Seed 2.1 Pro (ai-tokenhub) | **feature_verified**（2026-09-02 槽位更正 doubao-2.1 @ ai-tokenhub (V37.9.341) 后 E2E 升档 (V37.9.342 tool_calling+reasoning, V37.9.343 补 text, V37.9.382 补 vision)） | ai-tokenhub E2E 探针 2026-09-02 (V37.9.342, model=doubao-seed-2-1-pro-260628): tool_calling+reasoning 2/2 通过 (finish_reason=tool_calls + tool_calls 长度 1 + reasoning 字段填充, usage 466/94, 响应 model 回显本 model id = ai-tokenhub 路由正确)；V37.9.343 补跑不带 tools 的纯文本探针: content 4 字符 + finish_reason=stop + reasoning 字段, usage 76/247 → verified_text 达标 flip True (V37.9.342 那轮带 tools 故 content 为空, 够不着「有 content + finish_reason=stop」标准)；V37.9.382 (2026-11-09 主力切换当日) 看图探针: 64x64 纯红 PNG 以 data URI 经 image_url 发送 → content「红色」+ finish_reason=stop → verified_vision flip True；streaming/json_mode 本平台未测; Ark 侧 doubao_21 的 5/5 证据不跨平台迁移；V37.9.381 起为生产 primary (方舟版退役), 生产观察期未满不升 production_observed |
 | GLM-5.3 Coding (ai-tokenhub) | **feature_verified**（2026-09-02 槽位换版本 GLM-5.3 (V37.9.339) 后 E2E 半升档 (text+reasoning, V37.9.340)） | ai-tokenhub E2E 探针 2026-09-02 (V37.9.340, model=glm-5-3-260814): text+reasoning 2/2 通过 (200 + finish_reason=stop + 250 字符 is_prime 代码 + reasoning 字段填充, usage 25/326, 响应 model 回显 5.3 名 = 路由正确)；tool_calling/streaming/json_mode 未在 5.3 探针保持 False; 5.2 时代史见 docstring |
 | Kimi K3 (ai-tokenhub) | **feature_verified** | V37.9.346 Mac Mini E2E 3/3: text(stop + content '$0.05') / tool_calling(finish_reason=tool_calls + get_weather Tokyo) / streaming(478 SSE 行); reasoning 字段 + reasoning_tokens=190 证 reasoning 通道 (V37.9.345 保守 False 经实测翻案). V37.9.347 补齐: json_mode 实测支持 (纯 JSON 可解析) 翻案为 True / vision 实测 HTTP 400 InvalidParameter 坐实 False |
 
@@ -61,7 +61,7 @@
 | GLM-5.3 Coding (ai-tokenhub) | Yes | — | — | — | Yes | Yes | — | Yes | 131K |
 | Kimi K3 (ai-tokenhub) | Yes | — | — | — | Yes | Yes | Yes | Yes | 262K |
 
-> Reasoning 维度 V37.9.53 新增（doubao seed reasoning model 实证驱动）。cap_score（V37.9.381 方舟版 doubao_21 的 16 退出后）: Qwen3 14 / Kimi K3 13 / `doubao_21_tokenhub` 12。生产主力由 `PROVIDER` env 决定不看 cap_score；cap_score 只影响无 `FALLBACK_ORDER` 时的自动排序与 router 选择（text+prefer reasoning 现选 kimi_k3，tokenhub 差在 vision 未在本平台实测）。
+> Reasoning 维度 V37.9.53 新增（doubao seed reasoning model 实证驱动）。cap_score（V37.9.381 方舟版 doubao_21 的 16 退出后；V37.9.382 `doubao_21_tokenhub` 本平台看图实测 flip verified_vision 12→14）: Qwen3 14 / `doubao_21_tokenhub` 14 / Kimi K3 13。生产主力由 `PROVIDER` env 决定不看 cap_score；cap_score 只影响无 `FALLBACK_ORDER` 时的自动排序与 router 选择（text+prefer reasoning 现选 `doubao_21_tokenhub` 14+10，与生产主力一致；无 prefer 时与 qwen 并列，稳定排序取先注册的 qwen）。
 
 ## Fallback 降级路径（V37.9.381 现状）
 

@@ -138,17 +138,20 @@ class TestDoubaoVerifiedVision(unittest.TestCase):
         self.providers = _reload_providers()
         self.d = self.providers.get_provider("doubao_21_tokenhub")
 
-    def test_verified_vision_reset_v290(self):
-        # V37.9.54 曾 True (Ark image_url 实测) → V37.9.290 平台切换重置 False
-        self.assertFalse(
+    def test_verified_vision_reflipped_by_probe_v382(self):
+        # 史: V37.9.54 True (Ark image_url 实测) → V37.9.290 平台切换重置 False →
+        # V37.9.382 本平台 (ai-tokenhub) 看图探针: 纯红 PNG data URI → content「红色」→ 重新 flip True
+        self.assertTrue(
             self.d.capabilities.verified_vision,
-            "V37.9.290 平台切换后 verified_vision 必须重置 False 待复测",
+            "V37.9.382 ai-tokenhub 看图探针通过后 verified_vision 应为 True",
         )
+        self.assertIn("V37.9.382", self.d.capabilities.tier_evidence,
+                      "flip 必须在 tier_evidence 里留本平台证据, 不得借用 Ark 侧旧证据")
 
-    def test_verified_features_excludes_vision_v290(self):
+    def test_verified_features_includes_vision_v382(self):
         features = self.d.capabilities.verified_features()
-        self.assertNotIn("vision", features,
-                         "V37.9.290 重置后 features 不应含 vision")
+        self.assertIn("vision", features,
+                      "V37.9.382 看图实测后 features 应含 vision")
 
     def test_verified_features_v343_set(self):
         """史: Ark 五项 → V37.9.290 重置空集 → V37.9.291 text+reasoning → V37.9.339 Kimi
@@ -158,12 +161,12 @@ class TestDoubaoVerifiedVision(unittest.TestCase):
         本项目标准是「有 content + finish_reason=stop」(原则 #23)。"""
         features = self.d.capabilities.verified_features()
         self.assertEqual(
-            set(features), {"text", "tool_calling", "reasoning"},
-            f"V37.9.343 应为 text+tool_calling+reasoning, got {features}",
+            set(features), {"text", "vision", "tool_calling", "reasoning"},
+            f"V37.9.382 应为 text+vision+tool_calling+reasoning (V37.9.343 三项 + 看图实测), got {features}",
         )
-        # vision/streaming 本平台仍未测 — 防「探针通过了就全绿」
-        self.assertNotIn("vision", features, "Bifrost image_url 透传未测")
+        # streaming 本平台仍未测 — 防「探针通过了就全绿」(V37.9.382 只补了 vision)
         self.assertNotIn("streaming", features, "本平台 streaming 未单测")
+        self.assertNotIn("fallback", features, "本平台未真生产 fallback 接管")
 
     def test_unverified_flags_still_false(self):
         """V37.9.55 仅 verified_fallback 守 False (剩生产真 fire 后再 flip).
@@ -197,8 +200,8 @@ class TestDoubaoCapScoreUpRanking(unittest.TestCase):
         # 史: 16 → V37.9.290 重置 6 → V37.9.291 半升档 10 → V37.9.339 Kimi 3 → V37.9.341
         # doubao-2.1 声明 6 → V37.9.342 E2E flip tool_calling+reasoning = 10
         self.assertEqual(
-            score, 12,
-            f"V37.9.343 doubao-2.1 三项 verified cap_score 锁定 12, got {score}",
+            score, 14,
+            f"V37.9.382 doubao-2.1 四项 verified (V37.9.343 三项 + 看图) cap_score 锁定 14, got {score}",
         )
 
     def test_doubao_slot_leads_fallback_chain_v381(self):

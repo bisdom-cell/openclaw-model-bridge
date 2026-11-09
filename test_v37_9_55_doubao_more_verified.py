@@ -90,8 +90,8 @@ class TestVerifiedFeaturesV9_55Complete(unittest.TestCase):
         # → V37.9.341 doubao-2.1 空集 → V37.9.342 ai-tokenhub E2E tool_calling+reasoning
         features = self.d.capabilities.verified_features()
         self.assertEqual(
-            set(features), {"text", "tool_calling", "reasoning"},
-            f"V37.9.343 应为 text+tool_calling+reasoning, got {features}",
+            set(features), {"text", "vision", "tool_calling", "reasoning"},
+            f"V37.9.382 应为 text+vision+tool_calling+reasoning (V37.9.343 三项 + 看图实测), got {features}",
         )
 
 
@@ -111,21 +111,24 @@ class TestCapScoreV9_55(unittest.TestCase):
         # 史: V37.9.55 曾 16 → V37.9.290 重置 6 → V37.9.291 10 → V37.9.339 Kimi 3 →
         # V37.9.341 doubao-2.1 声明 6 → V37.9.342 E2E flip 2 项 = 10
         self.assertEqual(
-            score, 12,
-            f"V37.9.343 doubao-2.1 三项 verified cap_score 锁定 12, got {score}",
+            score, 14,
+            f"V37.9.382 doubao-2.1 四项 verified (V37.9.343 三项 + 看图) cap_score 锁定 14, got {score}",
         )
 
-    def test_doubao_cap_score_below_qwen_after_reset_v290(self):
+    def test_doubao_cap_score_ties_qwen_v382(self):
         """史: V37.9.55 doubao(16) 曾超越 qwen(14) 成 registry 最强;
-        V37.9.290 平台切换重置 → doubao 6 < qwen 14。E2E 复测 flip 后再评估。
-        (registry 最强现为 doubao_21=16, 生产 primary 即它 V37.9.222。)"""
+        V37.9.290 平台切换重置 → doubao 6 < qwen 14 → V37.9.342/343 逐项 flip 到 12 →
+        V37.9.382 本平台看图实测 flip verified_vision → 14 = 与 qwen 并列。
+        并列时 router 无 prefer 选 qwen (sorted 稳定排序, built-in 注册在前),
+        prefer=reasoning 选 doubao_21_tokenhub (qwen 无 reasoning) — 见 test_v37_9_76。
+        生产不受影响: primary 由 PROVIDER env 决定, fallback 由 FALLBACK_ORDER env 决定。"""
         doubao = self.reg.get("doubao_21_tokenhub")
         qwen = self.reg.get("qwen")
         doubao_score = self.reg._capability_score(doubao)
         qwen_score = self.reg._capability_score(qwen)
-        self.assertLess(
+        self.assertEqual(
             doubao_score, qwen_score,
-            f"V37.9.290 重置后 doubao ({doubao_score}) 应 < qwen ({qwen_score})",
+            f"V37.9.382 看图实测后 doubao ({doubao_score}) 应与 qwen ({qwen_score}) 并列",
         )
 
 

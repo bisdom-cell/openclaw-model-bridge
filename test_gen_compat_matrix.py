@@ -137,7 +137,8 @@ class TestVerifiableFeaturesDenominator(unittest.TestCase):
         self.assertNotIn("5/4 verified", r.stdout)
         self.assertIn("5/5 verified", r.stdout)   # qwen
         # V37.9.381: Ark 版 doubao_21 (5/6) 退役 → 守 doubao_21_tokenhub 的 3/6 (verified_fallback 等诚实 False)
-        self.assertIn("3/6 verified", r.stdout)
+        # V37.9.382: 本平台看图实测 flip verified_vision → 4/6 (streaming/fallback 仍诚实 False)
+        self.assertIn("4/6 verified", r.stdout)
 
     def test_verification_status_uses_verifiable_features(self):
         """源码守卫: Verification Status 分母必须用 verifiable_features 不得回退旧口径。"""
