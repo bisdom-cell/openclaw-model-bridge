@@ -33,7 +33,7 @@ Tool Proxy        :5002    tool_proxy.py   ← This repo
    ↕
 Adapter           :5001    adapter.py      ← This repo
    ↕
-LLM Providers (13)          primary via PROVIDER env (now doubao_21)
+LLM Providers (12)          primary via PROVIDER env (now doubao_21_tokenhub)
 ```
 
 **Why two layers? / 为什么要两层？**
@@ -195,7 +195,7 @@ The proxy automatically remaps common model hallucinations:
 
 1. **Auth injection** — Adds `Authorization: Bearer $REMOTE_API_KEY` header
 2. **Model ID override** — Forces the correct model ID regardless of what OpenClaw sends
-3. **Multimodal routing** — Capability-aware: image content routes to a vision-capable provider (the current primary doubao_21 is natively multimodal; list-content is stripped to plain text only for text-only providers)
+3. **Multimodal routing** — Capability-aware: image content routes to a vision-capable provider (the current primary doubao_21_tokenhub is natively multimodal; list-content is stripped to plain text only for text-only providers)
 4. **Parameter filtering** — Only forwards parameters the remote API actually supports
 5. **User-Agent spoofing** — Sets `User-Agent: curl/8.0` to avoid bot-blocking
 6. **Fallback degradation** — Auto-switches down the `FALLBACK_ORDER` chain (deepseek_full → doubao_21_tokenhub → deepseek → qwen) when the primary provider fails (V37.9.218; Gemini retired from the chain, HK geo-block)
@@ -362,14 +362,14 @@ The Adapter supports automatic primary→fallback degradation. The chain is expl
 Adapter 支持 primary→fallback 自动降级链。链由 `FALLBACK_ORDER` 显式有序配置（逗号分隔 provider 名，primary 自动排除——同一份顺序串在 primary 切换时无需改动），primary 不可用时自动降级到链中下一个可用 provider。
 
 ```bash
-export PROVIDER="doubao_21"
-export FALLBACK_ORDER="doubao_21,deepseek_full,doubao_21_tokenhub,deepseek,qwen"
+export PROVIDER="doubao_21_tokenhub"
+export FALLBACK_ORDER="deepseek_full,doubao_21_tokenhub,deepseek,qwen"
 ```
 
 | Provider | Role | Env var |
 |----------|------|---------|
-| Doubao Seed 2.1 Pro (Volcengine Ark) | Primary (`PROVIDER=doubao_21`, V37.9.222 起) | `ARK_21_API_KEY` + `ARK_21_ENDPOINT_ID` |
-| DeepSeek-V4-Pro 满血版 GA → Doubao 2.1 @ ai-tokenhub（`doubao_21_tokenhub` 槽位，跨平台冗余）→ DeepSeek 量化版 → Qwen3-235B | Fallback chain (`FALLBACK_ORDER`) | `DEEPSEEK_FULL_API_KEY` / `DOUBAO_21_TOKENHUB_API_KEY` / `DEEPSEEK_API_KEY` / `REMOTE_API_KEY` |
+| Doubao Seed 2.1 Pro @ ai-tokenhub | Primary (`PROVIDER=doubao_21_tokenhub`, V37.9.381 起；方舟版 `doubao_21` 2026-10-28 key 被停用后退役) | `DOUBAO_21_TOKENHUB_API_KEY` |
+| DeepSeek-V4-Pro 满血版 GA → DeepSeek 量化版 → Qwen3-235B | Fallback chain (`FALLBACK_ORDER`，primary 自动排除) | `DEEPSEEK_FULL_API_KEY` / `DEEPSEEK_API_KEY` / `REMOTE_API_KEY` |
 
 ---
 

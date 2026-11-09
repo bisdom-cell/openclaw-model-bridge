@@ -1,20 +1,19 @@
 # OpenClaw Model Bridge — 系统特性一览表
 
-> v37.9.380 (2026-11-09) | **6871 tests** / 208 suites / 0 fail | **13 providers** (primary doubao_21) | **41 active jobs** | 5 SLO metrics | preflight full checks | notify 推送（默认 Discord）| **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 98/100 | 29 blood-lesson case docs
+> v37.9.381 (2026-11-09) | **6871 tests** / 208 suites / 0 fail | **12 providers** (primary doubao_21_tokenhub) | **41 active jobs** | 5 SLO metrics | preflight full checks | notify 推送（默认 Discord）| **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 98/100 | 29 blood-lesson case docs
 
 | 分类 | 特性 | 说明 | 核心文件 |
 |------|------|------|----------|
 | **核心服务** | Gateway | WhatsApp+Discord 接入、媒体存储、工具执行、会话管理 | npm 全局 (:18789) |
 | | Tool Proxy | 工具过滤(24→12)、自定义工具拦截、图片 base64 注入、SSE 转换、SLO 采集 | `tool_proxy.py` + `proxy_filters.py` (:5002) |
 | | Adapter | 多 Provider 转发、认证、能力感知多模态路由、Fallback 降级 | `adapter.py` (:5001) |
-| **LLM Provider (13)** | Doubao Seed 2.1 Pro (主力) | 文本+视觉单模型多模态 + reasoning，Volcengine Ark 旗舰 (primary 由 PROVIDER env 配置，V37.9.222 flip) | `providers.d/doubao_seed_21_provider.py` |
+| **LLM Provider (12)** | **Doubao Seed 2.1 Pro @ ai-tokenhub**（`doubao_21_tokenhub`，主力） | 文本+视觉单模型多模态 + reasoning（primary 由 PROVIDER env 配置）。V37.9.381 起为主力：方舟版 `doubao_21` 的 key 2026-10-28 被停用、401 持续 12 天后退役，V37.9.341 设计的同模型平台冗余兑现；史：2.0 Pro V37.9.52 接入 → V37.9.290 迁 ai-tokenhub → V37.9.341 定模型 → V37.9.345 由 `doubao` 改名 | `providers.d/doubao_21_tokenhub_provider.py` |
 | | Qwen3-235B + Qwen2.5-VL-72B | 文本 262K / 图片理解，能力感知路由 (fallback 兜底) | `providers.py` + `adapter.py` |
 | | Gemini 2.5 (已退役出链) | geo-block，保留注册未在 fallback 链 (V37.9.129) | GEMINI_API_KEY |
 | | OpenAI / Claude | 手动切换备选 | 环境变量 PROVIDER= |
 | | Kimi K2.5 (Moonshot) | 1T MoE 视觉+256K | MOONSHOT_API_KEY |
 | | MiniMax M2.7 | 视觉+200K+131K输出 | MINIMAX_API_KEY |
 | | GLM-5 (Zhipu) | 744B MoE + GLM-5V-Turbo | GLM_API_KEY |
-| | **Doubao Seed 2.1 Pro @ ai-tokenhub**（`doubao_21_tokenhub` 槽位，V37.9.345 由 `doubao` 改名） | V37.9.341：与 primary `doubao_21` **同模型不同平台** = 链上唯一的平台冗余（Ark 故障时同模型仍可达）；史：2.0 Pro V37.9.52 接入 → V37.9.290 迁 ai-tokenhub → V37.9.339 曾换 Kimi K3 → V37.9.341 按 key scope 实证更正 → V37.9.345 改名退役命名债。平台维度 V37.9.342/343 E2E text+tool_calling+reasoning feature_verified | `providers.d/doubao_21_tokenhub_provider.py` (DOUBAO_21_TOKENHUB_API_KEY) |
 | | **Kimi K3 @ ai-tokenhub** | V37.9.345 第 13 个 provider（独立 env，V37.9.344 命名债血案的结构性修复）；V37.9.346/347 E2E text/tool_calling/streaming/reasoning/json_mode 全过，vision 实测 400 坐实 False → feature_verified | `providers.d/kimi_k3_provider.py` (KIMI_K3_API_KEY) |
 | | **DeepSeek-V4-Pro** | 满血版 GA(ai-tokenhub, R1 reasoning, **现 fallback 链首**, V37.9.340 E2E text+reasoning feature_verified) + 量化版(self-host, feature_verified, w4a8 偶发乱码注记)，V37.9.201/204 plugin 接入 | `providers.d/deepseek*_provider.py` |
 | | **GLM-5.3 coding** | ai-tokenhub（V37.9.290 迁移 → V37.9.339 换版本 glm-5-3-260814），coding 场景按需调用(`?provider=glm5_coding`)，V37.9.340 E2E text+reasoning feature_verified，V37.9.254 plugin 接入 | `providers.d/glm5_coding_provider.py` (GLM5_API_KEY) |

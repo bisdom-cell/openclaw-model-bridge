@@ -70,7 +70,7 @@ Actor（施事者）
 | PrimaryAgent | PA (Wei) |
 | SubAgent | ops agent |
 | Proxy | tool_proxy.py |
-| Provider | 13 providers（primary 由 `PROVIDER` env 决定，现 doubao_21；`FALLBACK_ORDER` 链 deepseek_full/doubao_21_tokenhub/deepseek/qwen） |
+| Provider | 12 providers（primary 由 `PROVIDER` env 决定，现 doubao_21_tokenhub；`FALLBACK_ORDER` 链 deepseek_full/deepseek/qwen，primary 自动排除） |
 
 ## Domain 2: Capability（能力域）
 

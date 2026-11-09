@@ -52,11 +52,11 @@ class TestDoubaoProviderRegistration(unittest.TestCase):
         names = self.providers.get_registry().list_names()
         self.assertIn("doubao_21_tokenhub", names, f"doubao must be registered, got {names}")
 
-    def test_total_provider_count_is_13(self):
+    def test_total_provider_count_is_12(self):
         names = self.providers.get_registry().list_names()
         self.assertEqual(
-            len(names), 13,
-            f"V37.9.345 must have 7 built-in + 6 plugins = 13 providers, "
+            len(names), 12,
+            f"V37.9.381 must have 7 built-in + 5 plugins = 12 providers (Ark 版 doubao_21 退役), "
             f"got {len(names)}: {names}",
         )
 
@@ -88,10 +88,10 @@ class TestDoubaoProviderRegistration(unittest.TestCase):
         # 两行在兼容性矩阵里必须能被人区分开 (V37.9.341 平台冗余设计)。
         self.assertIn("2.1", d.display_name, "必须标明是 2.1 (V37.9.341 更正, 非历史 2.0)")
         self.assertIn("ai-tokenhub", d.display_name)
-        d21 = self.providers.get_registry().get("doubao_21")
-        self.assertEqual(d.model_id, d21.model_id, "V37.9.341 刻意同模型 (平台冗余), 见 plugin docstring")
-        self.assertNotEqual(d.display_name, d21.display_name, "同模型两平台的 display 必须可区分")
-        self.assertNotEqual(d.base_url, d21.base_url, "平台冗余的前提 = base_url 不同")
+        # V37.9.381: 平台冗余兑现 — Ark key 停用后主力切到本槽位, Ark 版 doubao_21 退役
+        self.assertIsNone(self.providers.get_registry().get("doubao_21"))
+        self.assertEqual(d.model_id, "doubao-seed-2-1-pro-260628")
+        self.assertEqual(d.base_url, "https://ai-tokenhub.com/api/v1")
 
 
 class TestDoubaoEndpointIdHandling(unittest.TestCase):
@@ -228,13 +228,13 @@ class TestModuleReentryGuard(unittest.TestCase):
         self.assertNotIn("No BaseProvider subclass found", result.stdout)
         self.assertNotIn("No BaseProvider subclass found", result.stderr)
 
-    def test_direct_execution_lists_13_providers(self):
+    def test_direct_execution_lists_12_providers(self):
         result = subprocess.run(
             [sys.executable, PROVIDERS_PY],
             capture_output=True, text=True, timeout=30, cwd=REPO_ROOT,
         )
         self.assertEqual(result.returncode, 0)
-        self.assertIn("13 providers", result.stdout)  # V37.9.345: +kimi_k3
+        self.assertIn("12 providers", result.stdout)  # V37.9.345 +kimi_k3 / V37.9.381 -doubao_21 Ark
         self.assertIn("doubao_21_tokenhub", result.stdout)
         self.assertIn("deepseek", result.stdout)
 

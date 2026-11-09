@@ -367,7 +367,7 @@ Gateway 日志输出到 stdout，可通过 launchd/systemd 重定向到文件。
 
 ```
 WhatsApp/Discord → Gateway (:18789) → Tool Proxy (:5002) → Adapter (:5001) → LLM Providers (13)
-           [OpenClaw开源]      [本项目]              [本项目]          [primary=PROVIDER env, 现 doubao_21 @Ark]
+           [OpenClaw开源]      [本项目]              [本项目]          [primary=PROVIDER env, 现 doubao_21_tokenhub]
            maxConcurrent=4     ThreadingMixIn        ThreadingMixIn    [FALLBACK_ORDER 4 跳; Qwen3 仅兜底]
            lane-aware FIFO     工具过滤12个           多Provider转发
            session管理          截断200KB              认证+/health

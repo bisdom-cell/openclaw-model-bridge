@@ -114,8 +114,9 @@ fallback:
   # 远程 GPU（主 LLM）
   remote_gpu:
     # ⚠️ 参考注记（无代码消费者）: 真理源 = adapter 的 PROVIDER / FALLBACK_ORDER env。
-    # V37.9.222 flip: primary=doubao_21 (Doubao Seed 2.1 Pro)，链 deepseek_full→doubao→deepseek→qwen。
-    primary: doubao_21          # 由 PROVIDER env 决定（此处仅为参考快照）
+    # V37.9.222 flip: primary=doubao_21 (Doubao Seed 2.1 Pro @Ark) → V37.9.381 方舟 key 停用后切
+    # doubao_21_tokenhub (同模型 @ ai-tokenhub)，链 deepseek_full→deepseek→qwen（primary 自动排除）。
+    primary: doubao_21_tokenhub # 由 PROVIDER env 决定（此处仅为参考快照）
     fallback: deepseek_full     # 链首（FALLBACK_ORDER env 权威，V37.9.218）
     timeout_ms: 300000          # 5 分钟
     fallback_timeout_ms: 300000 # V37.9.129: 60000→300000（= primary，给 doubao 大请求(DEEP 5000 token)足够时间，不降 max_tokens；旧 60s 让 DEEP 在慢后端上 read timeout）

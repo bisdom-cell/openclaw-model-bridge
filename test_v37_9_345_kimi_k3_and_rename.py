@@ -141,10 +141,12 @@ class TestKimiK3Registration(unittest.TestCase):
     def test_tier_consistency(self):
         self.assertEqual(self.reg.tier_consistency_violations(), [])
 
-    def test_registry_has_13_providers(self):
+    def test_registry_has_12_providers(self):
         names = self.reg.list_names()
-        self.assertEqual(len(names), 13,
-                         f"V37.9.345: 7 built-in + 6 plugins = 13, got {len(names)}: {names}")
+        # V37.9.345: 13 → V37.9.381: Ark 版 doubao_21 退役 → 12 (kimi_k3 仍在)
+        self.assertIn("kimi_k3", names)
+        self.assertEqual(len(names), 12,
+                         f"V37.9.381: 7 built-in + 5 plugins = 12, got {len(names)}: {names}")
 
 
 class TestKeyEnvVendorConsistency(unittest.TestCase):
@@ -186,7 +188,7 @@ class TestKeyEnvVendorConsistency(unittest.TestCase):
     def test_all_providers_vendor_consistent(self):
         pairs = [(p.name, p.api_key_env, p.default_model().model_id)
                  for p in self.providers.get_registry().all()]
-        self.assertGreaterEqual(len(pairs), 13, "防空转: 必须真扫到全部 provider")
+        self.assertGreaterEqual(len(pairs), 12, "防空转: 必须真扫到全部 provider (V37.9.381 起 12)")
         self.assertEqual(self._violations(pairs), [],
                          "api_key_env 的厂商名必须与它服务的模型一致 (V37.9.344 命名债)")
 
@@ -228,14 +230,14 @@ class TestDoubaoSlotRenamed(unittest.TestCase):
         self.assertFalse(os.path.isfile(os.path.join(REPO, "providers.d", "doubao_provider.py")),
                          "旧文件名必须已 git mv 退役")
 
-    def test_platform_redundancy_documented(self):
-        """同一 model_id 两平台是刻意设计 (Ark vs ai-tokenhub), 未来 session 勿去重。"""
-        a = self.reg.get("doubao_21")
+    def test_platform_redundancy_served_its_purpose_v381(self):
+        """V37.9.341 平台冗余 (同模型 Ark vs ai-tokenhub) 在 V37.9.381 兑现:
+        Ark key 2026-10-28 被停用 → 主力切到 ai-tokenhub 同模型, Ark 版退役。
+        守: Ark 版已不在注册表; 继任者仍是同一模型且 display_name 带平台后缀。"""
+        self.assertIsNone(self.reg.get("doubao_21"))
         b = self.reg.get("doubao_21_tokenhub")
-        self.assertEqual(a.default_model().model_id, b.default_model().model_id,
-                         "同模型 = 平台冗余的前提")
-        self.assertNotEqual(a.base_url, b.base_url, "不同平台")
-        self.assertNotEqual(a.display_name, b.display_name, "display_name 须可区分平台")
+        self.assertEqual(b.default_model().model_id, "doubao-seed-2-1-pro-260628")
+        self.assertIn("ai-tokenhub", b.display_name)
 
     def test_expert_backend_points_at_renamed_slot(self):
         """MR-8: expert_escalation 的 key env 必须与它复用的槽位一致。"""

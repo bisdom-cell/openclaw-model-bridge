@@ -201,12 +201,13 @@ class TestDoubaoCapScoreUpRanking(unittest.TestCase):
             f"V37.9.343 doubao-2.1 三项 verified cap_score 锁定 12, got {score}",
         )
 
-    def test_doubao_21_leads_fallback_chain_v290(self):
-        """史: V37.9.54 doubao(2.0) 曾第 1; V37.9.290 重置后 doubao_21 领跑
+    def test_doubao_slot_leads_fallback_chain_v381(self):
+        """史: V37.9.54 doubao(2.0) 曾第 1; V37.9.290 重置后 doubao_21 领跑;
+        V37.9.381 Ark 版 doubao_21 退役 → 同模型的 doubao_21_tokenhub 领跑
         (生产不受影响: FALLBACK_ORDER env 权威 V37.9.218)."""
         chain = self.reg.build_fallback_chain("qwen")
         names = [p.name for p in chain]
-        self.assertEqual(names[0], "doubao_21")
+        self.assertEqual(names[0], "doubao_21_tokenhub")
 
 
 class TestPlistEnvGovernance(unittest.TestCase):

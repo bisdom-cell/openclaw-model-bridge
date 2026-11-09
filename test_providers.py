@@ -181,7 +181,7 @@ class TestVerificationTier(unittest.TestCase):
         from providers import _default_registry
         lines = _default_registry.tier_table_lines()
         self.assertEqual(lines[0], "| Provider | 档位 | 依据 |")
-        self.assertEqual(len(lines), 2 + 13)  # header + sep + 13 providers (V37.9.345 +kimi_k3)
+        self.assertEqual(len(lines), 2 + 12)  # header + sep + 12 providers (V37.9.345 +kimi_k3 / V37.9.381 -doubao_21 Ark 退役)
 
     def test_tier_table_declared_uses_derived_evidence(self):
         from providers import _default_registry, _DECLARED_TIER_EVIDENCE
@@ -370,7 +370,8 @@ class TestProviderRegistry(unittest.TestCase):
         # V37.9.204: doubao + deepseek + deepseek_full → 总数 10 (7 built-in + 3 真插件)
         from providers import get_registry
         reg = get_registry()
-        self.assertEqual(len(reg.list_names()), 13)
+        # V37.9.381: Ark 版 doubao_21 退役 (key 2026-10-28 被 Volcengine 停用, 主力切 doubao_21_tokenhub) → 12
+        self.assertEqual(len(reg.list_names()), 12)
 
     def test_get_existing_provider(self):
         from providers import get_registry
@@ -409,7 +410,7 @@ class TestProviderRegistry(unittest.TestCase):
         # V37.9.201: 9 行 (7 built-in + doubao + deepseek plugins)
         from providers import get_registry
         matrix = get_registry().compatibility_matrix()
-        self.assertEqual(len(matrix), 13)
+        self.assertEqual(len(matrix), 12)  # V37.9.381 -doubao_21 (Ark 退役)
         for row in matrix:
             self.assertIn("provider", row)
             self.assertIn("models", row)
@@ -455,7 +456,7 @@ class TestBackwardCompatibility(unittest.TestCase):
         # V37.9.201: legacy PROVIDERS dict 含 9 entries (7 built-in + doubao + deepseek plugins)
         from providers import PROVIDERS
         self.assertIsInstance(PROVIDERS, dict)
-        self.assertEqual(len(PROVIDERS), 13)
+        self.assertEqual(len(PROVIDERS), 12)  # V37.9.381 -doubao_21 (Ark 退役)
 
     def test_providers_dict_matches_old_format(self):
         """PROVIDERS dict 的格式与旧版 adapter.py 完全一致"""
@@ -576,8 +577,8 @@ class TestCLIOutput(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         data = json.loads(result.stdout)
         self.assertIsInstance(data, list)
-        # V37.9.201: 9 行 (7 built-in + doubao + deepseek plugins)
-        self.assertEqual(len(data), 13)
+        # V37.9.201: 9 行 (7 built-in + doubao + deepseek plugins) → V37.9.381 12 (-doubao_21 Ark 退役)
+        self.assertEqual(len(data), 12)
 
 
 class TestChineseProviders(unittest.TestCase):
@@ -1519,7 +1520,7 @@ class TestDefaultRegistryPluginDir(unittest.TestCase):
         # V37.9.201: 不再用 "deepseek" 当 canary — deepseek 已是真插件 (providers.d/deepseek_provider.py)
         self.assertNotIn("custom", names)
         # V37.9.204: 7 built-in + 3 真插件 (doubao + deepseek + deepseek_full) = 10 (_example.* 仍被跳过)
-        self.assertEqual(len(names), 13)
+        self.assertEqual(len(names), 12)  # V37.9.381 -doubao_21 (Ark 退役)
         self.assertIn("doubao_21_tokenhub", names, "doubao 真插件必须加载 (与 _example 被跳过形成对照)")
         self.assertIn("deepseek", names, "V37.9.201 deepseek 真插件必须加载 (providers.d/deepseek_provider.py)")
 
@@ -1715,71 +1716,72 @@ class TestDeepSeekFullProvider(unittest.TestCase):
         self.assertIn("https://ai-tokenhub.com/api/v1", src)
 
 
-class TestDoubao21Provider(unittest.TestCase):
-    """V37.9.216 接入 declared → V37.9.217 Mac Mini E2E 5/5 通过升 feature_verified。"""
+class TestDoubao21ArkRetiredV381(unittest.TestCase):
+    """V37.9.381: Ark 版 doubao_21 退役。
 
-    _PLUGIN = os.path.join(os.path.dirname(__file__), "providers.d", "doubao_seed_21_provider.py")
+    史: V37.9.216 接入 → V37.9.217 E2E 5/5 → V37.9.222 唯一 primary → V37.9.277 production_observed。
+    2026-10-28 14:46–17:00 HKT 之间 ARK_21_API_KEY 被 Volcengine 停用 (`The API key status is not
+    active`), 主力 401 持续 12 天全流量由 fallback deepseek_full 承接。用户决策「不要新 key, 直接清除」
+    → 主力切 doubao_21_tokenhub (同一模型 doubao-seed-2-1-pro-260628 @ ai-tokenhub = V37.9.341 为
+    Ark 侧故障设计的平台冗余), 插件 + FILE_MAP + ARK_21_* env 全部退役。
+    """
 
-    def test_registered_with_correct_identity(self):
+    _ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def test_ark_provider_no_longer_registered(self):
+        from providers import get_provider, get_registry
+        self.assertIsNone(get_provider("doubao_21"))
+        self.assertNotIn("doubao_21", get_registry().list_names())
+        self.assertFalse(os.path.exists(os.path.join(self._ROOT, "providers.d", "doubao_seed_21_provider.py")))
+
+    def test_ark_plugin_not_in_file_map(self):
+        src = open(os.path.join(self._ROOT, "auto_deploy.sh"), encoding="utf-8").read()
+        self.assertNotIn("doubao_seed_21_provider.py", src)
+
+    def test_successor_serves_same_model_with_vision_and_reasoning_off(self):
+        # 主力继任者必须是同一模型、能看图 (单模型多模态, adapter VL_MODEL_ID 取 vl_model_id)、
+        # 批量能关思考 (B1 依赖 reasoning_off_body) —— 否则换主力会退化 PA 看图或拖垮批量 job
         from providers import get_provider
-        p = get_provider("doubao_21")
+        p = get_provider("doubao_21_tokenhub")
         self.assertIsNotNone(p)
-        self.assertEqual(p.name, "doubao_21")
-        self.assertEqual(p.api_key_env, "ARK_21_API_KEY")
-        self.assertEqual(p.base_url, "https://ark.cn-beijing.volces.com/api/v3")
-        self.assertEqual(p.auth_style, "bearer")
+        self.assertEqual(p.api_key_env, "DOUBAO_21_TOKENHUB_API_KEY")
+        self.assertEqual(p.base_url, "https://ai-tokenhub.com/api/v1")
+        legacy = p.to_legacy_dict()
+        self.assertEqual(legacy["model_id"], "doubao-seed-2-1-pro-260628")
+        self.assertEqual(legacy.get("vl_model_id"), "doubao-seed-2-1-pro-260628")
+        self.assertEqual(p.reasoning_off_body, {"thinking": {"type": "disabled"}})
 
-    def test_model_id_fallback_public_name_without_env(self):
-        # dev 无 ARK_21_ENDPOINT_ID → model_id = fallback 公开名 (合约通过, Volcengine
-        # model 字段接收 endpoint ID; 无 env 时用公开 model 名兜底)
-        from providers import get_provider
-        self.assertEqual(get_provider("doubao_21").model_id,
-                         "doubao-seed-2-1-pro-260628")
-
-    def test_tier_production_observed(self):
-        # V37.9.217 E2E 5/5 → feature_verified; V37.9.277 升 production_observed:
-        # 唯一 primary 承载全部生产流量 22+ 天 (V37.9.222 B1 flip) + B1 批量注入
-        # 7654 次实测开火 + dream 超时 0 复发 + 零 provider 事故 (预注册条件 [19] 兑现)
-        from providers import get_provider
-        caps = get_provider("doubao_21").capabilities
-        self.assertEqual(caps.verification_tier, "production_observed")
-        # 5 项实测通过: text/vision/tool_calling/streaming/reasoning
-        self.assertTrue(caps.verified_text)
-        self.assertTrue(caps.verified_vision)
-        self.assertTrue(caps.verified_tool_calling)
-        self.assertTrue(caps.verified_streaming)
-        self.assertTrue(caps.verified_reasoning)
-        # fallback 未真生产接管 → 诚实保持 False (同 doubao 2.0/deepseek 惯例)
-        self.assertFalse(caps.verified_fallback)
-        # production_observed 必须显式 tier_evidence: 生产观察证据 + 保留 E2E 证据链
-        self.assertIn("primary", caps.tier_evidence)
-        self.assertIn("B1", caps.tier_evidence)
-        self.assertIn("E2E", caps.tier_evidence)
-        self.assertIn("5/5", caps.tier_evidence)
-        self.assertEqual(caps.tier_consistency_violations(), [])
-
-    def test_excluded_from_available_without_key(self):
-        from providers import get_registry
-        with mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("ARK_21_API_KEY", None)
-            self.assertNotIn("doubao_21", [p.name for p in get_registry().available()])
-        with mock.patch.dict(os.environ, {"ARK_21_API_KEY": "ark-test"}):
-            self.assertIn("doubao_21", [p.name for p in get_registry().available()])
-
-    def test_no_secret_key_hardcoded_in_repo(self):
-        """🔴 公开 repo 安全底线: ARK key 绝不入库 (base_url 公开域名可入库)。"""
-        import re
-        src = open(self._PLUGIN, encoding="utf-8").read()
-        # 无 ark-<hex>-<hex> 形式的 key 字面量 (key 走 ARK_21_API_KEY env)
-        self.assertIsNone(re.search(r"ark-[0-9a-f]{8}-[0-9a-f]{4}", src),
-                          "插件不得含 ark- key 字面量 — 走 ARK_21_API_KEY env")
-        # 无 ep-<digits> endpoint id 字面量 (走 ARK_21_ENDPOINT_ID env)
-        self.assertIsNone(re.search(r"ep-2026\d{8}", src),
-                          "插件不得含 ep- endpoint id 字面量 — 走 ARK_21_ENDPOINT_ID env")
-        self.assertIn("ARK_21_API_KEY", src)
-        self.assertIn("ARK_21_ENDPOINT_ID", src)
-        # 公开域名 base_url 可入库 (非机密)
-        self.assertIn("https://ark.cn-beijing.volces.com/api/v3", src)
+    def test_no_runtime_code_reads_ark_21_env(self):
+        # 退役后不得有运行时代码再引用 ARK_21_* (测试/文档/注释/docstring 叙述除外) —— 防一半退役。
+        # .py: AST 精确匹配字符串常量 == env 名 (env 读取 / api_key_env 赋值 / dict 键都是这种形态;
+        #      docstring 里的叙述是整段字符串, 不会等于 env 名)。 .sh: 剥 # 注释后的可执行文本。
+        import ast, re
+        names = {"ARK_21_API_KEY", "ARK_21_ENDPOINT_ID"}
+        hits, scanned = [], 0
+        for dirpath, dirnames, filenames in os.walk(self._ROOT):
+            dirnames[:] = [d for d in dirnames if d not in (".git", "docs", "node_modules", "__pycache__", "tests")]
+            for fn in filenames:
+                if fn.startswith("test_") or not fn.endswith((".py", ".sh")):
+                    continue
+                path = os.path.join(dirpath, fn)
+                rel = os.path.relpath(path, self._ROOT)
+                src = open(path, encoding="utf-8", errors="replace").read()
+                scanned += 1
+                if fn.endswith(".py"):
+                    try:
+                        tree = ast.parse(src)
+                    except SyntaxError:
+                        continue
+                    for node in ast.walk(tree):
+                        if isinstance(node, ast.Constant) and node.value in names:
+                            hits.append(f"{rel}:{node.lineno}")
+                else:
+                    for i, line in enumerate(src.splitlines(), 1):
+                        code = line if line.lstrip().startswith("#!") else re.sub(r"(^|\s)#.*$", "", line)
+                        if re.search(r"\bARK_21_(API_KEY|ENDPOINT_ID)\b", code):
+                            hits.append(f"{rel}:{i}")
+        self.assertGreater(scanned, 100, "扫描面过小 = 守卫空转")
+        self.assertEqual(hits, [], "运行时代码仍引用已退役的 ARK_21_* env")
 
 
 class TestGlm5CodingProvider(unittest.TestCase):
@@ -1933,13 +1935,15 @@ class TestReasoningOffBodyB1(unittest.TestCase):
     """V37.9.222 B1: reasoning provider 声明 reasoning_off_body (batch 关 reasoning 走快路)。
 
     doubao_21 / deepseek_full = {"thinking":{"type":"disabled"}} (2026-07-02 双 provider 实测)。
+    V37.9.381: Ark 版 doubao_21 退役, 主力 doubao_21_tokenhub 沿用同一片段。
     非-reasoning / 未测 provider = None。字段经 to_legacy_dict 流到 adapter 的 PROVIDERS dict。
     """
     _OFF = {"thinking": {"type": "disabled"}}
 
-    def test_doubao21_declares_reasoning_off(self):
+    def test_doubao21_tokenhub_primary_declares_reasoning_off(self):
+        # V37.9.381: 主力 = doubao_21_tokenhub (Ark 版 doubao_21 退役), B1 批量关思考读它的声明
         from providers import get_provider
-        self.assertEqual(get_provider("doubao_21").reasoning_off_body, self._OFF)
+        self.assertEqual(get_provider("doubao_21_tokenhub").reasoning_off_body, self._OFF)
 
     def test_deepseek_full_declares_reasoning_off(self):
         from providers import get_provider
@@ -1957,9 +1961,11 @@ class TestReasoningOffBodyB1(unittest.TestCase):
         # 网关侧 deepseek_full 在同一 ai-tokenhub Bifrost 网关实测该片段生效 (V37.9.222 B1)。
         from providers import get_provider
         self.assertEqual(get_provider("doubao_21_tokenhub").reasoning_off_body, self._OFF)
+        # V37.9.381: Ark 版 doubao_21 退役 → 「同模型两平台片段一致」对照不复存在, 改守 deepseek_full
+        # (同一 ai-tokenhub 网关) 片段一致 = 网关侧证据来源
         self.assertEqual(get_provider("doubao_21_tokenhub").reasoning_off_body,
-                         get_provider("doubao_21").reasoning_off_body,
-                         "同模型两平台的 thinking-off 片段必须一致")
+                         get_provider("deepseek_full").reasoning_off_body,
+                         "同网关两家的 thinking-off 片段必须一致")
 
     def test_deepseek_quantized_declares_reasoning_off(self):
         # V37.9.223: deepseek 量化版声明 (镜像 deepseek_full); ⚠️ 非-reasoning + self-host 网关未测,
@@ -1976,7 +1982,7 @@ class TestReasoningOffBodyB1(unittest.TestCase):
     def test_flows_to_legacy_dict(self):
         # B1 依赖 adapter 从 PROVIDERS dict 读 reasoning_off_body → to_legacy_dict 必须暴露
         from providers import get_provider
-        self.assertEqual(get_provider("doubao_21").to_legacy_dict().get("reasoning_off_body"), self._OFF)
+        self.assertEqual(get_provider("deepseek_full").to_legacy_dict().get("reasoning_off_body"), self._OFF)
         # V37.9.341: doubao 槽位更正为 doubao-2.1 @ ai-tokenhub → 恢复声明 (模型侧 Ark 实测
         # + 网关侧 deepseek_full 同网关实测, 两侧证据交汇)
         self.assertEqual(get_provider("doubao_21_tokenhub").to_legacy_dict().get("reasoning_off_body"), self._OFF)
@@ -1986,7 +1992,8 @@ class TestReasoningOffBodyB1(unittest.TestCase):
         # V37.9.223: 全部 doubao + deepseek 同一片段 = 一份声明四家复用 (任何切换独立成 primary)。
         # V37.9.339 doubao 槽位曾换 Kimi K3 短暂退出 → V37.9.341 更正为 doubao-2.1 归队。
         from providers import get_provider
-        for name in ("doubao_21", "doubao_21_tokenhub", "deepseek_full", "deepseek"):
+        # V37.9.381: Ark 版 doubao_21 退役出列
+        for name in ("doubao_21_tokenhub", "deepseek_full", "deepseek"):
             self.assertEqual(get_provider(name).reasoning_off_body, self._OFF,
                              f"{name} 应声明 reasoning_off_body (V37.9.223 全家族同款)")
 

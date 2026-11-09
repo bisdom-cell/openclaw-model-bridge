@@ -204,17 +204,19 @@ class TestFallbackChainDoubaoFirst(unittest.TestCase):
         self.providers = _reload_providers()
         self.reg = self.providers.get_registry()
 
-    def test_doubao_21_first_in_qwen_fallback_chain_v290(self):
+    def test_doubao_slot_first_in_qwen_fallback_chain_v381(self):
         """史: V37.9.53 doubao(2.0) 曾第 1; V37.9.217 doubao_21 (16) 登顶;
         V37.9.290 doubao(2.0) verified 重置 (6) 沉到 gemini 之后。
         生产不受影响: FALLBACK_ORDER env 权威 (V37.9.218) + gemini config 排除。"""
         chain = self.reg.build_fallback_chain("qwen")
         names = [p.name for p in chain]
+        # V37.9.381: Ark 版 doubao_21 退役 → 同模型的 doubao_21_tokenhub (vision+reasoning,
+        # 与 qwen 能力重叠最多) 接班第 1 位; doubao_21 不得再出现在链里
         self.assertEqual(
-            names[0], "doubao_21",
-            f"doubao_21 (16, 5 verified) 应排 chain 第 1 位, got {names}",
+            names[0], "doubao_21_tokenhub",
+            f"V37.9.381: doubao_21_tokenhub 应排 chain 第 1 位, got {names}",
         )
-        self.assertNotEqual(names[0], "doubao_21_tokenhub")
+        self.assertNotIn("doubao_21", names)
 
     def test_gemini_below_verified_doubao_in_qwen_fallback_chain(self):
         # V37.9.53 原意: doubao(2.0) verified reasoning → 排在 gemini 之前 (把 gemini 挤下去)。
@@ -228,8 +230,7 @@ class TestFallbackChainDoubaoFirst(unittest.TestCase):
         # E2E flip tool_calling+reasoning (10 > 9) 回到 gemini 之前, 原意恢复。
         self.assertLess(names.index("doubao_21_tokenhub"), names.index("gemini"),
                         f"V37.9.342 半升档后 doubao 槽位应排 gemini 之前, got {names}")
-        self.assertLess(names.index("doubao_21"), names.index("gemini"),
-                        f"doubao_21 (5 verified) 应排在 gemini 之前, got {names}")
+        # V37.9.381: Ark 版 doubao_21 退役, 原第二条断言随之退出
 
 
 class TestSourceLevelGuardsV9_53(unittest.TestCase):

@@ -547,7 +547,7 @@ jobs:
     tier: core                        # 用户对话是最高质量数据源
     description: "对话精华提炼 — 从 proxy 捕获的每日对话中 LLM 提取关键点（决策/偏好/洞察/结论），写入 KB notes"
 
-  # ── 凌晨 LLM 算力专属窗口（00:00-06:00；primary 由 PROVIDER env 决定，现 doubao_21，Qwen3 仅 fallback）──
+  # ── 凌晨 LLM 算力专属窗口（00:00-06:00；primary 由 PROVIDER env 决定，现 doubao_21_tokenhub，Qwen3 仅 fallback）──
   # 策略：00:00-06:00 禁止其他重度 LLM 任务，全部算力留给 Dream + 未来重度分析
   #       零推送通知（用户睡眠），仅允许静默运维任务
   #

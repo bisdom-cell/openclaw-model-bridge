@@ -44,8 +44,9 @@ class TestFindBestProvider(unittest.TestCase):
         self.assertIsNotNone(chosen)
         # 史: V37.9.55 后 doubao(2.0)=16 曾榜首; V37.9.290 平台切换 verified 重置
         # (16→6), doubao_21 (16, 5 verified) 现为 cap_score 最高的 text+reasoning
-        self.assertEqual(chosen.name, "doubao_21",
-                         f"V37.9.290: required=text → cap_score 最高 doubao_21, got {chosen.name}")
+        # V37.9.381: Ark 版 doubao_21 (16) 退役 → 无 prefer 时 cap_score 榜首 = qwen (14, 5 verified)
+        self.assertEqual(chosen.name, "qwen",
+                         f"V37.9.381: required=text → cap_score 最高 qwen, got {chosen.name}")
 
     def test_required_vision_filters_non_vision_providers(self):
         """required=vision → 排除无 vision 的 provider (硬过滤)."""
@@ -88,8 +89,10 @@ class TestFindBestProvider(unittest.TestCase):
         # 两个都应选 doubao (cap_score 最高 + reasoning)
         # 这里主要验证 prefer 参数不破坏选择
         # V37.9.290: doubao(2.0) 平台切换 verified 重置 (16→6), doubao_21 (16) 登顶
-        self.assertEqual(chosen_no_prefer.name, "doubao_21")
-        self.assertEqual(chosen_with_prefer.name, "doubao_21")
+        # V37.9.381: Ark 版 doubao_21 退役 → 无 prefer 榜首 qwen (14, 无 reasoning);
+        # prefer=reasoning +10 让 kimi_k3 (13+10) 胜出 = prefer 真改变赢家 (比旧形态更强的证据)
+        self.assertEqual(chosen_no_prefer.name, "qwen")
+        self.assertEqual(chosen_with_prefer.name, "kimi_k3")
         # V37.9.217: 验证 prefer 让 score 真增加 — 排除 doubao(2.0) 后, prefer=reasoning 应让
         # doubao_21 (旗舰, 5 verified 含 reasoning, cap_score 更高) 胜出。这正是 capability
         # router 的目的: 推理偏好任务路由到真有 verified reasoning 且能力最全的 provider
@@ -98,8 +101,14 @@ class TestFindBestProvider(unittest.TestCase):
             required={"text": True}, prefer=["reasoning"],
             exclude=["doubao_21_tokenhub"], require_available=False
         )
-        self.assertEqual(chosen_reasoning_path.name, "doubao_21",
-                         "V37.9.217: exclude doubao + prefer reasoning → doubao_21 (5 verified 含 reasoning)")
+        self.assertEqual(chosen_reasoning_path.name, "kimi_k3",
+                         "V37.9.381: exclude doubao_21_tokenhub + prefer reasoning → kimi_k3")
+        # V37.9.381: 反向 — 排除 kimi_k3 后, 下一个 reasoning 赢家 = doubao_21_tokenhub (12+10)
+        chosen_next = self.registry.find_best_provider(
+            required={"text": True}, prefer=["reasoning"],
+            exclude=["kimi_k3"], require_available=False
+        )
+        self.assertEqual(chosen_next.name, "doubao_21_tokenhub")
 
     def test_require_available_false_includes_all(self):
         """require_available=False 即使无 API key 也包含所有 provider."""
@@ -178,8 +187,10 @@ class TestRouterDecideModule(unittest.TestCase):
         )
         self.assertEqual(record["job_id"], "kb_dream")
         self.assertEqual(record["task"], "kb_dream/radar_retry")
-        self.assertEqual(record["chosen"], "doubao_21",
-                         "V37.9.290: kb_dream profile (text+prefer reasoning) → doubao_21 (重置后榜首)")
+        # V37.9.381: Ark 版 doubao_21 退役 → text+prefer reasoning 榜首 kimi_k3 (13+10)
+        # (doubao_21_tokenhub 12+10 差 1 分, 差在 verified_vision 未在本平台实测)
+        self.assertEqual(record["chosen"], "kimi_k3",
+                         "V37.9.381: kb_dream profile (text+prefer reasoning) → kimi_k3")
         self.assertEqual(record["mode"], "shadow")
         self.assertEqual(record["reason"], "ok")
         self.assertTrue(record["v37_9_76"])
@@ -208,9 +219,8 @@ class TestRouterDecideModule(unittest.TestCase):
         )
         self.assertNotEqual(record["chosen"], "doubao_21_tokenhub",
                             "V37.9.76: exclude doubao → chosen != doubao")
-        # V37.9.217: kb_dream prefer reasoning → doubao_21 (5 verified 含 reasoning) 是 next pick
-        # (旗舰 cap_score 高于 deepseek_full 3 verified; router shadow 模式, 观察非生产路由)
-        self.assertEqual(record["chosen"], "doubao_21")
+        # V37.9.381: 排除 doubao_21_tokenhub 后 kimi_k3 (13+10) 是 next pick
+        self.assertEqual(record["chosen"], "kimi_k3")
 
     def test_decide_with_profile_override(self):
         """profile_override 覆盖 registry — 用于测试不依赖 yaml."""
@@ -223,7 +233,7 @@ class TestRouterDecideModule(unittest.TestCase):
             },
             require_available=False,
         )
-        self.assertEqual(record["chosen"], "doubao_21")  # V37.9.290 重置后榜首
+        self.assertEqual(record["chosen"], "kimi_k3")  # V37.9.381 Ark 版 doubao_21 退役后榜首
         self.assertEqual(record["cost_tier"], "high")
 
     def test_record_schema_has_all_required_fields(self):
@@ -310,7 +320,7 @@ class TestRouterDecideCli(unittest.TestCase):
     """V37.9.76 Step 3: router_decide.py CLI subprocess 测试."""
 
     def test_cli_basic_invocation(self):
-        """CLI --job-id kb_dream --no-log → stdout=doubao_21, exit 0 (V37.9.290)."""
+        """CLI --job-id kb_dream --no-log → stdout=kimi_k3, exit 0 (V37.9.381)."""
         result = subprocess.run(
             ["python3", os.path.join(_REPO_ROOT, "router_decide.py"),
              "--job-id", "kb_dream", "--task", "radar_retry", "--no-log"],
@@ -318,8 +328,8 @@ class TestRouterDecideCli(unittest.TestCase):
             env={**os.environ, "PYTHONPATH": _REPO_ROOT},
         )
         self.assertEqual(result.returncode, 0, f"CLI exit 0, got {result.returncode}: {result.stderr}")
-        self.assertEqual(result.stdout.strip(), "doubao_21",
-                         "V37.9.290 CLI: stdout 默认是 chosen name (重置后榜首 doubao_21)")
+        self.assertEqual(result.stdout.strip(), "kimi_k3",
+                         "V37.9.381 CLI: stdout 默认是 chosen name (Ark 版 doubao_21 退役后榜首 kimi_k3)")
 
     def test_cli_json_mode_outputs_full_record(self):
         """CLI --json → stdout 是完整 JSON record."""
@@ -332,7 +342,7 @@ class TestRouterDecideCli(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         record = json.loads(result.stdout.strip())
         self.assertEqual(record["job_id"], "kb_dream")
-        self.assertEqual(record["chosen"], "doubao_21")  # V37.9.290 重置后榜首
+        self.assertEqual(record["chosen"], "kimi_k3")  # V37.9.381 Ark 版 doubao_21 退役后榜首
         self.assertTrue(record["v37_9_76"])
 
     def test_cli_fail_open_on_unknown_job(self):
@@ -363,7 +373,7 @@ class TestRouterDecideCli(unittest.TestCase):
                       "V37.9.76 MR-11: log 写 stderr 留诊断")
 
     def test_cli_exclude_param(self):
-        """CLI --exclude doubao → chosen=doubao_21 (V37.9.217: 旗舰 5 verified 含 reasoning)。"""
+        """CLI --exclude doubao_21_tokenhub → chosen=kimi_k3 (V37.9.381)。"""
         result = subprocess.run(
             ["python3", os.path.join(_REPO_ROOT, "router_decide.py"),
              "--job-id", "kb_dream", "--exclude", "doubao_21_tokenhub", "--no-log"],
@@ -371,7 +381,7 @@ class TestRouterDecideCli(unittest.TestCase):
             env={**os.environ, "PYTHONPATH": _REPO_ROOT},
         )
         self.assertEqual(result.returncode, 0)
-        self.assertEqual(result.stdout.strip(), "doubao_21")
+        self.assertEqual(result.stdout.strip(), "kimi_k3")
 
 
 class TestJobsRegistrySchemaExtension(unittest.TestCase):
