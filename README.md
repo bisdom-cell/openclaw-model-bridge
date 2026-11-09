@@ -100,7 +100,7 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
 
 | Provider | Default Model | Role today | Tier |
 |----------|--------------|-----------|------|
-| **Doubao Seed 2.1 Pro** (ai-tokenhub, plugin, `doubao_21_tokenhub`) | doubao-seed-2-1-pro-260628 | **Primary** (PROVIDER env, V37.9.381；方舟版 `doubao_21` 的 key 2026-10-28 被停用后退役，同模型平台冗余兑现) | feature_verified（V37.9.342/343 E2E text+tool_calling+reasoning 3/6） |
+| **Doubao Seed 2.1 Pro** (ai-tokenhub, plugin, `doubao_21_tokenhub` 槽位) | doubao-seed-2-1-pro-260628 | **Primary** (PROVIDER env, V37.9.381；方舟版 `doubao_21` 的 key 2026-10-28 被停用后退役，同模型平台冗余兑现) | feature_verified（V37.9.342/343 E2E text+tool_calling+reasoning 3/6） |
 | **DeepSeek-V4-Pro 满血** (ai-tokenhub, plugin) | deepseek-v4-pro-ga-260813 | Fallback #1 (R1 reasoning；2026-10-28→11-09 方舟 key 失效期间承接全部流量 12 天) | feature_verified（V37.9.340 E2E text+reasoning） |
 | **DeepSeek-V4-Pro 量化** (self-host, plugin) | DeepSeek-V4-Pro-w4a8-mtp | Fallback #2 | feature_verified |
 | **Qwen** (Remote GPU) | Qwen3-235B + Qwen2.5-VL-72B | Fallback #3 兜底（前主力 V27→V37.9.222；链上唯一 vision fallback） | production_observed |
