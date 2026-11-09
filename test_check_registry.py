@@ -611,5 +611,74 @@ class TestRegistryEntryExecBit(unittest.TestCase):
         self.assertIn("check_upgrade.sh", entries)
 
 
+
+# ---------------------------------------------------------------------------
+# V37.9.383: 退役 job（enabled=false 且脚本已删）不得在运行时清单里留残留
+# ---------------------------------------------------------------------------
+class TestRetiredJobsLeaveNoRuntimeWiring(unittest.TestCase):
+    """registry 里 enabled=false 且 entry 脚本已从仓库删除的 job = 已退役。
+
+    退役时最容易漏的是「另一处清单还在引用它」：V37.9.88 daily_observer 残留 pwc /
+    V37.9.186 kb_deep_dive TIER_1 残留 pwc 都是这一类。V37.9.383 退役 dblp 时又发现
+    第三种代价——dblp 抓取失败时提前退出、不清空 llm_results.jsonl，而 Top 5 挑选器
+    不看文件新旧，只要它还在 ALIGNED_SOURCES 里，退役前的旧论文就会被当成今日精选。
+    这里按类守：从 registry 推出退役集合（不写死名单），逐一断言五处运行时清单里没有它。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import re
+        cls.repo = os.path.dirname(os.path.abspath(__file__))
+        reg = load_yaml(os.path.join(cls.repo, "jobs_registry.yaml"))
+        jobs = reg.get("jobs", reg)
+        cls.retired = []
+        for j in jobs:
+            if not isinstance(j, dict) or j.get("enabled", True):
+                continue
+            entry = str(j.get("entry", ""))
+            if entry and not os.path.exists(os.path.join(cls.repo, entry)):
+                cls.retired.append((str(j["id"]), entry))
+
+        def read(rel):
+            with open(os.path.join(cls.repo, rel), encoding="utf-8") as f:
+                return f.read()
+        cls.read = staticmethod(read)
+        cls.re = re
+
+    def test_retired_set_is_derived_and_nonempty(self):
+        ids = {i for i, _ in self.retired}
+        self.assertIn("pwc", ids, "防空转：pwc（V37.8.13 删脚本）必须被推导为退役")
+        self.assertIn("dblp", ids, "防空转：dblp（V37.9.383 删脚本）必须被推导为退役")
+
+    def test_not_in_auto_deploy_file_map(self):
+        src = self.read("auto_deploy.sh")
+        for jid, entry in self.retired:
+            self.assertNotIn(f'"{entry}|', src, f"{jid}: 已删脚本仍在 FILE_MAP")
+
+    def test_not_in_watchdog_status_or_lock_lists(self):
+        src = self.read("job_watchdog.sh")
+        for jid, _ in self.retired:
+            self.assertIsNone(self.re.search(rf'^\s*"{jid}\|', src, self.re.M),
+                              f"{jid}: 退役 job 仍在 watchdog 状态检查清单（每轮告警的来源）")
+            self.assertNotIn(f'"/tmp/{jid}.lockdir|', src, f"{jid}: 退役 job 仍在陈旧锁清单")
+
+    def test_not_in_top_alignment_picker(self):
+        import top_alignment_picker as tap
+        ids = {s["id"] for s in tap.ALIGNED_SOURCES}
+        for jid, _ in self.retired:
+            self.assertNotIn(jid, ids, f"{jid}: 退役源仍在 Top 5 挑选器（旧结果会被当今日精选）")
+
+    def test_not_in_deep_dive_tiers(self):
+        import kb_deep_dive as kd
+        tiers = set(kd.TIER_1_SOURCES) | set(kd.TIER_2_SOURCES)
+        for jid, _ in self.retired:
+            self.assertNotIn(jid, tiers, f"{jid}: 退役源仍在深读来源档")
+
+    def test_not_in_llm_cron_audit(self):
+        src = self.read("ontology/llm_cron_audit.py")
+        for jid, entry in self.retired:
+            self.assertNotIn(f'"{entry}"', src, f"{jid}: 已删脚本仍在 LLM cron 审计清单")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

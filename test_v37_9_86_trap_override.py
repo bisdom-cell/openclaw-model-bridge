@@ -26,7 +26,6 @@ class TestTrapOverrideFix(unittest.TestCase):
         "jobs/acl_anthology/run_acl_anthology.sh",
         "jobs/ai_leaders_x/run_ai_leaders_x.sh",
         "jobs/arxiv_monitor/run_arxiv.sh",
-        "jobs/dblp/run_dblp.sh",
         "jobs/github_trending/run_github_trending.sh",
         "jobs/hf_papers/run_hf_papers.sh",
         "jobs/hn_watcher/run_hn_fixed.sh",
@@ -99,8 +98,8 @@ class TestTrapOverrideFix(unittest.TestCase):
         self.assertGreaterEqual(count, 5, "V37.9.86 marker should be in >=5 fixed scripts")
 
     def test_scripts_count_locked(self):
-        """12 个脚本的列表不可悄悄缩减。"""
-        self.assertEqual(len(self.SCRIPTS_WITH_LOCK_AND_CHUNKS), 12)
+        """12 个脚本的列表不可悄悄缩减（V37.9.383 dblp 退役删除 → 11，是显式退役不是悄悄缩减）。"""
+        self.assertEqual(len(self.SCRIPTS_WITH_LOCK_AND_CHUNKS), 11)
 
 
 class TestTrapOverrideBehavior(unittest.TestCase):

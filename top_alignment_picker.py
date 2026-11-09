@@ -13,10 +13,9 @@ Sub-Stage 4c = 聚合所有 ⭐≥4 高对齐数据到 Dream/Radar/Evening 推�
 source × 50 entries 信息洪流里.
 
 ═══════════════════════════════════════════════════════════════════════════
-数据源 (10 ALIGNED sources, V37.9.45/50/51 全量迁移 + V37.9.108/112 大神观点):
+数据源 (9 ALIGNED sources, V37.9.45/50/51 全量迁移 + V37.9.108/112 大神观点; dblp V37.9.383 退役):
   - jobs/hf_papers/cache/llm_results.jsonl          (V37.9.45)
   - jobs/semantic_scholar/cache/llm_results.jsonl   (V37.9.50)
-  - jobs/dblp/cache/llm_results.jsonl               (V37.9.51 1/6)
   - jobs/arxiv_monitor/cache/llm_results.jsonl      (V37.9.51 3/6)
   - jobs/github_trending/cache/llm_results.jsonl    (V37.9.51 4/6)
   - jobs/rss_blogs/cache/llm_results.jsonl          (V37.9.51 1/6)
@@ -80,7 +79,7 @@ _V37_9_169_MARKER = "V37.9.169 per-pick credibility tier"
 # V37.9.169 [5](c): picker source_id → source_credibility source_id 映射.
 # 绝大多数 id 直配; 唯一真错配是 arxiv (picker) vs arxiv_monitor (cred) —
 # 不映射则 get_credibility("arxiv") FAIL-OPEN 误判为社媒💬 (实际应会议预印本🥈).
-# 其余 id 直配 (hf_papers/semantic_scholar/dblp/github_trending/rss_blogs/
+# 其余 id 直配 (hf_papers/semantic_scholar/github_trending/rss_blogs/
 # ai_leaders_blogs/ai_leaders_x/ai_leaders_bsky) 或 FAIL-OPEN 到正确档
 # (hn → 社媒💬, 本就正确). 一物一形: 只登记真差异.
 _PICKER_TO_CRED_ID: dict[str, str] = {"arxiv": "arxiv_monitor"}
@@ -101,8 +100,6 @@ ALIGNED_SOURCES: list[dict[str, Any]] = [
      "cache_paths": ["jobs/semantic_scholar/cache", "~/.openclaw/jobs/semantic_scholar/cache"]},
     {"id": "arxiv", "display": "ArXiv", "priority": 3,
      "cache_paths": ["jobs/arxiv_monitor/cache", "~/.openclaw/jobs/arxiv_monitor/cache"]},
-    {"id": "dblp", "display": "DBLP", "priority": 3,
-     "cache_paths": ["jobs/dblp/cache", "~/.openclaw/jobs/dblp/cache"]},
     {"id": "github_trending", "display": "GitHub", "priority": 4,
      "cache_paths": ["jobs/github_trending/cache", "~/.openclaw/jobs/github_trending/cache"]},
     {"id": "rss_blogs", "display": "博客", "priority": 5,

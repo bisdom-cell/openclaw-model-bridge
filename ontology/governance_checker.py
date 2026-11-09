@@ -677,7 +677,7 @@ def _discover_silent_channels(severity):
 
     # topic → 贡献该频道推送的 job_id 列表（与 source layer 的 callers_per_topic 对应）
     TOPIC_JOB_MAP = {
-        "papers": ["arxiv_monitor", "hf_papers", "semantic_scholar", "dblp",
+        "papers": ["arxiv_monitor", "hf_papers", "semantic_scholar",
                     "acl_anthology", "ai_leaders_x"],
         "freight": ["freight_watcher"],
         "alerts": ["job_watchdog", "auto_deploy"],

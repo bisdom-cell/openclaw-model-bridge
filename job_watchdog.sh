@@ -118,8 +118,6 @@ JOBS=(
     "hf_papers|$HOME/.openclaw/jobs/hf_papers/cache/last_run.json|100800|HF论文监控|core"
     # Semantic Scholar: 每天1次(08:00) → 最多静默 50h
     "semantic_scholar|$HOME/.openclaw/jobs/semantic_scholar/cache/last_run.json|180000|S2论文监控|core"
-    # DBLP: 每天1次(12:00) → 最多静默 50h
-    "dblp|$HOME/.openclaw/jobs/dblp/cache/last_run.json|180000|DBLP论文监控|auxiliary"
     # ACL: 每周三(09:30) → 最多静默 672h（28天/4周）
     # V37.9.6 调宽: 14 天, V37.9.8 再调宽: 28 天。
     # V37.9.8 根因确定: 脚本 line 176-179 每个 exit 分支都写 last_run（no_volumes/
@@ -624,7 +622,6 @@ STALE_LOCK_DIRS=(
     "/tmp/arxiv_monitor.lockdir|ArXiv监控"
     "/tmp/hf_papers.lockdir|HF论文"
     "/tmp/semantic_scholar.lockdir|S2论文"
-    "/tmp/dblp.lockdir|DBLP论文"
     "/tmp/acl_anthology.lockdir|ACL论文"
     "/tmp/hn_watcher.lockdir|HN抓取"
     "/tmp/freight_watcher.lockdir|货代Watcher"

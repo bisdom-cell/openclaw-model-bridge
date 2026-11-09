@@ -3,6 +3,9 @@
 
 V37.9.40 把 V37.9.36-37 / V37.9.39 fail-fast + 5 字段模式横向迁移到:
   - jobs/dblp/run_dblp.sh (DBLP CS 论文, 适配无 abstract — 基于标题/venue 推断)
+    【V37.9.383 退役删除: dblp.org Anubis 反爬致 100% 抓取失败 7 周; DBLP 侧守卫
+     随脚本一并移除 (TestDblpV9_40Guards / TestV37_9_234_GranularityConvergence /
+     DBLP 的 ALIGNED_SCRIPTS 两项), 本文件现只守 AI Leaders X】
   - jobs/ai_leaders_x/run_ai_leaders_x.sh (AI Leaders X tweets, 适配推文上下文)
 
 血案防御 (V37.9.36 反模式硬规则保留):
@@ -22,7 +25,6 @@ import unittest
 
 
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
-DBLP_SCRIPT = os.path.join(REPO_ROOT, "jobs/dblp/run_dblp.sh")
 AILEAD_SCRIPT = os.path.join(REPO_ROOT, "jobs/ai_leaders_x/run_ai_leaders_x.sh")
 
 
@@ -115,51 +117,6 @@ def _no_placeholder_fallback_in_executable_code(test_case, src, label, forbidden
 
 
 # ═══════════════════════════════════════════════════════════════════
-# DBLP 测试
-# ═══════════════════════════════════════════════════════════════════
-class TestDblpV9_40Guards(unittest.TestCase):
-    """V37.9.40 DBLP 5 字段深度迁移守卫"""
-
-    @classmethod
-    def setUpClass(cls):
-        cls.src = _read(DBLP_SCRIPT)
-
-    def test_common_v37_9_40_guards(self):
-        _common_v37_9_40_guards(self, self.src, "DBLP")
-
-    def test_no_placeholder_fallback(self):
-        """V37.9.36 反模式: DBLP 旧占位符不得回归"""
-        _no_placeholder_fallback_in_executable_code(
-            self, self.src, "DBLP",
-            ["贡献：CS领域相关研究", "价值：⭐⭐⭐"]
-        )
-
-    def test_dblp_specific_no_abstract_caveat_in_prompt(self):
-        """DBLP 特定: prompt 必须含'基于标题推断'caveat (无 abstract 限制)"""
-        self.assertIn("基于标题推断", self.src,
-                      msg="DBLP prompt 必须含'基于标题推断'caveat 让 LLM 标注置信度")
-
-    def test_dblp_degraded_falls_back_to_metadata(self):
-        """DBLP LLM_DEGRADED 必须用标题+venue 元数据兜底 (DBLP 无 abstract)"""
-        self.assertIn("仅提供标题+会议元数据", self.src,
-                      msg="DBLP LLM_DEGRADED 必须显式说明用元数据兜底")
-        # 必须保留 venue + first_author 字段在兜底逻辑里
-        self.assertIn("paper.get('venue'", self.src)
-        self.assertIn("paper.get('first_author'", self.src)
-
-    def test_dblp_link_priority_doi_over_url(self):
-        """DBLP 链接优先 DOI (V37.9.40 emit 端保留 V25 行为)"""
-        self.assertTrue(re.search(r'doi\s*=\s*paper\.get\(.*doi.*\)\s*\n.*?link\s*=', self.src, re.DOTALL),
-                        msg="DBLP 必须优先用 DOI 链接, fallback 到 URL")
-
-    def test_dblp_header_emoji_and_chunk_message(self):
-        """DBLP 推送 header 必须用 📚 emoji + 多窗口 [i/N] 标识 DBLP 特定"""
-        self.assertIn("📚 DBLP CS 论文精选", self.src)
-        # 多窗口分支应替换 header 加 [i/N]
-        self.assertTrue(re.search(r"📚 DBLP CS 论文精选 \[1/", self.src))
-
-
-# ═══════════════════════════════════════════════════════════════════
 # AI Leaders X 测试
 # ═══════════════════════════════════════════════════════════════════
 class TestAiLeadersV9_40Guards(unittest.TestCase):
@@ -233,29 +190,12 @@ class TestV9_40InAuditAlignedScripts(unittest.TestCase):
         self.assertGreaterEqual(len(self.au.ALIGNED_SCRIPTS), 7,
                                 msg=f"V37.9.40 ALIGNED_SCRIPTS 应 ≥7, 实际 {len(self.au.ALIGNED_SCRIPTS)}")
 
-    def test_dblp_in_aligned_with_v37_9_40_or_later(self):
-        """DBLP 必须在 ALIGNED_SCRIPTS, V37.9.40 (原) 或 V37.9.51 (Sub-Stage 4b 升级)"""
-        self.assertIn("jobs/dblp/run_dblp.sh", self.au.ALIGNED_SCRIPTS)
-        version = self.au.ALIGNED_SCRIPTS["jobs/dblp/run_dblp.sh"]
-        self.assertIn(version, ("V37.9.40", "V37.9.51"),
-                      f"DBLP 应映射 V37.9.40 或 V37.9.51, 实际 {version!r}")
-
     def test_aileaders_in_aligned_with_v37_9_40_or_later(self):
         """AI Leaders X 必须在 ALIGNED_SCRIPTS, V37.9.40 (原) 或 V37.9.51 (Sub-Stage 4b 升级)"""
         self.assertIn("jobs/ai_leaders_x/run_ai_leaders_x.sh", self.au.ALIGNED_SCRIPTS)
         version = self.au.ALIGNED_SCRIPTS["jobs/ai_leaders_x/run_ai_leaders_x.sh"]
         self.assertIn(version, ("V37.9.40", "V37.9.51"),
                       f"AI Leaders X 应映射 V37.9.40 或 V37.9.51, 实际 {version!r}")
-
-    def test_audit_dblp_aligned_True(self):
-        rep = self.au.audit_script(DBLP_SCRIPT)
-        self.assertTrue(rep.exists)
-        self.assertTrue(rep.aligned, msg=f"DBLP 应识别为 aligned, score {rep.compliance_score}")
-        # V37.9.51 兼容: DBLP 从 V37.9.40 升级到 V37.9.51 (Sub-Stage 4b)
-        self.assertIn(rep.aligned_version, ("V37.9.40", "V37.9.51"),
-                      f"aligned_version 应为 V37.9.40 或 V37.9.51, 实际 {rep.aligned_version!r}")
-        self.assertEqual(len(rep.placeholder_findings), 0,
-                         msg=f"DBLP findings 应为 0, 实际: {[f.matched for f in rep.placeholder_findings]}")
 
     def test_audit_aileaders_aligned_True(self):
         rep = self.au.audit_script(AILEAD_SCRIPT)
@@ -266,45 +206,6 @@ class TestV9_40InAuditAlignedScripts(unittest.TestCase):
                       f"aligned_version 应为 V37.9.40 或 V37.9.51, 实际 {rep.aligned_version!r}")
         self.assertEqual(len(rep.placeholder_findings), 0,
                          msg=f"AI Leaders X findings 应为 0, 实际: {[f.matched for f in rep.placeholder_findings]}")
-
-
-class TestV37_9_234_GranularityConvergence(unittest.TestCase):
-    """V37.9.234 (observer 2026-07-03 提案 #1): DBLP 标题推断粒度收敛。
-
-    血案形态 (observer [MED] finding): 💡 关键方法按评级扩展到 100-800 字, 但输入
-    只有标题+会议名 — 标题支撑不了 800 字真实分析, LLM 被结构性逼迫编造细粒度
-    方法细节 ("推测采用预训练的基础模型" "可能引入对比学习或适配器模块"),
-    虽有 (基于标题推断) 标注但推断粒度偏细存在误导风险。
-    修复: 长度固定 80-150 字方向性解读 + 严格约束显式禁止细粒度技术路径猜测。
-    """
-
-    @classmethod
-    def setUpClass(cls):
-        cls.src = _read(DBLP_SCRIPT)
-
-    def test_rating_scaled_length_retired(self):
-        """评级扩展长度要求退役 — 结构性编造逼迫点"""
-        self.assertNotIn("⭐⭐⭐⭐⭐→500-800字", self.src,
-                         "按评级扩展长度 = 逼 LLM 从纯标题编造 800 字细节, 必须退役")
-        self.assertNotIn("长度按评级动态调整", self.src)
-        self.assertNotIn("长度按评级规则", self.src,
-                         "输出格式模板里的评级长度引用也必须同步退役")
-
-    def test_fixed_directional_length_present(self):
-        self.assertIn("80-150 字", self.src)
-        self.assertIn("不随评级扩展", self.src)
-
-    def test_fine_grained_speculation_prohibited(self):
-        """严格约束必须显式禁止细粒度技术路径猜测 (观察者点名的字眼形态)"""
-        self.assertIn("严禁细粒度技术路径猜测", self.src)
-        self.assertIn("推测采用XX模型", self.src)
-
-    def test_honest_label_preserved(self):
-        """(基于标题推断) 诚实标注保留 — V37.9.213 F4 确认的正确行为不得误删"""
-        self.assertIn("(基于标题推断)", self.src)
-
-    def test_v37_9_234_marker(self):
-        self.assertIn("V37.9.234", self.src)
 
 
 if __name__ == "__main__":

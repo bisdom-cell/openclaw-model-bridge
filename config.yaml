@@ -145,7 +145,6 @@ job_silence_timeouts:
   arxiv: 50400          # 14h
   hf_papers: 90000      # 25h
   semantic_scholar: 90000
-  dblp: 90000
   acl: 691200           # 8 days（按会议周期）
   hn: 14400             # 4h
   freight: 32400        # 9h

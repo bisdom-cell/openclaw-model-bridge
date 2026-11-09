@@ -1,6 +1,6 @@
 # OpenClaw Model Bridge — 系统特性一览表
 
-> v37.9.382 (2026-11-09) | **6870 tests** / 208 suites / 0 fail | **12 providers** (primary doubao_21_tokenhub) | **41 active jobs** | 5 SLO metrics | preflight full checks | notify 推送（默认 Discord）| **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 98/100 | 29 blood-lesson case docs
+> v37.9.383 (2026-11-09) | **6870 tests** / 208 suites / 0 fail | **12 providers** (primary doubao_21_tokenhub) | **40 active jobs** | 5 SLO metrics | preflight full checks | notify 推送（默认 Discord）| **91 governance invariants / 23 meta-rules / 839 checks / 14 MRD scanners** | security 98/100 | 29 blood-lesson case docs
 
 | 分类 | 特性 | 说明 | 核心文件 |
 |------|------|------|----------|
@@ -21,7 +21,7 @@
 | | data_clean | 数据清洗：7 种操作(dedup/trim/fix_dates 等)、5 种格式(CSV/JSON/Excel 等) | `data_clean.py` |
 | **本地 AI** | KB RAG 语义搜索 | sentence-transformers 384 维 50+ 语言，零 API 调用 | `local_embed.py` + `kb_embed.py` + `kb_rag.py` |
 | | 多媒体语义搜索 | Gemini Embedding 2 (768 维) 图片/音频/视频/PDF | `mm_index.py` + `mm_search.py` |
-| **信息采集 (16 内容源，见 `source_credibility.py`)** | 论文矩阵 (5 源) | ArXiv(08:00/20:00) + HF Papers + Semantic Scholar + DBLP + ACL Anthology，6 字段 LLM 分析 + 🎚️ 项目对齐度评分 | `jobs/` 目录 |
+| **信息采集 (16 内容源，见 `source_credibility.py`)** | 论文矩阵 (4 源) | ArXiv(08:00/20:00) + HF Papers + Semantic Scholar + ACL Anthology（DBLP V37.9.383 退役），6 字段 LLM 分析 + 🎚️ 项目对齐度评分 | `jobs/` 目录 |
 | | HackerNews | 每日 3 次 (08:45/14:45/20:45) 热帖抓取 | `jobs/hn_watcher/run_hn_fixed.sh` |
 | | 货代 Watcher | 每天 14:00 ImportYeti 数据 + 三层 LLM 分析（经济晴雨表/运营信号/商机） | `jobs/freight_watcher/` |
 | | 财经新闻 | 每天 07:30 全球财经/政策（14 RSS + 10 X 账号，冻结≠死亡僵尸检测） | `jobs/finance_news/` |

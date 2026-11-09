@@ -50,7 +50,7 @@ class TestTopicJobMapCompleteness(unittest.TestCase):
     def test_papers_has_all_academic_jobs(self):
         src = open(os.path.join(_ONTOLOGY_DIR, "governance_checker.py")).read()
         for job in ["arxiv_monitor", "hf_papers", "semantic_scholar",
-                     "dblp", "acl_anthology", "ai_leaders_x"]:
+                     "acl_anthology", "ai_leaders_x"]:  # dblp V37.9.383 退役
             self.assertIn(f'"{job}"', src,
                           f"papers topic missing job '{job}'")
 
