@@ -30,11 +30,25 @@ source × 50 entries 信息洪流里.
 ═══════════════════════════════════════════════════════════════════════════
 FAIL-OPEN 契约 (V37.9.46 cross_source_signal_aggregator 同款模式):
   - cache_dir 缺失 → 该 source 0 picks 不阻塞其他 source
+  - llm_results.jsonl 超过该源允许的年龄 (V37.9.384) → 该 source 0 picks + stderr WARN
+    (见下方「新鲜度契约」), 不阻塞其他 source
   - llm_results.jsonl 损坏 / 单条 JSON parse 错误 → 跳过该条继续
   - content 字段缺失或 failed=True → 该条不计 picks
   - alignment 字段缺失或 ⭐ 数 < min_stars → 该条不计 picks
   - 无任何 picks → emit 空 block, 调用方静默不推送 (不阻塞 Dream/evening 主流程)
   - project_alignment_scorer 缺失 → fallback 到 inline regex 抽 ⭐ 数
+
+═══════════════════════════════════════════════════════════════════════════
+新鲜度契约 (V37.9.384):
+  各内容 job 只在抓取成功、确有新内容时才清空并重写 llm_results.jsonl;
+  抓取失败 / 解析失败 / 无新内容 / 被锁跳过 这些提前退出都会把上一轮的文件
+  原样留在原处。此前 picker 不看文件日期, 于是一个连续失败的源 (DBLP
+  2026-09-19 起 100% 失败) 每天都把它最后一次成功那天的 ⭐≥4 条目送进 Top 5。
+  现在每个源声明 cadence_hours (= max(24, jobs_registry 里相邻两次运行的最大
+  间隔), 由测试从 registry cron 推导并钉死), 文件 mtime 早于
+  cadence_hours + FRESHNESS_GRACE_HOURS 即不计入, 并在 stderr 打 WARN。
+  24 小时下限: Top 5 是每日段, 一天跑多次的源 (arxiv 08/20、HN 08:45/14:45/20:45)
+  后几次「无新内容」时上一次的同日文件仍算今天的。
 
 ═══════════════════════════════════════════════════════════════════════════
 排序契约:
@@ -61,6 +75,7 @@ import json
 import os
 import re
 import sys
+import time
 from typing import Any
 
 
@@ -72,6 +87,22 @@ DEFAULT_MIN_STARS = 4
 
 # 默认推送 Top N: 5 条 (用户一屏可见, 不淹没 Dream/Evening 主分析)
 DEFAULT_TOP_N = 5
+
+# V37.9.384 marker (结果文件新鲜度闸门)
+_V37_9_384_MARKER = "V37.9.384 results freshness gate"
+
+# 新鲜度宽限: 允许的文件年龄 = cadence_hours + 本值。2h 覆盖「job 启动到清空文件」
+# 之间的抓取耗时与 cron 晚点。为什么不是 12h (即 36h 窗口): 读取方在 03:00 / 06:00
+# / 22:00 运行, 按 registry 排程模拟, 健康文件在这三个时刻最老 20.9h
+# (ai_leaders_x 09:00 跑, 06:00 读), 26h 仍有约 5h 余量; 而 36h 会让 10:00 以后跑的
+# 源在当天 22:00 晚间整理里把昨天的文件当今天的 (35.7h < 36h), 27 个「源×读取时刻」
+# 组合只抓到 9 个。测试 TestFreshnessWindowAgainstSchedule 用 registry 真实排程钉死
+# 这两条性质。
+FRESHNESS_GRACE_HOURS = 2
+
+# cadence_hours 缺省值 (所有当前源都至少每天一次; 新增源必须显式声明,
+# 测试 TestCadenceDerivedFromRegistry 会对缺失 / 不一致直接报错)。
+DEFAULT_CADENCE_HOURS = 24
 
 # V37.9.169 marker ([5](c) 兑现: emit 端 per-pick 确定性可信度 tier)
 _V37_9_169_MARKER = "V37.9.169 per-pick credibility tier"
@@ -93,30 +124,43 @@ _PICKER_TO_CRED_ID: dict[str, str] = {"arxiv": "arxiv_monitor"}
 #   - Mac Mini production: ~/.openclaw/jobs/X/cache (auto_deploy FILE_MAP 真路径)
 #   - HN 例外: dev=repo_root/cache, prod=~/.openclaw/jobs/hn_watcher/cache (子目录名差异)
 # Picker 按 cache_paths 顺序 try, 第一个存在的目录就用 (FAIL-OPEN: 全空时返回首个候选).
+#
+# V37.9.384: registry_id = jobs_registry.yaml 里的 job id (arxiv / hn 与 picker id 不同);
+# cadence_hours = max(24, 该 job 相邻两次运行的最大间隔小时数)。两者只供新鲜度判断,
+# 由 TestCadenceDerivedFromRegistry 从 registry cron 推导比对, 改排程不改这里 CI 即红。
 ALIGNED_SOURCES: list[dict[str, Any]] = [
     {"id": "hf_papers", "display": "HF精选", "priority": 1,
-     "cache_paths": ["jobs/hf_papers/cache", "~/.openclaw/jobs/hf_papers/cache"]},
+     "cache_paths": ["jobs/hf_papers/cache", "~/.openclaw/jobs/hf_papers/cache"],
+     "registry_id": "hf_papers", "cadence_hours": 24},
     {"id": "semantic_scholar", "display": "S2引用", "priority": 2,
-     "cache_paths": ["jobs/semantic_scholar/cache", "~/.openclaw/jobs/semantic_scholar/cache"]},
+     "cache_paths": ["jobs/semantic_scholar/cache", "~/.openclaw/jobs/semantic_scholar/cache"],
+     "registry_id": "semantic_scholar", "cadence_hours": 24},
     {"id": "arxiv", "display": "ArXiv", "priority": 3,
-     "cache_paths": ["jobs/arxiv_monitor/cache", "~/.openclaw/jobs/arxiv_monitor/cache"]},
+     "cache_paths": ["jobs/arxiv_monitor/cache", "~/.openclaw/jobs/arxiv_monitor/cache"],
+     "registry_id": "arxiv_monitor", "cadence_hours": 24},
     {"id": "github_trending", "display": "GitHub", "priority": 4,
-     "cache_paths": ["jobs/github_trending/cache", "~/.openclaw/jobs/github_trending/cache"]},
+     "cache_paths": ["jobs/github_trending/cache", "~/.openclaw/jobs/github_trending/cache"],
+     "registry_id": "github_trending", "cadence_hours": 24},
     {"id": "rss_blogs", "display": "博客", "priority": 5,
-     "cache_paths": ["jobs/rss_blogs/cache", "~/.openclaw/jobs/rss_blogs/cache"]},
+     "cache_paths": ["jobs/rss_blogs/cache", "~/.openclaw/jobs/rss_blogs/cache"],
+     "registry_id": "rss_blogs", "cadence_hours": 24},
     # V37.9.108: AI 大神长文观点 (博客/Substack RSS, 替代退化的 ai_leaders_x).
     # 博客档 priority 5 (长文 > tweet), 让 ⭐≥4 学者观点进 Top 5 机会点雷达.
     {"id": "ai_leaders_blogs", "display": "大神观点", "priority": 5,
-     "cache_paths": ["jobs/ai_leaders_blogs/cache", "~/.openclaw/jobs/ai_leaders_blogs/cache"]},
+     "cache_paths": ["jobs/ai_leaders_blogs/cache", "~/.openclaw/jobs/ai_leaders_blogs/cache"],
+     "registry_id": "ai_leaders_blogs", "cadence_hours": 24},
     {"id": "ai_leaders_x", "display": "AI Leaders", "priority": 6,
-     "cache_paths": ["jobs/ai_leaders_x/cache", "~/.openclaw/jobs/ai_leaders_x/cache"]},
+     "cache_paths": ["jobs/ai_leaders_x/cache", "~/.openclaw/jobs/ai_leaders_x/cache"],
+     "registry_id": "ai_leaders_x", "cadence_hours": 24},
     # V37.9.112: AI 大神 Bluesky 实时短观点 (getAuthorFeed JSON, V37.9.110/111 上线).
     # 社媒档 priority 6 (实时短帖同 tweet 类, 同 ai_leaders_x, > 博客 5), 让 ⭐≥4 大神实时观点进 Top 5 机会点雷达.
     # 下游 100% 复用 blogs 管道, llm_results.jsonl 格式逐字一致 → picker scan 零改 (MR-8).
     {"id": "ai_leaders_bsky", "display": "大神实时", "priority": 6,
-     "cache_paths": ["jobs/ai_leaders_bsky/cache", "~/.openclaw/jobs/ai_leaders_bsky/cache"]},
+     "cache_paths": ["jobs/ai_leaders_bsky/cache", "~/.openclaw/jobs/ai_leaders_bsky/cache"],
+     "registry_id": "ai_leaders_bsky", "cadence_hours": 24},
     {"id": "hn", "display": "HN", "priority": 7,
-     "cache_paths": ["cache", "~/.openclaw/jobs/hn_watcher/cache"]},
+     "cache_paths": ["cache", "~/.openclaw/jobs/hn_watcher/cache"],
+     "registry_id": "run_hn_fixed", "cadence_hours": 24},
 ]
 
 # llm_results.jsonl 文件名 (V37.9.45+ 8 source 统一使用)
@@ -284,6 +328,32 @@ def parse_alignment_from_content(content: str) -> dict[str, Any]:
     return result
 
 
+def max_age_hours(src: dict[str, Any]) -> float:
+    """V37.9.384: 该源结果文件允许的最大年龄 (小时) = cadence_hours + 宽限."""
+    cadence = src.get("cadence_hours", DEFAULT_CADENCE_HOURS)
+    try:
+        cadence = float(cadence)
+    except (TypeError, ValueError):
+        cadence = float(DEFAULT_CADENCE_HOURS)
+    return cadence + FRESHNESS_GRACE_HOURS
+
+
+def results_file_age_hours(cache_dir: str, now: float | None = None) -> float | None:
+    """V37.9.384: 返回 cache_dir 下 llm_results.jsonl 距今的小时数.
+
+    文件缺失 / stat 失败 → None (FAIL-OPEN: 交给 scan_source_results 按原逻辑处理,
+    缺失本就返回 [])。mtime 在未来 (时钟偏差) → 负数, 调用方视为新鲜。
+    """
+    results_path = os.path.join(cache_dir, RESULTS_FILENAME)
+    try:
+        mtime = os.path.getmtime(results_path)
+    except OSError:
+        return None
+    if now is None:
+        now = time.time()
+    return (now - mtime) / 3600.0
+
+
 def scan_source_results(cache_dir: str) -> list[dict[str, Any]]:
     """扫单个 source 的 llm_results.jsonl, 返回成功 LLM 输出列表.
 
@@ -326,29 +396,36 @@ def scan_source_results(cache_dir: str) -> list[dict[str, Any]]:
     return items
 
 
-def collect_all_picks(repo_root: str | None = None,
-                     min_stars: int = DEFAULT_MIN_STARS,
-                     sources: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
-    """扫所有 ALIGNED source, 解析 alignment ⭐, 过滤 ⭐≥min_stars.
-
-    Args:
-        repo_root: 仓库根目录 (None → 取脚本所在目录 / Mac Mini 是 $HOME)
-        min_stars: 入选最低 ⭐ 数 (默认 4)
-        sources: source registry override (默认全部 8 个)
-
-    Returns:
-        list of dict: {"source_id", "source_display", "source_priority", "cn_title",
-                       "alignment_stars", "alignment_reason"}
-    """
+def _collect(repo_root: str | None,
+             min_stars: int,
+             sources: list[dict[str, Any]] | None,
+             now: float | None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """collect_all_picks 的实现, 另外返回因过期被跳过的源 (V37.9.384)."""
     if repo_root is None:
         repo_root = os.path.dirname(os.path.abspath(__file__))
     if sources is None:
         sources = ALIGNED_SOURCES
+    if now is None:
+        now = time.time()
 
     picks: list[dict[str, Any]] = []
+    stale: list[dict[str, Any]] = []
     for src in sources:
         # V37.9.57: 通过 _resolve_cache_dir 支持 dev + Mac Mini 两种 layout
         cache_dir = _resolve_cache_dir(repo_root, src)
+        # V37.9.384: 上一轮留下的文件不再冒充今天的结果
+        age = results_file_age_hours(cache_dir, now=now)
+        limit = max_age_hours(src)
+        if age is not None and age > limit:
+            log(f"[top_picker] WARN: {src.get('display', src.get('id', '?'))} 结果文件 "
+                f"{age:.1f}h 未更新 (上限 {limit:g}h), 本次不计入 Top 5: "
+                f"{os.path.join(cache_dir, RESULTS_FILENAME)}")
+            stale.append({
+                "source_id": src.get("id", ""),
+                "age_hours": round(age, 1),
+                "max_age_hours": limit,
+            })
+            continue
         results = scan_source_results(cache_dir)
         for entry in results:
             parsed = parse_alignment_from_content(entry["content"])
@@ -363,6 +440,28 @@ def collect_all_picks(repo_root: str | None = None,
                 "alignment_stars": stars,
                 "alignment_reason": parsed["alignment_reason"],
             })
+    return picks, stale
+
+
+def collect_all_picks(repo_root: str | None = None,
+                     min_stars: int = DEFAULT_MIN_STARS,
+                     sources: list[dict[str, Any]] | None = None,
+                     now: float | None = None) -> list[dict[str, Any]]:
+    """扫所有 ALIGNED source, 解析 alignment ⭐, 过滤 ⭐≥min_stars.
+
+    Args:
+        repo_root: 仓库根目录 (None → 取脚本所在目录 / Mac Mini 是 $HOME)
+        min_stars: 入选最低 ⭐ 数 (默认 4)
+        sources: source registry override (默认全部 ALIGNED_SOURCES)
+        now: 当前时间戳 (None → time.time(), 供测试注入)
+
+    Returns:
+        list of dict: {"source_id", "source_display", "source_priority", "cn_title",
+                       "alignment_stars", "alignment_reason"}
+
+    V37.9.384: 结果文件超过 max_age_hours(src) 的源整源跳过 (stderr WARN)。
+    """
+    picks, _stale = _collect(repo_root, min_stars, sources, now)
     return picks
 
 
@@ -466,12 +565,14 @@ def pick_top_aligned(repo_root: str | None = None,
           "picks_total": int (符合 min_stars 阈值的总数),
           "picks_top": list[dict] (排序取 Top N 后),
           "block": str (markdown 推送段, no_picks 时为 ""),
+          "stale_sources": list[dict] (V37.9.384: 因结果文件过期被跳过的源,
+                           每项 {source_id, age_hours, max_age_hours}),
         }
 
     FAIL-OPEN: 任何环节失败 → status="no_picks" + block="" 不抛异.
     """
     try:
-        all_picks = collect_all_picks(repo_root=repo_root, min_stars=min_stars)
+        all_picks, stale = _collect(repo_root, min_stars, None, None)
         ranked = rank_picks(all_picks, top_n=top_n)
         block = format_top_picks_block(ranked)
         status = "ok" if ranked else "no_picks"
@@ -480,6 +581,7 @@ def pick_top_aligned(repo_root: str | None = None,
             "picks_total": len(all_picks),
             "picks_top": ranked,
             "block": block,
+            "stale_sources": stale,
         }
     except Exception as exc:
         log(f"[top_picker] ERROR: pick_top_aligned failed: {exc}")
@@ -488,6 +590,7 @@ def pick_top_aligned(repo_root: str | None = None,
             "picks_total": 0,
             "picks_top": [],
             "block": "",
+            "stale_sources": [],
         }
 
 
