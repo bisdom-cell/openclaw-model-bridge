@@ -13,7 +13,7 @@
 [![Fail-Fast](https://img.shields.io/badge/LLM%20cron%20fail--fast-17%2F21%20aligned-brightgreen.svg)]()
 [![Notifications](https://img.shields.io/badge/notifications-WhatsApp%20%2B%20Discord-informational.svg)]()
 
-> **Current version:** `v37.9.381` / `0.37.9.191` (2026-11-09) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
+> **Current version:** `v37.9.382` / `0.37.9.192` (2026-11-09) — see [`CLAUDE.md`](CLAUDE.md) for full changelog.
 > **Latest milestone:** 📄 **ArXiv paper #2 published** — [**arXiv:2610.05981**](https://arxiv.org/abs/2610.05981) (2026-10-06, cs.SE): *Mechanizing the User's Eye* — pre-registered shadow→on deployment of a sabotage-validated fail-plausible observer, the observer's own incident log (O1–O10), and a quiet-window negative result reported as undefined precision rather than success. Follow-up to paper #1 [**arXiv:2606.14589**](https://arxiv.org/abs/2606.14589) (2026-06-15, cs.SE): the *fail-plausible* concept + a 5-class taxonomy of silent failures from 22 production incident postmortems (IEEE Software in review; ISSRE rejected 2026-08-14, conference track closed — journal-first strategy V37.9.307). **Constitutional priority now: LLM-Observer (机械化人眼)** — an automated user-perspective observer that catches *fail-plausible* silent failures **before the user does** (the paper's headline open problem: ~70% of silent failures were caught by looking at the product, while tests/governance caught ≈0%). Stages 0-6 built: design doc → 22-incident labelled ground-truth → 2-layer detector (deterministic S1-S5 pre-filter + LLM-judge) → sabotage self-validation harness → community-runnable [fail-plausible bench](docs/fail_plausible_bench.md). Guiding principle: **日落法 (Sunset Law) — reduce complexity before adding features** (原则 #34 + MR-22/MR-23).
 
 ## Product Layers: What's Core vs. What's the Author's PA Instance
@@ -100,7 +100,7 @@ Layer 3 is not product clutter — it is the **production evidence** for layers 
 
 | Provider | Default Model | Role today | Tier |
 |----------|--------------|-----------|------|
-| **Doubao Seed 2.1 Pro** (ai-tokenhub, plugin, `doubao_21_tokenhub` 槽位) | doubao-seed-2-1-pro-260628 | **Primary** (PROVIDER env, V37.9.381；方舟版 `doubao_21` 的 key 2026-10-28 被停用后退役，同模型平台冗余兑现) | feature_verified（V37.9.342/343 E2E text+tool_calling+reasoning 3/6） |
+| **Doubao Seed 2.1 Pro** (ai-tokenhub, plugin, `doubao_21_tokenhub` 槽位) | doubao-seed-2-1-pro-260628 | **Primary** (PROVIDER env, V37.9.381；方舟版 `doubao_21` 的 key 2026-10-28 被停用后退役，同模型平台冗余兑现) | feature_verified（V37.9.342/343 E2E text+tool_calling+reasoning + V37.9.382 看图 = 4/6） |
 | **DeepSeek-V4-Pro 满血** (ai-tokenhub, plugin) | deepseek-v4-pro-ga-260813 | Fallback #1 (R1 reasoning；2026-10-28→11-09 方舟 key 失效期间承接全部流量 12 天) | feature_verified（V37.9.340 E2E text+reasoning） |
 | **DeepSeek-V4-Pro 量化** (self-host, plugin) | DeepSeek-V4-Pro-w4a8-mtp | Fallback #2 | feature_verified |
 | **Qwen** (Remote GPU) | Qwen3-235B + Qwen2.5-VL-72B | Fallback #3 兜底（前主力 V27→V37.9.222；链上唯一 vision fallback） | production_observed |

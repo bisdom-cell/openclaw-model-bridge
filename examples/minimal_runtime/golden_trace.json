@@ -41,7 +41,7 @@
       "deepseek_full",
       "glm5_coding"
     ],
-    "best_for_text_prefer_reasoning": "kimi_k3",
+    "best_for_text_prefer_reasoning": "doubao_21_tokenhub",
     "policy": {
       "policy_id": "max-tools-per-agent",
       "limit": 12
@@ -50,9 +50,9 @@
   "non_deterministic": {
     "provider_count": 12,
     "step_timings_ms": {
-      "provider_registry": 19,
+      "provider_registry": 17,
       "tool_governance": 32,
-      "policy_ontology": 7
+      "policy_ontology": 8
     }
   }
 }

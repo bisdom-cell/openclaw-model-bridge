@@ -146,9 +146,9 @@ class TestDoubaoCapabilities(unittest.TestCase):
 
     def test_vision_capability(self):
         # V37.9.341: 同 doubao_21 模型 (Ark 侧 V37.9.217 E2E vision 实证) → 声明 vision;
-        # 本平台 (ai-tokenhub Bifrost) 的 image_url 透传未实测 → verified_vision 保持 False
+        # 本平台 (ai-tokenhub Bifrost) 的 image_url 透传 V37.9.382 实测通过 → verified_vision True
         self.assertTrue(self.d.capabilities.vision)
-        self.assertFalse(self.d.capabilities.verified_vision, "平台维度未实测")
+        self.assertTrue(self.d.capabilities.verified_vision, "V37.9.382 本平台看图探针通过")
 
     def test_tool_calling_capability(self):
         self.assertTrue(self.d.capabilities.tool_calling)
