@@ -437,7 +437,7 @@
         "added": "2026-11-09"
       },
       {
-        "item": "【V37.9.381 连带效应 · router 赢家变 kimi_k3】方舟版退出 available 后 find_best_provider(text, prefer reasoning) = kimi_k3（13+10）> doubao_21_tokenhub（12+10），差在 verified_vision 未在 ai-tokenhub 实测。kb_dream radar retry 只在其 shell env ROUTER_ENFORCE=on 时真走 ?provider=；待 Mac Mini 回传: grep -c ROUTER_ENFORCE ~/.env_shared + router_decisions.jsonl 最近几条 mode。处置: tokenhub 看图探针 ✅ → flip verified_vision（+2 → 24 > 23）router 回到主力同模型；若 ❌ 再议是否给 kb_dream 画像加 exclude kimi_k3 或接受。另候选 V37.9.382: watchdog SLO 降级告警行附 /health 断路器状态 + adapter.log 最近一条 PRIMARY FAILED 原因（消费端读既有产出零新机制，让第一条告警就说出「primary 401」）。",
+        "item": "【V37.9.381 连带效应 · router 赢家变 kimi_k3】方舟版退出 available 后 find_best_provider(text, prefer reasoning) = kimi_k3（13+10）> doubao_21_tokenhub（12+10），差在 verified_vision 未在 ai-tokenhub 实测。kb_dream radar retry 只在其 shell env ROUTER_ENFORCE=on 时真走 ?provider=；待 Mac Mini 回传: grep -c ROUTER_ENFORCE ~/.env_shared + router_decisions.jsonl 最近几条 mode。处置: tokenhub 看图探针 ✅ → flip verified_vision（+2 → 24 > 23）router 回到主力同模型；若 ❌ 再议是否给 kb_dream 画像加 exclude kimi_k3 或接受。另候选 V37.9.382: watchdog SLO 降级告警行附 /health 断路器状态 + adapter.log 最近一条 PRIMARY FAILED 原因（消费端读既有产出零新机制，让第一条告警就说出「primary 401」）。【2026-11-09 回传】.env_shared 无 ROUTER_ENFORCE；router_decisions.jsonl 最后一条是 2026-07-01，06-08/06-13 两条 mode=on → radar retry 4 个多月没有触发过，router 赢家变化实际影响近零（降为低优）。kb_dream 先 source ~/.bash_profile，是否 enforce 以 bash -lc 读到的 ROUTER_ENFORCE 为准，待回传。另：用户 preflight 结果 61 通过/10 跳过 = 跳过项打印 (skipped, use --full) → 是 DEV 模式，部署一致性/env/连通性未检，需 --full 重跑。🔴 升为高优的是 tokenhub 看图：主力现在直接处理 PA 图片，ai-tokenhub 上 vision 从未实测；失败则每张图 400 + 记断路器失败 + 落到 qwen VL。",
         "added": "2026-11-09"
       }
     ],
