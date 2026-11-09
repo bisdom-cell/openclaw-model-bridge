@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-05 01:51:43",
+  "updated": "2026-11-09 01:10:34",
   "updated_by": "full_regression",
   "priorities": [
     {
@@ -281,7 +281,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-11-05 01:42:26",
+      "checked_at": "2026-11-09 01:02:49",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -421,14 +421,14 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6840,
-    "last_regression": "2026-11-05 01:51 pass",
+    "test_count": 6855,
+    "last_regression": "2026-11-09 01:10 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 207,
+    "test_suites": 208,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.189",
+    "version": "0.37.9.190",
     "observer": {}
   },
   "incidents": [
