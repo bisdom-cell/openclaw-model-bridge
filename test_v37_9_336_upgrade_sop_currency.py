@@ -1216,7 +1216,8 @@ class TestFifteenthEvaluationPresent(unittest.TestCase):
 
     def test_pre_check_commands_run_and_show_conclusion(self):
         """7.2 的两条只读命令从文档抽出来真跑（原则 #35 补充：交出去的验证命令要先证明能显出结论）。"""
-        blocks = [b for b in _bash_blocks(self.pre_check) if "openclaw.json" in b or "cron/jobs.json" in b]
+        # V37.9.380 起 7.2 另有一条读 openclaw.json 的 WhatsApp groupPolicy 命令（27.7），按内容选 agents / cron 两条（pin 1:1 演进）
+        blocks = [b for b in _bash_blocks(self.pre_check) if ("openclaw.json" in b and "agents" in b) or "cron/jobs.json" in b]
         self.assertEqual(len(blocks), 2, "7.2 须有 agents/bindings 与 cron 任务两条命令")
         for b in blocks:
             compile(_python_c_code(b), "<7.2>", "exec")
@@ -1484,7 +1485,7 @@ class TestAppendReading276(unittest.TestCase):
         self.doc = _read()
         self.head = self.doc[:self.doc.index("## 一、版本概览")]
         self.sec27 = self.doc[self.doc.index("## 第二十七节"):]
-        self.s276 = _slice(self.sec27, "### 27.6", "\n---\n")
+        self.s276 = _slice(self.sec27, "### 27.6", "### 27.7")  # V37.9.380 起收紧到下一追加段（镜像 V37.9.375 sec26）
         self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
         self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
 
@@ -1498,7 +1499,7 @@ class TestAppendReading276(unittest.TestCase):
             self.assertIn(kw, first, f"27.6 标题须写明追加理由「{kw}」")
         self.assertIn("10.8 / 10.9 追加读数", self.head, "头部评估列表须记本次追加读数")
         self.assertIn("27.6", self.head)
-        self.assertIn("2026.10.9", self.head, "头部当前态须记上游 latest 2026.10.9")
+        self.assertIn("10.8 / 10.9 见 27.6", self.head, "头部当前态须保留 10.8 / 10.9 读数的指针（V37.9.380 起 latest 已移交 27.7，pin 1:1 演进）")
         self.assertIn("10.6 / 10.7 见第二十七节", self.head, "当前态须仍指向第十六次评估的对象 10.6 / 10.7（只追加不改写）")
 
     def test_criteria_recorded_honestly(self):
@@ -1615,6 +1616,195 @@ class TestAppendReading276(unittest.TestCase):
         self.assertNotIn("VERDICT=CLEAN", out2, "无粗体 bullet 的小版本不得被读成干净（不可判 ≠ 干净）")
 
 
+class TestAppendReading277(unittest.TestCase):
+    """2026.10.10 / 11.1 / 11.2 追加读数（V37.9.380，2026-11-09）的落地守卫。
+
+    三个 stable（含新 11.x 线）在 10.9 之后 10 天内发布；三条判据的状态符号与 27.6 全同（❌🔴✅），按 25.5 口径经 dist 核实无新默认自主行为
+    → 按日落规则只追加 27.7，不新开第二十八节、不重置 LAST_EVAL_DATE。本次有三件新事实必须如实落地而不是被「全同」抹平：
+    (1) 11.2 是 19.8 协议建立以来第一个 CLEAN——连续干净计数 0 → 1，但状态符号仍 ❌（不是 ① 满足）；
+    (2) 上游 engines 放宽回 `>=24.16.0 <25 || >=26.1.0`（安全下限降为非阻塞推荐）——③ 仍 ✅，我方不回退 Node；
+    (3) Doctor `allowFrom → groupAllowFrom` 复制（whatsapp 能力位 10.10 起）判为物化既有回退、登记不入前置 C，但进 7.2 / 7.4 核对。
+    本类钉住：追加段形态 / 三件新事实如实（含禁误记）/ 协议外更宽扫描如实披露且不改判定 / 七个门控复查 + 前置 C 不变 /
+    候选不混进前置 C / 26.6 对比的两处收回两处删除 / 前置 B / 20.4 表三行 / 持有成本 + tripwire 46/50 /
+    **MR-8 跨文件**：check_upgrade.sh 的 LAST_EVAL_DATE 不随追加读数重置 + 「我方 groupPolicy: disabled」的依据在 docs/openclaw_architecture.md 真存在
+    + config.md 头行同步 / **行为级**：7.2 新增的 WhatsApp 群组策略只读命令从文档抽出来对两种配置形状真跑；
+    11.2 形态（粗体 bullet 21 + 「Authored by」归属行 42 + 行内引用 ≥50、无迁移关键词）喂 19.8 协议必 CLEAN exit 0，加一行 SQLite 即 DIRTY exit 2。
+    """
+
+    def setUp(self):
+        self.doc = _read()
+        self.head = self.doc[:self.doc.index("## 一、版本概览")]
+        self.sec27 = self.doc[self.doc.index("## 第二十七节"):]
+        self.s277 = _slice(self.sec27, "### 27.7", "\n---\n")
+        self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
+        self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
+        self.pre_check = _slice(self.sop, "### 7.2", "### 7.3")
+        self.verify = _slice(self.sop, "### 7.4", "### 7.5")
+
+    def test_appended_not_new_section(self):
+        """状态符号全同 + 无新默认自主行为 → 追加读数：最新评估节仍是第二十七节（2026-10-27），不得出现第二十八节。"""
+        self.assertEqual(_latest_eval(self.doc), ("第二十七节", "十六", "2026-10-27"))
+        self.assertIn("### 27.7", self.sec27, "27.7 必须位于第二十七节内部（追加段）")
+        self.assertIn("### 27.6", self.sec27[:self.sec27.index("### 27.7")], "27.6 须仍在 27.7 之前（只追加不改写）")
+        self.assertNotIn("## 第二十八节", self.doc, "追加读数不得伪造成新评估节")
+        first = self.s277.splitlines()[0]
+        for kw in ("不新开节", "不重置 LAST_EVAL_DATE", "状态符号与 27.6 全同", "无新默认自主行为", "由 0 变 1"):
+            self.assertIn(kw, first, f"27.7 标题须写明追加理由与新事实「{kw}」")
+        self.assertIn("10.10 / 11.1 / 11.2 追加读数", self.head, "头部评估列表须记本次追加读数")
+        self.assertIn("27.7", self.head)
+        self.assertIn("2026.11.2", self.head, "头部当前态须记上游 latest 2026.11.2")
+        self.assertIn("10.6 / 10.7 见第二十七节", self.head, "当前态须仍指向第十六次评估的对象 10.6 / 10.7（只追加不改写）")
+        self.assertIn("10.8 / 10.9 见 27.6", self.head)
+
+    def test_criteria_recorded_honestly(self):
+        for kw in ("4.44", "2.30", "3.00", "🔴", "DIRTY 3", "DIRTY 4", "CLEAN 0 命中", "由 0 变 1", "1/2", "2.75/周",
+                   ">=24.16.0 <25 || >=26.1.0", "26.12.1", "放宽", "第二十个不干净"):
+            self.assertIn(kw, self.s277, f"27.7 缺「{kw}」")
+        for bad in ("计数仍 0", "11.2 DIRTY", "11.2 不可判", "10.10 干净", "11.1 干净", "② ✅", "③ ❌", "判据 ① 已满足", "① ✅，"):
+            self.assertNotIn(bad, self.s277, f"不得出现误记「{bad}」")
+        self.assertIn("❌🔴✅", self.s277, "结论行须如实记状态符号三元组")
+        self.assertIn("LAST_EVAL_DATE 保持 2026-10-27", self.s277)
+
+    def test_first_clean_is_count_change_not_status_flip(self):
+        """11.2 首个 CLEAN：须写明「状态符号仍 ❌」「连续干净计数 0 → 1」，并预注册下一 stable 再 CLEAN 时新开节；
+        协议外更宽扫描（schema-lease / database seals 等）必须如实披露，且声明不据此改判定（既不放宽也不收紧）。"""
+        for kw in ("第一个 CLEAN", "状态符号仍 **❌**", "连续干净计数由 0 变 1", "新开第二十八节", "若 19.8 协议再 CLEAN",
+                   "schema-lease", "database seals", "均不匹配预注册正则", "既不为凑 CLEAN 放宽，也不为否定 CLEAN 收紧", "Authored by"):
+            self.assertIn(kw, self.s277, f"27.7 缺「{kw}」")
+        self.assertIn("连续干净计数 **1/2**", self.s277)
+        self.assertIn("1/2", self.head, "头部当前态须记 ① 计数 1/2")
+
+    def test_engines_relaxation_recorded_and_prereq_a_annotated(self):
+        for kw in ("NODE_SECURITY_RELEASE_FLOORS", "非阻塞", "不回退 Node", "work *again*", "recordNodeSecurityWarning"):
+            self.assertIn(kw, self.s277, f"27.7 (c) 缺「{kw}」")
+        prereq_a = next(l for l in self.prereq.splitlines() if "前置 A" in l)
+        for kw in ("2026-11-09", ">=24.16.0 <25 || >=26.1.0", "安全推荐", "不回退 Node", "NODE_SECURITY_RELEASE_FLOORS"):
+            self.assertIn(kw, prereq_a, f"前置 A 须加注 10.10 放宽「{kw}」")
+        self.assertIn(">=24.22.1 <25 || >=26.12.1", prereq_a, "10.6 的区间历史不得被改写（只追加）")
+
+    def test_group_allow_from_registered_not_in_prereq_c_but_in_72_74(self):
+        """groupAllowFrom 复制：27.7 候选表须判「物化既有回退、非自主行为」并登记不入；前置 C 不得多出该项；7.2 / 7.4 须有核对。"""
+        for kw in ("groupAllowFrom", "#191523", "groupAllowFromFallbackToAllowFrom", "物化", "登记不入"):
+            self.assertIn(kw, self.s277, f"27.7 候选表缺「{kw}」")
+        for kw in ("allowFrom → groupAllowFrom", "#191523", "groupAllowFromFallbackToAllowFrom"):
+            self.assertNotIn(kw, self.prereq, f"Doctor groupAllowFrom 复制不是自主行为，不得进前置 C（{kw}）")
+        self.assertEqual(self.prereq.count("- [ ]"), PREREQ_CHECKBOXES, "追加读数零新增前置项，清单计数不得变")
+        self.assertIn("groupAllowFrom", self.pre_check, "7.2 须加 WhatsApp 群组策略只读命令")
+        self.assertIn("groupAllowFrom", self.verify, "7.4 须加 Doctor 输出核对")
+        self.assertIn("预期**不出现**", self.verify)
+
+    def test_group_policy_disabled_claim_grounded_in_repo_docs(self):
+        """MR-8 跨文件：27.7 判定「我方 groupPolicy: disabled」的依据是仓库记录的 openclaw.json 形状；若未来记录改成 allowlist，先红提醒复核。"""
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "openclaw_architecture.md")
+        with open(path, encoding="utf-8") as f:
+            arch = f.read()
+        self.assertIn('"groupPolicy": "disabled"', arch, "docs/openclaw_architecture.md 应记录 channels.whatsapp.groupPolicy: disabled")
+        self.assertIn('groupPolicy: "disabled"', self.s277)
+
+    def test_72_group_policy_command_runs_on_both_shapes(self):
+        """行为级：7.2 新增的只读命令从文档抽出来，对「disabled 无 groupAllowFrom」与「无 channels 块」两种形状真跑。"""
+        blocks = [b for b in _bash_blocks(self.pre_check) if "groupAllowFrom" in b]
+        self.assertEqual(len(blocks), 1, "7.2 应恰有一个 groupAllowFrom 只读命令块")
+        cmd = blocks[0].strip()
+        self.assertNotIn("\n#", "\n" + cmd, "命令块不得含注释行（原则 #35）")
+        runner = TestSameDayRunbook266("test_section_266_records_upstream_bridge_with_versions")
+        home1 = runner._home_with({"channels": {"whatsapp": {"groupPolicy": "disabled", "allowFrom": ["+85200000000", "+85200000001"]}}})
+        r1 = runner._run(cmd, home1)
+        self.assertEqual(r1.returncode, 0, r1.stderr)
+        self.assertIn("groupPolicy: disabled groupAllowFrom: None allowFrom: 2", r1.stdout)
+        home2 = runner._home_with({"agents": {"list": []}})
+        r2 = runner._run(cmd, home2)
+        self.assertEqual(r2.returncode, 0, r2.stderr)
+        self.assertIn("groupPolicy: None groupAllowFrom: None allowFrom: 0", r2.stdout)
+
+    def test_gates_recomputed_and_prereq_c_unchanged(self):
+        for fn in ("resolveAgentToolSearchRuntimeConfig", "allowBots", "allowAcrossProviders", "failure-repair",
+                   "resolveFailureAlert", "resolveNotifyOnExitEmptySuccess", "resolveAgentRoute",
+                   "relocateNonBehavioralRegion", "assertSupportedRuntime", "hasFailureRepairOwner"):
+            self.assertIn(fn, self.s277, f"27.7 须记录门控函数「{fn}」的复查结果")
+        self.assertIn("保持 18 项", self.s277)
+        self.assertIn("**18 项默认变更**", self.prereq)
+
+    def test_candidates_registered_not_added_to_prereq_c(self):
+        for pr in ("#179928", "#174787", "#189827"):
+            self.assertIn(pr, self.s277, f"27.7 缺 {pr}")
+            self.assertNotIn(pr, self.prereq, f"登记不入的 {pr} 不得进前置 C")
+        for kw in ("session.communication", "qualityGuard", "managedNativeTools"):
+            self.assertIn(kw, self.s277, f"27.7 候选表缺「{kw}」")
+            self.assertNotIn(kw, self.prereq)
+
+    def test_upgrade_path_docs_comparison_with_retractions(self):
+        """26.6 第三次执行：桥接不变 + 27.6 登记的四条 10.9 文档事实两处收回两处删除须如实写（而非沿用上次结论）。"""
+        for kw in ("桥接版本未变（2026.9.5）", "runs offline, with the Gateway stopped", "SIGHUP", "full-integrity-check",
+                   "docs/cli/doctor/", "两处收回、两处删除", "每个 stable 都要整份重比", "Doctor exits `1`", "不改 7.x 两段配方"):
+            self.assertIn(kw, self.s277, f"27.7 升级路径文档对比缺「{kw}」")
+        prereq_d = [l for l in self.prereq.splitlines() if "前置 D" in l]
+        self.assertTrue(prereq_d and "2026.9.5" in prereq_d[0], "前置 D 桥接版本须仍为 2026.9.5")
+
+    def test_prereq_b_rechecked(self):
+        for kw in ("+5 / −1", "path-existence-runtime", "351", "2.4.10", "前置 B 不变", "12/13"):
+            self.assertIn(kw, self.s277, f"27.7 前置 B 复查缺「{kw}」")
+
+    def test_protocol_table_rows_appended(self):
+        t = _slice(self.doc, "### 20.4", "### 20.5")
+        self.assertIn("| **2026.10.10**（2026-11-09 追加读数） | **0** | 0 | 3019 | **0** | **319** |", t)
+        self.assertIn("| **2026.11.1**（2026-11-09 追加读数） | **0** | 0 | 78 | **0** | **154** |", t)
+        self.assertIn("| **2026.11.2**（2026-11-09 追加读数） | **21** | 42 | 73 | **63** | **114** |", t)
+        row112 = next(l for l in t.splitlines() if l.startswith("| **2026.11.2**"))
+        self.assertIn("CLEAN(0)", row112)
+        self.assertIn("0 → 1", row112, "11.2 行须写明连续干净计数 0 → 1")
+        self.assertIn("Authored by", row112)
+
+    def test_tripwire_and_holding_cost_recorded_without_changing_machine(self):
+        for kw in ("46/50", "主线 minor **46**", "维护线 13", "62", "11-16 或 11-23", "23.5", "不预先改机器", "140 天", "194 天",
+                   ">=2026.11.2", "13/180"):
+            self.assertIn(kw, self.s277, f"27.7 缺持有成本 / tripwire 要素「{kw}」")
+
+    def test_check_upgrade_last_eval_date_not_reset_by_append(self):
+        """MR-8 跨文件：追加读数不重置正式评估日期——check_upgrade.sh 的默认 LAST_EVAL_DATE 须仍是 2026-10-27。"""
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "check_upgrade.sh")
+        with open(path, encoding="utf-8") as f:
+            src = f.read()
+        m = re.search(r'LAST_EVAL_DATE="\$\{OPENCLAW_LAST_EVAL_DATE:-(\d{4}-\d{2}-\d{2})\}"', src)
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1), "2026-10-27", "追加读数不得重置 LAST_EVAL_DATE")
+        self.assertEqual(_latest_eval(self.doc)[2], m.group(1))
+
+    def test_config_md_head_records_this_reading(self):
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "config.md")
+        with open(path, encoding="utf-8") as f:
+            head4 = f.read().split("\n")[3]
+        for kw in ("10.10 / 11.1 / 11.2 追加读数", "27.7", "46/50", "0 → 1", "11-16 或 11-23"):
+            self.assertIn(kw, head4, f"docs/config.md 头行须同步「{kw}」")
+
+    @staticmethod
+    def _shape_11_2(with_sqlite=False):
+        """11.2 形态：粗体 bullet 21 条 + 贡献记录 42 条「Authored by」归属行 + 73 条裸 PR 行，行内引用 ≥ 50。"""
+        hi = [f"- **Item {i}:** Keep configuration secrets and channel payloads out of diagnostic logs. (#{191000 + 3*i}) (#{191001 + 3*i}) (#{191002 + 3*i})" for i in range(21)]
+        if with_sqlite:
+            hi[7] = "- **Storage:** Run SQLite migrations for the session store before activation. (#191021) (#191022) (#191023)"
+        authored = [f"- **PR #{192000 + i}** Authored by @steipete." for i in range(42)]
+        bare = [f"- **PR #{193000 + i}** Thanks @z." for i in range(73)]
+        return ("# Changelog\n\n## 0.0.0\n\n### Highlights\n\n" + "\n".join(hi) +
+                "\n\n### Complete contribution record\n\nThis audited record covers 115 in-range PRs + 0 retained seed-only PRs = 115 unique PRs.\n\n"
+                "#### Pull requests\n\n" + "\n".join(authored) + "\n" + "\n".join(bare) + "\n")
+
+    def test_protocol_on_11_2_shape_is_clean_and_turns_dirty_with_one_migration_line(self):
+        """行为级：11.2 形态喂 19.8 协议 → CLEAN exit 0（「Authored by」行计入 described_pr 不影响可判性）；加一行 SQLite 迁移 → DIRTY exit 2。
+        = 第一个 CLEAN 读数不是协议对新形态的误读。"""
+        TestCriterion1ProtocolBehavior.setUpClass()
+        runner = TestCriterion1ProtocolBehavior("test_skeleton_is_not_decidable")
+        rc, out = runner._run(self._shape_11_2(with_sqlite=False))
+        self.assertEqual(0, rc, out)
+        self.assertIn("VERDICT=CLEAN", out)
+        self.assertRegex(out, r"(?m)^semantic_entries=63 narrative=21 described_pr=42 bare_pr=73 inline_pr_refs=63$",
+                         "fixture 读数须与真实 11.2 的 narrative/described/bare 一致（inline 63 ≥ 50 门槛）")
+        rc2, out2 = runner._run(self._shape_11_2(with_sqlite=True))
+        self.assertEqual(2, rc2, out2)
+        self.assertIn("VERDICT=DIRTY", out2)
+        self.assertNotIn("VERDICT=CLEAN", out2)
+
+
 class TestSameDayRunbook266(unittest.TestCase):
     """V37.9.373 同日 26.6：Mac Mini 实测 agents.list = research / ops / main 无标记 → dev 用 9.5 / 10.5 真 Doctor 实跑。
 
@@ -1687,7 +1877,7 @@ class TestSameDayRunbook266(unittest.TestCase):
     def test_pre_check_prose_matches_command_output_for_marker(self):
         """7.2 正文写的「加好标记后应显示 agent: research default: True」必须真是那条命令的输出（文档说的与命令打的一致）。"""
         self.assertIn("`agent: research default: True`", self.pre_check)
-        cmd = next(b for b in _bash_blocks(self.pre_check) if "openclaw.json" in b)
+        cmd = next(b for b in _bash_blocks(self.pre_check) if "openclaw.json" in b and "agents" in b)  # V37.9.380: 7.2 多了 groupPolicy 命令，按内容选
         home = self._home_with({"agents": {"list": [{"id": "research", "default": True}, {"id": "ops"}, {"id": "main"}]}})
         out = self._run(cmd, home)
         self.assertEqual(out.returncode, 0, out.stderr)

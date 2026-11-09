@@ -26,13 +26,13 @@ from providers import _default_registry, ProviderCapabilities
 class TestProvidersTableLines(unittest.TestCase):
     """providers.py 主矩阵表直出纯函数。"""
 
-    def test_matrix_table_has_header_and_13_providers(self):
+    def test_matrix_table_has_header_and_12_providers(self):
         lines = _default_registry.matrix_table_lines()
         self.assertTrue(lines[0].startswith("| Provider | Models |"))
         self.assertTrue(lines[1].startswith("|---"))
-        # 13 providers (7 built-in + doubao_21_tokenhub + doubao_21 + deepseek
-        #                + deepseek_full + glm5_coding + kimi_k3 plugins)
-        self.assertEqual(len(lines), 2 + 13)
+        # 12 providers (7 built-in + doubao_21_tokenhub + deepseek + deepseek_full
+        #                + glm5_coding + kimi_k3 plugins; V37.9.381 Ark 版 doubao_21 退役)
+        self.assertEqual(len(lines), 2 + 12)
 
     def test_matrix_table_contains_qwen_and_doubao(self):
         text = "\n".join(_default_registry.matrix_table_lines())
@@ -136,7 +136,8 @@ class TestVerifiableFeaturesDenominator(unittest.TestCase):
         self.assertEqual(r.returncode, 0)
         self.assertNotIn("5/4 verified", r.stdout)
         self.assertIn("5/5 verified", r.stdout)   # qwen
-        self.assertIn("5/6 verified", r.stdout)   # doubao (verified_fallback=False 诚实语义)
+        # V37.9.381: Ark 版 doubao_21 (5/6) 退役 → 守 doubao_21_tokenhub 的 3/6 (verified_fallback 等诚实 False)
+        self.assertIn("3/6 verified", r.stdout)
 
     def test_verification_status_uses_verifiable_features(self):
         """源码守卫: Verification Status 分母必须用 verifiable_features 不得回退旧口径。"""
@@ -152,11 +153,11 @@ class TestVerifiableFeaturesDenominator(unittest.TestCase):
 class TestTierTableLines(unittest.TestCase):
     """providers.py 验证档位表直出纯函数（V37.9.146 字段化）。"""
 
-    def test_header_and_13_rows(self):
+    def test_header_and_12_rows(self):
         lines = _default_registry.tier_table_lines()
         self.assertEqual(lines[0], "| Provider | 档位 | 依据 |")
         self.assertTrue(lines[1].startswith("|---"))
-        self.assertEqual(len(lines), 2 + 13)  # header + sep + 13 providers
+        self.assertEqual(len(lines), 2 + 12)  # header + sep + 12 providers (V37.9.381 -doubao_21 Ark)
 
     def test_qwen_production_observed_doubao_slot_feature_verified_v342(self):
         # 史: V37.9.290 declared → V37.9.291 feature_verified → V37.9.339 Kimi K3 →
@@ -164,8 +165,8 @@ class TestTierTableLines(unittest.TestCase):
         text = "\n".join(_default_registry.tier_table_lines())
         self.assertIn("Qwen (Remote GPU) | **production_observed**", text)
         self.assertIn("Doubao Seed 2.1 Pro (ai-tokenhub) | **feature_verified**", text)
-        # V37.9.341 平台冗余: 同模型两平台各一行, 档位不同 (Ark 侧 production_observed)
-        self.assertIn("Doubao Seed 2.1 Pro (Volcengine Ark) | **production_observed**", text)
+        # V37.9.381: Ark 版 doubao_21 退役 → 平台冗余对照行不复存在, 表里不得再出现 Ark 行
+        self.assertNotIn("Volcengine Ark", text)
 
     def test_gemini_retirement_note_rendered(self):
         """tier_note 渲染进档位列（gemini 退役）。"""

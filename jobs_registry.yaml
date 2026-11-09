@@ -488,7 +488,7 @@ jobs:
     tier: auxiliary                     # 财经信息积累
     kb_source_file: finance_daily.md
     kb_source_label: 📊 全球财经/政策
-    description: 全球财经/政策每日汇总 — 14 国内外权威 RSS 源 + 10 X 财经账号（美联储/路透社/新华财经/央行等），LLM 结构化分析（来源标注+价值评级+国内外对比+投资建议），notify 推送（Discord #daily）
+    description: 全球财经/政策每日汇总 — 13 国内外权威 RSS 源（NBER / Yahoo Finance 已退役）+ 10 X 财经账号（美联储/路透社/新华财经/央行等），LLM 结构化分析（来源标注+价值评级+国内外对比+投资建议），notify 推送（Discord #daily）
 
   - id: preference_learner
     scheduler: system
@@ -547,7 +547,7 @@ jobs:
     tier: core                        # 用户对话是最高质量数据源
     description: "对话精华提炼 — 从 proxy 捕获的每日对话中 LLM 提取关键点（决策/偏好/洞察/结论），写入 KB notes"
 
-  # ── 凌晨 LLM 算力专属窗口（00:00-06:00；primary 由 PROVIDER env 决定，现 doubao_21，Qwen3 仅 fallback）──
+  # ── 凌晨 LLM 算力专属窗口（00:00-06:00；primary 由 PROVIDER env 决定，现 doubao_21_tokenhub，Qwen3 仅 fallback）──
   # 策略：00:00-06:00 禁止其他重度 LLM 任务，全部算力留给 Dream + 未来重度分析
   #       零推送通知（用户睡眠），仅允许静默运维任务
   #

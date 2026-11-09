@@ -120,7 +120,7 @@ done
 
 if [ "$FETCH_ERRORS" -ge "${#KEYWORDS[@]}" ]; then
   log "ERROR: 所有关键词搜索均失败"
-  printf '{"time":"%s","status":"fetch_failed","new":0}\n' "$TS" > "$STATUS_FILE"
+  printf '{"time":"%s","status":"fetch_failed","new":0,"errors":%d}\n' "$TS" "$FETCH_ERRORS" > "$STATUS_FILE"  # V37.9.379: 多源写法带 errors（watchdog 渲染「N 源全部失败」）
   exit 1
 fi
 

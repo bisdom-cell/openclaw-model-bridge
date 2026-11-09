@@ -22,7 +22,7 @@ WhatsApp / Discord APIs ─► OpenClaw Gateway (:18789)
                               │  [circuit breaker]
                               ▼
                          LLM Providers (HTTPS)
-                         [13 providers, all TLS]
+                         [12 providers, all TLS]
 ```
 
 **All inter-service communication is localhost-only.** No port is exposed to the network.
@@ -42,7 +42,7 @@ WhatsApp / Discord APIs ─► OpenClaw Gateway (:18789)
 
 | Provider | Auth Header | Format |
 |----------|-------------|--------|
-| Qwen, OpenAI, Gemini, Kimi, MiniMax, GLM + plugins (doubao_21@Ark, doubao_21_tokenhub/deepseek_full/glm5_coding/kimi_k3@ai-tokenhub, deepseek self-host) | `Authorization` | `Bearer <key>`（各插件独立 env key；Gemini 已退役出 fallback 链） |
+| Qwen, OpenAI, Gemini, Kimi, MiniMax, GLM + plugins (doubao_21_tokenhub/deepseek_full/glm5_coding/kimi_k3@ai-tokenhub, deepseek self-host；方舟版 doubao_21 V37.9.381 退役) | `Authorization` | `Bearer <key>`（各插件独立 env key；Gemini 已退役出 fallback 链） |
 | Claude (Anthropic) | `x-api-key` | Raw key + `anthropic-version` header |
 
 ### What Is NOT Authenticated

@@ -1,6 +1,8 @@
 """V37.9.218 — FALLBACK_ORDER 显式有序 fallback 链 + capability-aware vision fallback.
 
 用户偏好顺序 doubao_21 > deepseek_full > doubao > deepseek > qwen(逐步老化):
+(V37.9.381: Ark 版 doubao_21 退役, 主力切 doubao_21_tokenhub; 下列链序测试里原 doubao_21 的
+ 「任意真实已注册 provider」角色改由 kimi_k3 承担, 机制语义不变)
 - cap_score 自动排**排不出** deepseek_full > doubao (doubao 5 verified > deepseek_full 3),
   且旧机制只有 1 个显式槽 (FALLBACK_PROVIDER) → 需要显式有序列表 (一物一形, 替代单槽)。
 - FALLBACK_ORDER = 逗号分隔有序 provider 名, 权威 (覆盖 cap_score + 旧单槽)。
@@ -17,7 +19,7 @@ import adapter
 _ADAPTER_SRC = os.path.join(os.path.dirname(__file__), "adapter.py")
 # 5 provider 全给 fake key → 都 available (dev 无真 key)
 _ALL_KEYS = {
-    "REMOTE_API_KEY": "k", "ARK_21_API_KEY": "k", "DEEPSEEK_FULL_API_KEY": "k",
+    "REMOTE_API_KEY": "k", "KIMI_K3_API_KEY": "k", "DEEPSEEK_FULL_API_KEY": "k",
     "DOUBAO_21_TOKENHUB_API_KEY": "k", "DEEPSEEK_API_KEY": "k",
 }
 
@@ -50,49 +52,50 @@ class TestFallbackOrderMechanism(unittest.TestCase):
 
     def test_exact_user_order_qwen_primary(self):
         # 用户顺序; qwen primary → qwen 自动排除 → 精确 4 元链
-        names = [fb["name"] for fb in _chain("doubao_21,deepseek_full,doubao_21_tokenhub,deepseek,qwen")]
-        self.assertEqual(names, ["doubao_21", "deepseek_full", "doubao_21_tokenhub", "deepseek"])
+        names = [fb["name"] for fb in _chain("kimi_k3,deepseek_full,doubao_21_tokenhub,deepseek,qwen")]
+        self.assertEqual(names, ["kimi_k3", "deepseek_full", "doubao_21_tokenhub", "deepseek"])
 
     def test_order_defies_cap_score(self):
         # 关键: cap_score 排不出 deepseek_full(3 verified) 在 doubao(5 verified) 之前;
         # FALLBACK_ORDER 让它成立 = 显式有序的价值。
-        names = [fb["name"] for fb in _chain("doubao_21,deepseek_full,doubao_21_tokenhub,deepseek,qwen")]
+        names = [fb["name"] for fb in _chain("kimi_k3,deepseek_full,doubao_21_tokenhub,deepseek,qwen")]
         self.assertLess(names.index("deepseek_full"), names.index("doubao_21_tokenhub"),
                         "FALLBACK_ORDER 必须让 deepseek_full 排在 doubao 之前 (cap_score 做不到)")
 
     def test_primary_auto_excluded_flip_safe(self):
-        # 切 primary=doubao_21, 同一 FALLBACK_ORDER → doubao_21 排除, qwen 进链末尾
-        # (切换 primary 无需改 FALLBACK_ORDER — flip-safe)。
+        # V37.9.381 生产形态: primary 由 Ark 版 doubao_21 切到 doubao_21_tokenhub, FALLBACK_ORDER
+        # 一字不改 → doubao_21_tokenhub 自动排除, 链 = deepseek_full → deepseek → qwen
+        # (切换 primary 无需改 FALLBACK_ORDER — flip-safe; 2026-11-09 Mac Mini /health 实测同形)。
         names = [fb["name"] for fb in
-                 _chain("doubao_21,deepseek_full,doubao_21_tokenhub,deepseek,qwen", primary="doubao_21")]
-        self.assertEqual(names, ["deepseek_full", "doubao_21_tokenhub", "deepseek", "qwen"])
+                 _chain("deepseek_full,doubao_21_tokenhub,deepseek,qwen", primary="doubao_21_tokenhub")]
+        self.assertEqual(names, ["deepseek_full", "deepseek", "qwen"])
 
     def test_unavailable_no_key_skipped(self):
-        # 只给 doubao_21 + doubao key → deepseek/deepseek_full 无 key 跳过
+        # 只给 kimi_k3 + doubao key → deepseek/deepseek_full 无 key 跳过
         names = [fb["name"] for fb in _chain(
-            "doubao_21,deepseek_full,doubao_21_tokenhub,deepseek",
-            keys={"REMOTE_API_KEY": "k", "ARK_21_API_KEY": "k", "DOUBAO_21_TOKENHUB_API_KEY": "k"})]
-        self.assertEqual(names, ["doubao_21", "doubao_21_tokenhub"])
+            "kimi_k3,deepseek_full,doubao_21_tokenhub,deepseek",
+            keys={"REMOTE_API_KEY": "k", "KIMI_K3_API_KEY": "k", "DOUBAO_21_TOKENHUB_API_KEY": "k"})]
+        self.assertEqual(names, ["kimi_k3", "doubao_21_tokenhub"])
 
     def test_unknown_provider_skipped(self):
-        names = [fb["name"] for fb in _chain("doubao_21,nonexistent_xyz,doubao_21_tokenhub")]
-        self.assertEqual(names, ["doubao_21", "doubao_21_tokenhub"])
+        names = [fb["name"] for fb in _chain("kimi_k3,nonexistent_xyz,doubao_21_tokenhub")]
+        self.assertEqual(names, ["kimi_k3", "doubao_21_tokenhub"])
 
     def test_fallback_exclude_respected(self):
         # _FALLBACK_EXCLUDE (geo-block) 里的 provider 跳过
         names = [fb["name"] for fb in
-                 _chain("doubao_21,deepseek_full,doubao_21_tokenhub", exclude={"deepseek_full"})]
-        self.assertEqual(names, ["doubao_21", "doubao_21_tokenhub"])
+                 _chain("kimi_k3,deepseek_full,doubao_21_tokenhub", exclude={"deepseek_full"})]
+        self.assertEqual(names, ["kimi_k3", "doubao_21_tokenhub"])
 
     def test_dedup_preserves_order(self):
-        names = [fb["name"] for fb in _chain("doubao_21,doubao_21_tokenhub,doubao_21,deepseek")]
-        self.assertEqual(names, ["doubao_21", "doubao_21_tokenhub", "deepseek"])
+        names = [fb["name"] for fb in _chain("kimi_k3,doubao_21_tokenhub,kimi_k3,deepseek")]
+        self.assertEqual(names, ["kimi_k3", "doubao_21_tokenhub", "deepseek"])
 
     def test_precedence_over_legacy_single_slot(self):
         # FALLBACK_ORDER 与 FALLBACK_PROVIDER 同时设 → FALLBACK_ORDER 权威, 单槽忽略
         names = [fb["name"] for fb in _chain(
-            "doubao_21,deepseek_full", extra={"FALLBACK_PROVIDER": "doubao_21_tokenhub"})]
-        self.assertEqual(names, ["doubao_21", "deepseek_full"])
+            "kimi_k3,deepseek_full", extra={"FALLBACK_PROVIDER": "doubao_21_tokenhub"})]
+        self.assertEqual(names, ["kimi_k3", "deepseek_full"])
         self.assertNotIn("doubao_21_tokenhub", names, "FALLBACK_PROVIDER=doubao 应被忽略")
 
     def test_empty_order_falls_through_to_legacy(self):
@@ -111,18 +114,20 @@ class TestVisionCapableEntries(unittest.TestCase):
 
     def test_vision_providers_have_vl_model_id(self):
         by_name = {fb["name"]: fb for fb in
-                   _chain("doubao_21,doubao_21_tokenhub,deepseek_full,deepseek,qwen", primary="openai",
+                   _chain("kimi_k3,doubao_21_tokenhub,deepseek_full,deepseek,qwen", primary="openai",
                           keys={**_ALL_KEYS, "OPENAI_API_KEY": "k"})}
-        # doubao_21 / doubao 槽位同为 Doubao Seed 2.1 Pro 单模型多模态 → vl_model_id 非空
-        # (V37.9.341: 两者同模型不同平台 = 平台冗余, image 请求两条路径都可达)
-        self.assertTrue(by_name["doubao_21"]["vl_model_id"])
+        # doubao_21_tokenhub = Doubao Seed 2.1 Pro 单模型多模态 → vl_model_id 非空;
+        # qwen = 独立 VL 模型。V37.9.381: Ark 版 doubao_21 退役, kimi_k3 纯文本对照
         self.assertTrue(by_name["doubao_21_tokenhub"]["vl_model_id"])
+        self.assertTrue(by_name["qwen"]["vl_model_id"])
+        self.assertEqual(by_name["kimi_k3"]["vl_model_id"], "")
 
     def test_text_only_providers_have_empty_vl_model_id(self):
         by_name = {fb["name"]: fb for fb in
-                   _chain("deepseek_full,deepseek,doubao_21")}
+                   _chain("deepseek_full,deepseek,kimi_k3")}
         # 纯文本 provider → vl_model_id 空 → image 请求会被跳过
         self.assertEqual(by_name["deepseek_full"]["vl_model_id"], "")
+        self.assertEqual(by_name["kimi_k3"]["vl_model_id"], "")
         self.assertEqual(by_name["deepseek"]["vl_model_id"], "")
 
 

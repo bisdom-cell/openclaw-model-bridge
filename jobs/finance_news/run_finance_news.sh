@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # run_finance_news.sh — 全球财经/政策新闻每日汇总
 # 每天早上 07:30 HKT 由系统 crontab 触发（算力空闲窗口）
-# 双通道抓取：14 个直连 RSS（NBER 已退役）+ 10 个财经 X 账号 → LLM 分析 → 一份结构化简报推送
+# 双通道抓取：13 个直连 RSS（NBER / Yahoo Finance 已退役）+ 10 个财经 X 账号 → LLM 分析 → 一份结构化简报推送
 #
 # 输出格式：
 #   1. 原始新闻列表（出处/时间/价值/关键点评）
@@ -69,7 +69,7 @@ RSS_FEEDS=(
     "FT|https://www.ft.com/rss/home|金融时报(摘要)|intl"
     "ECB|https://www.ecb.europa.eu/rss/press.xml|欧洲央行声明|intl"
     "BIS Speeches|https://www.bis.org/doclist/cbspeeches.rss|国际清算银行(央行演讲)|intl"
-    "Yahoo Finance|https://finance.yahoo.com/news/rssindex|雅虎财经|intl"
+    # Yahoo Finance 已退役 RSS feed（2026-10-07 首见 404 → 2026-11-09 watchdog 仍报 404，持续 33 天；社区同期多项目报告 /news/rssindex、/rss/topstories、/news/rss 全部 404 无 drop-in 替代；per-ticker 源 feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC 可作候选，须 Mac Mini 验证可达后再加）— 剔除避免每日 404 WARN 噪声（V37.9.379，镜像 NBER V37.9.266）
     # V37.8.14 新增: 国际主流媒体(财经+政治)
     "BBC Business|https://feeds.bbci.co.uk/news/business/rss.xml|BBC商业新闻|intl"
     "BBC World|https://feeds.bbci.co.uk/news/world/rss.xml|BBC世界新闻(地缘政治)|intl"

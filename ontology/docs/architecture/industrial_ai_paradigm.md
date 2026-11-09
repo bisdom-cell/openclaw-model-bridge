@@ -44,7 +44,7 @@ Industrial AI systems require three distinct control surfaces, each with its own
 │  Capability Plane (能力平面)                           │
 │  What: Model routing, multimodal, tool execution      │
 │  Why: The actual intelligence layer                    │
-│  Evidence: 13 providers, fallback chain, benchmark     │
+│  Evidence: 12 providers, fallback chain, benchmark     │
 ├──────────────────────────────────────────────────────┤
 │  Memory Plane (记忆平面)                               │
 │  What: KB-RAG, multimedia, preferences, state          │
@@ -146,7 +146,7 @@ This paradigm is not theoretical. Our system (`openclaw-model-bridge`) implement
 
 | Claim | Evidence |
 |-------|---------|
-| Multi-provider fallback | 13 providers (7 built-in + 6 plugins), `FALLBACK_ORDER` capability-aware chain, circuit breaker |
+| Multi-provider fallback | 12 providers (7 built-in + 5 plugins), `FALLBACK_ORDER` capability-aware chain, circuit breaker |
 | Tool governance | ontology-fed tool policy (`ONTOLOGY_MODE=on`), 91 governance invariants / 839 checks / 23 meta-rules |
 | Memory plane | 4-layer unified interface, ~2200+ KB notes, semantic search |
 | Reliability | 17-scenario fault injection bench, 103/103 checks pass |

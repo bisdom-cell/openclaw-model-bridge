@@ -112,7 +112,7 @@ check_prerequisites() {
         echo "    export MINIMAX_API_KEY='...'           # MiniMax"
         echo "    export GLM_API_KEY='...'               # GLM (Zhipu AI)"
         echo "    export REMOTE_API_KEY='...'            # Custom Qwen endpoint"
-        echo "    (plugin providers: ARK_21_API_KEY+ARK_21_ENDPOINT_ID / DOUBAO_21_TOKENHUB_API_KEY /"
+        echo "    (plugin providers: DOUBAO_21_TOKENHUB_API_KEY /"
         echo "     DEEPSEEK_FULL_API_KEY / DEEPSEEK_API_KEY / GLM5_API_KEY / KIMI_K3_API_KEY — see docs/provider_plugin_guide.md)"
     fi
 

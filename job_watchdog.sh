@@ -275,12 +275,13 @@ try:
     http_code = d.get('http_code', '')
     deep_dive = d.get('deep_dive', '')
     new_count = d.get('new', '')
-    print(f'{epoch}|{status}|{http_code}|{deep_dive}|{new_count}')
+    errors = d.get('errors', '')  # V37.9.379: 多源 job 的 fetch_failed 写 errors 计数而非 http_code
+    print(f'{epoch}|{status}|{http_code}|{deep_dive}|{new_count}|{errors}')
 except Exception as e:
-    print(f'0|error|||||{e}')
+    print(f'0|error||||||{e}')
 " 2>/dev/null)
 
-    IFS='|' read -r LAST_TIME LAST_STATUS HTTP_CODE DEEP_DIVE NEW_COUNT <<< "$JOB_INFO"
+    IFS='|' read -r LAST_TIME LAST_STATUS HTTP_CODE DEEP_DIVE NEW_COUNT ERRORS_COUNT <<< "$JOB_INFO"
 
     if [ "$LAST_TIME" -eq 0 ] 2>/dev/null; then
         ALERTS+=("$display_name: 状态文件格式异常")
@@ -308,7 +309,17 @@ except Exception as e:
         ok|unknown)
             ;;  # 正常
         fetch_failed)
-            _status_msg="$display_name: 最近一次抓取失败 (HTTP $HTTP_CODE)"
+            # V37.9.379: 只渲染状态文件里真存在的字段。此前 "(HTTP $HTTP_CODE)" 无条件渲染，
+            # 而 14 个 fetch_failed 写入方里 10 个不写 http_code（多源 job 写 errors 计数；单源
+            # dblp/s2/freight/hn 什么都不写）→ 告警出现空括号 "(HTTP )"（2026-11-09 08:30 DBLP 实录），
+            # 读者会以为状态码丢了或 watchdog 坏了。
+            if [ -n "$HTTP_CODE" ]; then
+                _status_msg="$display_name: 最近一次抓取失败 (HTTP $HTTP_CODE)"
+            elif [ -n "$ERRORS_COUNT" ]; then
+                _status_msg="$display_name: 最近一次抓取失败 (${ERRORS_COUNT} 源全部失败)"
+            else
+                _status_msg="$display_name: 最近一次抓取失败"
+            fi
             ;;
         parse_failed|parse_quality_low)
             _status_msg="$display_name: 最近一次解析异常 ($LAST_STATUS)"

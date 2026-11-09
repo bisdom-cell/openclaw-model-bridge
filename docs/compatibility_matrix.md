@@ -1,7 +1,7 @@
 # Provider Compatibility Matrix
 
 > 数据真理源：`providers.py`（`python3 providers.py` 人读 / `--json` 机读 / `--capability-matrix` 能力矩阵直出 / `--tier-matrix` 验证档位直出）| 最后刷新：2026-09-09（v37.9.352）
-> **13 Providers**（7 built-in + 6 plugins：Doubao Seed 2.1 Pro ×2 平台（Ark primary + ai-tokenhub 冗余）+ DeepSeek×2 + GLM-5.3 coding + Kimi K3）。**漂移防护已接入（V37.9.143 → V37.9.146）**：本文档的三张机器表（"支持的 Provider" + "验证档位" + "能力矩阵"）由 `gen_compat_matrix.py --check` 在 full_regression doc-drift 层守卫，漂移时 CI 失败；`--fix` 一键重写。人工段落（Fallback 路径 / 添加新 Provider / 工具模式验证）不参与机器比对。
+> **12 Providers**（7 built-in + 5 plugins：Doubao Seed 2.1 Pro @ ai-tokenhub（主力）+ DeepSeek×2 + GLM-5.3 coding + Kimi K3；方舟版 Doubao 2.1 V37.9.381 退役）。**漂移防护已接入（V37.9.143 → V37.9.146）**：本文档的三张机器表（"支持的 Provider" + "验证档位" + "能力矩阵"）由 `gen_compat_matrix.py --check` 在 full_regression doc-drift 层守卫，漂移时 CI 失败；`--fix` 一键重写。人工段落（Fallback 路径 / 添加新 Provider / 工具模式验证）不参与机器比对。
 
 ---
 
@@ -19,7 +19,6 @@
 | DeepSeek-V4-Pro 满血版 (ai-tokenhub) | deepseek-v4-pro-ga-260813 | text | Yes | Yes | 1048K | text, reasoning |
 | DeepSeek-V4-Pro | DeepSeek-V4-Pro | text | Yes | Yes | 65K | text, tool_calling, streaming |
 | Doubao Seed 2.1 Pro (ai-tokenhub) | doubao-seed-2-1-pro-260628 | text, vision | Yes | Yes | 262K | text, tool_calling, reasoning |
-| Doubao Seed 2.1 Pro (Volcengine Ark) | doubao-seed-2-1-pro-260628 | text, vision | Yes | Yes | 262K | text, vision, tool_calling, streaming, reasoning |
 | GLM-5.3 Coding (ai-tokenhub) | glm-5-3-260814 | text | Yes | Yes | 131K | text, reasoning |
 | Kimi K3 (ai-tokenhub) | kimi-k3-260716 | text | Yes | Yes | 262K | text, tool_calling, streaming, reasoning |
 
@@ -41,8 +40,7 @@
 | GLM (Zhipu AI) | **declared** | 能力声明完整 + 合约校验通过，0/N 生产验证（无 API key 配置） |
 | DeepSeek-V4-Pro 满血版 (ai-tokenhub) | **feature_verified**（2026-09-02 槽位换 GA 模型 (V37.9.339) 后 E2E 半升档 (text+reasoning, V37.9.340)） | ai-tokenhub E2E 探针 2026-09-02 (V37.9.340, model=deepseek-v4-pro-ga-260813): text+reasoning 2/2 通过 (200 + finish_reason=stop + bat-ball 题 4 字符答案 + reasoning 字段填充, usage 113/145, 响应 model 回显 GA 名 = 路由正确)；tool_calling/streaming 未在 GA 模型探针保持 False; -huakun 时代史见 docstring |
 | DeepSeek-V4-Pro | **feature_verified** | Mac Mini E2E 实测 2026-06-30: text/streaming/tool_calling/json_mode 4/4 通过 (content+finish_reason / SSE chunk+[DONE] / finish_reason=tool_calls+arguments / response_format=json_object 干净 JSON)；vision 实测不支持 (400 非多模态) / reasoning 无 R1 reasoning_content 通道 / 未真生产 fallback 接管。部署=w4a8-mtp 量化, 推理响应偶发乱码 token |
-| Doubao Seed 2.1 Pro (ai-tokenhub) | **feature_verified**（2026-09-02 槽位更正 doubao-2.1 @ ai-tokenhub (V37.9.341) 后 E2E 升档 (V37.9.342 tool_calling+reasoning, V37.9.343 补 text)） | ai-tokenhub E2E 探针 2026-09-02 (V37.9.342, model=doubao-seed-2-1-pro-260628): tool_calling+reasoning 2/2 通过 (finish_reason=tool_calls + tool_calls 长度 1 + reasoning 字段填充, usage 466/94, 响应 model 回显本 model id = ai-tokenhub 路由正确)；V37.9.343 补跑不带 tools 的纯文本探针: content 4 字符 + finish_reason=stop + reasoning 字段, usage 76/247 → verified_text 达标 flip True (V37.9.342 那轮带 tools 故 content 为空, 够不着「有 content + finish_reason=stop」标准)；vision/streaming/json_mode 本平台未测; Ark 侧 doubao_21 的 5/5 证据不跨平台迁移 |
-| Doubao Seed 2.1 Pro (Volcengine Ark) | **production_observed** | 唯一 primary 承载全部生产流量 2026-07-02 起 (V37.9.222 B1 flip, 22+ 天 cron 周期零 provider 事故); B1 批量 thinking-off 注入实测大规模开火 (adapter.log 7654 次 @2026-07-24, dream curl 超时 0 复发); E2E 2026-07-02: text/vision/tool_calling/streaming/reasoning 5/5 (bat-ball 0.05 / vision 全命中 / tool_calls / chunk+[DONE] / reasoning_tokens=255) 无乱码；json_mode 声明未单测 / 未真生产 fallback 接管 |
+| Doubao Seed 2.1 Pro (ai-tokenhub) | **feature_verified**（2026-09-02 槽位更正 doubao-2.1 @ ai-tokenhub (V37.9.341) 后 E2E 升档 (V37.9.342 tool_calling+reasoning, V37.9.343 补 text)） | ai-tokenhub E2E 探针 2026-09-02 (V37.9.342, model=doubao-seed-2-1-pro-260628): tool_calling+reasoning 2/2 通过 (finish_reason=tool_calls + tool_calls 长度 1 + reasoning 字段填充, usage 466/94, 响应 model 回显本 model id = ai-tokenhub 路由正确)；V37.9.343 补跑不带 tools 的纯文本探针: content 4 字符 + finish_reason=stop + reasoning 字段, usage 76/247 → verified_text 达标 flip True (V37.9.342 那轮带 tools 故 content 为空, 够不着「有 content + finish_reason=stop」标准)；vision/streaming/json_mode 本平台未测; Ark 侧 doubao_21 的 5/5 证据不跨平台迁移；V37.9.381 起为生产 primary (方舟版退役), 生产观察期未满不升 production_observed |
 | GLM-5.3 Coding (ai-tokenhub) | **feature_verified**（2026-09-02 槽位换版本 GLM-5.3 (V37.9.339) 后 E2E 半升档 (text+reasoning, V37.9.340)） | ai-tokenhub E2E 探针 2026-09-02 (V37.9.340, model=glm-5-3-260814): text+reasoning 2/2 通过 (200 + finish_reason=stop + 250 字符 is_prime 代码 + reasoning 字段填充, usage 25/326, 响应 model 回显 5.3 名 = 路由正确)；tool_calling/streaming/json_mode 未在 5.3 探针保持 False; 5.2 时代史见 docstring |
 | Kimi K3 (ai-tokenhub) | **feature_verified** | V37.9.346 Mac Mini E2E 3/3: text(stop + content '$0.05') / tool_calling(finish_reason=tool_calls + get_weather Tokyo) / streaming(478 SSE 行); reasoning 字段 + reasoning_tokens=190 证 reasoning 通道 (V37.9.345 保守 False 经实测翻案). V37.9.347 补齐: json_mode 实测支持 (纯 JSON 可解析) 翻案为 True / vision 实测 HTTP 400 InvalidParameter 坐实 False |
 
@@ -60,18 +58,17 @@
 | DeepSeek-V4-Pro 满血版 (ai-tokenhub) | Yes | — | — | — | Yes | Yes | — | Yes | 1048K |
 | DeepSeek-V4-Pro | Yes | — | — | — | Yes | Yes | Yes | — | 65K |
 | Doubao Seed 2.1 Pro (ai-tokenhub) | Yes | Yes | — | — | Yes | Yes | Yes | Yes | 262K |
-| Doubao Seed 2.1 Pro (Volcengine Ark) | Yes | Yes | — | — | Yes | Yes | Yes | Yes | 262K |
 | GLM-5.3 Coding (ai-tokenhub) | Yes | — | — | — | Yes | Yes | — | Yes | 131K |
 | Kimi K3 (ai-tokenhub) | Yes | — | — | — | Yes | Yes | Yes | Yes | 262K |
 
-> Reasoning 维度 V37.9.53 新增（doubao seed reasoning model 实证驱动）。cap_score: doubao_21 16 登顶 registry（`doubao_21_tokenhub`——同模型 @ ai-tokenhub——V37.9.341-343 复测为 12；Qwen3 14；framework 视角 doubao_21 是 registry 最强 provider）。
+> Reasoning 维度 V37.9.53 新增（doubao seed reasoning model 实证驱动）。cap_score（V37.9.381 方舟版 doubao_21 的 16 退出后）: Qwen3 14 / Kimi K3 13 / `doubao_21_tokenhub` 12。生产主力由 `PROVIDER` env 决定不看 cap_score；cap_score 只影响无 `FALLBACK_ORDER` 时的自动排序与 router 选择（text+prefer reasoning 现选 kimi_k3，tokenhub 差在 vision 未在本平台实测）。
 
-## Fallback 降级路径（V37.9.222 现状）
+## Fallback 降级路径（V37.9.381 现状）
 
 ```
-Doubao Seed 2.1 Pro (Primary = PROVIDER env, 300s timeout)
+Doubao Seed 2.1 Pro @ ai-tokenhub (Primary = PROVIDER env `doubao_21_tokenhub`, 300s timeout)
     ↓ 失败 / 超时 / 电路断路 (连续 5 次失败 open, 300s 后 half-open)
-DeepSeek-V4-Pro 满血 GA → Doubao 2.1 @ ai-tokenhub (`doubao_21_tokenhub`) → DeepSeek 量化 → Qwen3-235B
+DeepSeek-V4-Pro 满血 GA → DeepSeek 量化 → Qwen3-235B
     (FALLBACK_ORDER env 显式有序链, V37.9.218; 逐级降, image 请求自动跳过纯文本 provider)
     ↓ 全链失败
 502 Error (完整 upstream 错误链一起返回, V37.8.10 compose_backend_error_str)
@@ -113,14 +110,14 @@ bash restart.sh
 
 ## 工具模式验证
 
-| 模式 | Qwen | doubao_21 (Ark) | doubao_21_tokenhub (同模型 @ ai-tokenhub) | DeepSeek 满血 | DeepSeek 量化 | GLM-5.3 coding | Kimi K3 | Gemini | 其余 built-in |
-|------|------|-----------|-----------|--------------|--------------|----------------|---------|--------|--------------|
-| 单工具调用 | :white_check_mark: | :white_check_mark: (V37.9.217) | :white_check_mark: (V37.9.55, Ark 时代) | :white_check_mark: (V37.9.205) | :white_check_mark: (V37.9.202) | :white_check_mark: (V37.9.258) | :white_check_mark: (V37.9.346) | ~~退役~~ | — |
-| 多工具并行 | :white_check_mark: | — | — | — | — | — | — | — | — |
-| 自定义工具拦截 | :white_check_mark: | :white_check_mark: (生产 primary) | — | — | — | — | — | — | — |
-| Schema 简化 | :white_check_mark: | :white_check_mark: (生产 primary) | — | — | — | — | — | — | — |
-| 参数修复/别名映射 | :white_check_mark: | :white_check_mark: (生产 primary) | — | — | — | — | — | — | — |
+| 模式 | Qwen | doubao_21_tokenhub (主力 @ ai-tokenhub) | DeepSeek 满血 | DeepSeek 量化 | GLM-5.3 coding | Kimi K3 | Gemini | 其余 built-in |
+|------|------|-----------|--------------|--------------|----------------|---------|--------|--------------|
+| 单工具调用 | :white_check_mark: | :white_check_mark: (V37.9.342) | :white_check_mark: (V37.9.205) | :white_check_mark: (V37.9.202) | :white_check_mark: (V37.9.258) | :white_check_mark: (V37.9.346) | ~~退役~~ | — |
+| 多工具并行 | :white_check_mark: | — | — | — | — | — | — | — |
+| 自定义工具拦截 | :white_check_mark: | 生产 primary（V37.9.381 起，同模型方舟版 V37.9.222–381 生产验证） | — | — | — | — | — | — |
+| Schema 简化 | :white_check_mark: | 生产 primary（同上） | — | — | — | — | — | — |
+| 参数修复/别名映射 | :white_check_mark: | 生产 primary（同上） | — | — | — | — | — | — |
 
 ---
 
-*此文档由 `providers.py` 的能力声明驱动，`python3 providers.py --json` 可获取机器可读版本。三张机器表（支持的 Provider / 验证档位 / 能力矩阵）由 `gen_compat_matrix.py --check` 守卫；人工段落（Fallback 路径 / 工具模式验证）的事实锚点：`FALLBACK_ORDER`/`PROVIDER` env（V37.9.218/222）+ 各 provider E2E changelog（V37.9.202/205/217/258）。*
+*此文档由 `providers.py` 的能力声明驱动，`python3 providers.py --json` 可获取机器可读版本。三张机器表（支持的 Provider / 验证档位 / 能力矩阵）由 `gen_compat_matrix.py --check` 守卫；人工段落（Fallback 路径 / 工具模式验证）的事实锚点：`FALLBACK_ORDER`/`PROVIDER` env（V37.9.218/222/381）+ 各 provider E2E changelog（V37.9.202/205/258/342/346）。*

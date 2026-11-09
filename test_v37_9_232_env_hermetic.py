@@ -29,18 +29,19 @@ import unittest
 
 REPO = os.path.dirname(os.path.abspath(__file__))
 
-# Mac Mini 生产同款 env（V37.9.218 FALLBACK_ORDER + V37.9.222 doubao_21 primary flip;
+# Mac Mini 生产同款 env（V37.9.218 FALLBACK_ORDER + V37.9.222 doubao_21 primary flip → V37.9.381 doubao_21_tokenhub;
 # key 全用假值 — 测试永不真调任何 provider, 只让 available()/import 路径走生产形态）
 # ⚠️ 维护契约: 生产 env 形态演进（新 provider key / 新路由开关进 .env_shared/plist）
 # 时本 dict 必须同步 — 否则判别器对新 env 盲（V37.9.298 血案: V37.9.290 迁出
 # DOUBAO_21_TOKENHUB_API_KEY + V37.9.271 ROUTER_ENFORCE=on 未入模型 → 2026-08-12 07:00
 # INV-ROUTER-001 ❌ 才暴露, 本守卫全程绿 = 守卫自身的 stale-model 盲区）。
 _PROD_LIKE_ENV = {
-    "FALLBACK_ORDER": "doubao_21,deepseek_full,doubao_21_tokenhub,deepseek,qwen",
-    "PROVIDER": "doubao_21",
+    # V37.9.381: 2026-11-09 生产 env 形态 — Ark key 被 Volcengine 停用后主力切 doubao_21_tokenhub,
+    # ARK_21_API_KEY / ARK_21_ENDPOINT_ID / ARK_API_KEY / ARK_ENDPOINT_ID 从两 plist 删除
+    # (switch_primary.py 实录), FALLBACK_ORDER 生产值不含 doubao_21
+    "FALLBACK_ORDER": "deepseek_full,doubao_21_tokenhub,deepseek,qwen",
+    "PROVIDER": "doubao_21_tokenhub",
     "FALLBACK_PROVIDER": "deepseek_full",
-    "ARK_21_API_KEY": "test-fake-key",
-    "ARK_API_KEY": "test-fake-key",
     "DEEPSEEK_FULL_API_KEY": "test-fake-key",
     "DEEPSEEK_API_KEY": "test-fake-key",
     "REMOTE_API_KEY": "test-fake-key",

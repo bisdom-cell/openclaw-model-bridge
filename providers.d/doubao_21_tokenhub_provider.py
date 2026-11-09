@@ -7,14 +7,19 @@
    → V37.9.343 补跑**不带 tools** 的纯文本探针 → verified_text 达标 flip True (3/6 verified)
    → V37.9.345 🔴 **改名**: registry `doubao` → `doubao_21_tokenhub`, env `DOUBAO_API_KEY` →
                  `DOUBAO_21_TOKENHUB_API_KEY`, 文件/类名同步 —— 命名债退役 (见下方)
+   → V37.9.381 🔴 **转正为生产 primary** (PROVIDER=doubao_21_tokenhub): 方舟版 `doubao_21` 的
+                 ARK_21_API_KEY 2026-10-28 14:46–17:00 HKT 之间被 Volcengine 停用
+                 (`The API key status is not active`) → 主力 401 持续 12 天, 全流量由 fallback
+                 deepseek_full 承接; 用户决策不换新 key, 方舟版插件退役。
 
-🔴 为什么本槽位与 doubao_21 是同一个模型 (刻意的, 不是重复 — 未来 session 勿"去重"):
-  `doubao_21`          = doubao-seed-2-1-pro-260628 @ **Volcengine Ark** (生产 primary, ARK_21_API_KEY)
-  `doubao_21_tokenhub` = doubao-seed-2-1-pro-260628 @ **ai-tokenhub**    (fallback #2, DOUBAO_21_TOKENHUB_API_KEY)
-  同模型 × 两个独立 serving 平台 = **平台冗余**: Ark 侧故障 (网关/计费/区域) 时同一模型仍可
-  经 ai-tokenhub 达到。这是链上唯一的平台维度冗余 (其余 fallback 都是换模型)。
-  代价诚实登记: 模型**本身**的问题 (能力边界/幻觉/该模型下线) 不会被本槽位兜住 —— 兜那种
-  故障的是链上的 deepseek/qwen。
+🔴 V37.9.341 平台冗余设计在 V37.9.381 兑现 (历史, 现已无对照方):
+  当时 `doubao_21` (Ark, 生产 primary) 与本槽位 (ai-tokenhub, fallback) 是同一个模型的两个
+  serving 平台, 专为「Ark 侧故障 (网关/计费/区域/key) 时同模型仍可达」准备。故障来时的
+  实际路径并不是它: 断路器开后流量走的是 FALLBACK_ORDER 首跳 deepseek_full (换了模型),
+  本槽位排第 2 从未被用到; 冗余是在人工切 PROVIDER 时才兑现的。教训: 平台冗余要放在链首
+  才会被自动用上 (登记, 不改设计)。
+  代价诚实登记: 模型**本身**的问题 (能力边界/幻觉/该模型下线) 本槽位兜不住 —— 兜那种故障的
+  是链上的 deepseek/qwen。
 
 ✅ 命名债已退役 (V37.9.345, 用户决策):
   史: V37.9.52 接入 Doubao Seed 2.0 Pro 时命名 `doubao`/`DOUBAO_API_KEY`; V37.9.339 槽位
@@ -23,14 +28,15 @@
   InsufficientScope → 连锁三版错误归因 (V37.9.341/342/343), 直到 V37.9.344 keymap 实测
   才定性。**命名债的代价不是抽象的, 它在写下当天兑现。**
   现名 `doubao_21_tokenhub` / `DOUBAO_21_TOKENHUB_API_KEY` 自带两个消歧维度 (版本 2.1 +
-  平台 tokenhub), 与 `doubao_21` (Ark) 一眼可分。
+  平台 tokenhub)。
 
 设计契约:
 - API key 严格走 env DOUBAO_21_TOKENHUB_API_KEY (不可硬编码, 即便用户豁免也守公开 repo 安全底线)
 - base_url = https://ai-tokenhub.com/api/v1 (公开域名可入库, 与 deepseek_full/glm5_coding 同网关)
 - dev 环境无 env → ProviderRegistry.available() 因缺 DOUBAO_21_TOKENHUB_API_KEY 自动排除
 - ai-tokenhub 无 endpoint-ID 间接层 (ARK_ENDPOINT_ID 自 V37.9.290 起不再消费), model 名直接进请求体
-  ⚠️ 与 doubao_21 的关键差异: 后者的 model 字段收 Ark 接入点 ID (ep-...), 本槽位收 model 名。
+  (方舟版 doubao_21 的 model 字段收 Ark 接入点 ID ep-..., 本槽位收 model 名 —— 所以 /health 的
+   model 字段从 V37.9.381 起是公开模型名, 不再是类机密接入点 ID)
 
 版本史: V37.9.52 接入 2.0 Pro / V37.9.53 text+reasoning E2E / V37.9.54 vision E2E (image_url
 content block) / V37.9.55 tool_calling+streaming E2E (finish_reason=tool_calls / SSE chunks) /
@@ -111,5 +117,6 @@ class Doubao21TokenhubProvider(BaseProvider):
                       "V37.9.343 补跑不带 tools 的纯文本探针: content 4 字符 + finish_reason=stop + "
                       "reasoning 字段, usage 76/247 → verified_text 达标 flip True "
                       "(V37.9.342 那轮带 tools 故 content 为空, 够不着「有 content + finish_reason=stop」标准)；"
-                      "vision/streaming/json_mode 本平台未测; Ark 侧 doubao_21 的 5/5 证据不跨平台迁移",
+                      "vision/streaming/json_mode 本平台未测; Ark 侧 doubao_21 的 5/5 证据不跨平台迁移；"
+                      "V37.9.381 起为生产 primary (方舟版退役), 生产观察期未满不升 production_observed",
     )

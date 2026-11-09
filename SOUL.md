@@ -164,7 +164,7 @@
 - SOUL.md放宪法级信息（身份+状态），CLAUDE.md放操作手册（工具+详情）（V30.4教训）
 - 功能完成标准=用户视角验证通过，非单测通过（V30.4教训）
 
-**系统健康：** 服务正常 | 模型: 由 PROVIDER env 决定（现 doubao_21 = Doubao Seed 2.1 Pro，V37.9.222 flip；Qwen3 为 fallback 兜底） | KB: 约 2273 notes | 详见运行时刷新值
+**系统健康：** 服务正常 | 模型: 由 PROVIDER env 决定（现 doubao_21_tokenhub = Doubao Seed 2.1 Pro @ ai-tokenhub，V37.9.381；Qwen3 为 fallback 兜底） | KB: 约 2273 notes | 详见运行时刷新值
 
 > 用户问项目、进展、任务、系统状态时，**必须参考以上信息回答**，不要说"没有项目"。
 > "用户偏好（必须遵守）"段我必须严格遵守；"系统观察"段是统计参考，不是用户指令。
