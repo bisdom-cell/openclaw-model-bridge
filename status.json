@@ -1,6 +1,6 @@
 {
-  "updated": "2026-11-09 08:17:21",
-  "updated_by": "security_score",
+  "updated": "2026-11-09 09:03:01",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -455,7 +455,7 @@
         "added": "2026-11-09"
       },
       {
-        "item": "【🟡 V37.9.384 已实现待合并 · Top 5 picker 新鲜度闸门 · 2026-11-09】接 V37.9.383 登记的 finding。Mac Mini 取证（16:00 前后）：hf 6.0h / s2 4.6h / arxiv 8.0h / github 2.0h / rss 22.0h / blogs 2.5h / bsky 23.0h / hn 1.3h 均 < 26h，ai_leaders_x 55h（11-07 09:02 后两次 09:00 运行都未重写）= 陈旧类问题在线上真实存在；DBLP 已删出 picker 无法再回溯其产物出现次数。⚠️ 同一份取证里 9 源 41 条结果 ⭐≥4 为 0、当前 Top 5 为空（no picks）——是今日真低对齐还是 🎚️ 字段在模型切换后解析不出，待一条命令定性（见 V37.9.384 交接），不在本版处理。合并后同步，`python3 ~/top_alignment_picker.py --json` 的 stale_sources 应列出 ai_leaders_x（若届时仍未重写）。",
+        "item": "【🟡 V37.9.384 已合并 PR #973 · Top 5 picker 新鲜度闸门 · 2026-11-09 · 剩被动观察】接 V37.9.383 登记的 finding。Mac Mini 取证（16:00 前后）：hf 6.0h / s2 4.6h / arxiv 8.0h / github 2.0h / rss 22.0h / blogs 2.5h / bsky 23.0h / hn 1.3h 均 < 26h，ai_leaders_x 55h（11-07 09:02 后两次 09:00 运行都未重写）= 陈旧类问题在线上真实存在；DBLP 已删出 picker 无法再回溯其产物出现次数。同一份取证里 9 源 41 条结果 ⭐≥4 为 0、Top 5 为空（no picks）；对齐诊断已定性：41 条全部带 🎚️ 且解析正常，星数全在 1–3 = 当日真实低对齐非解析失败。待观察：10:55 切到 doubao_21_tokenhub 后各源多为 1–2 星（切换前 arxiv {2:5,3:5}），连续几天 ⭐≥4 都为 0 再评估新主模型打分尺度是否偏严。合并同步后 Mac Mini 实测 stale_sources = [ai_leaders_x 56.0h > 26.0h]，闸门生效。剩余被动观察：次日 22:00 kb_evening.log 出现「结果文件 …h 未更新 … 不计入 Top 5」行；ai_leaders_x 为何连续两次 09:00 未重写结果文件（0 条新推文提前退出，属已知 429 形态）不在本项处理。",
         "added": "2026-11-09"
       }
     ],
