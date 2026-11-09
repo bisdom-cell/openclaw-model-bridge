@@ -115,7 +115,7 @@ _V37_9_169_MARKER = "V37.9.169 per-pick credibility tier"
 # (hn → 社媒💬, 本就正确). 一物一形: 只登记真差异.
 _PICKER_TO_CRED_ID: dict[str, str] = {"arxiv": "arxiv_monitor"}
 
-# Source registry: 8 ALIGNED sources (V37.9.45/50/51 全量迁移完毕)
+# Source registry: 9 ALIGNED sources (V37.9.45/50/51 全量迁移 + V37.9.108/112 +2; dblp V37.9.383 退役)
 # priority 数字越小越高: 论文类 1-3 > repo 类 4 > 博客 5 > tweet 类 6-7
 #
 # V37.9.57 hotfix: cache_paths list 替代 cache_dir_rel (单路径)
