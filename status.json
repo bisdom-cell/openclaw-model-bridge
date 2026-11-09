@@ -1,6 +1,6 @@
 {
-  "updated": "2026-11-09 07:29:02",
-  "updated_by": "full_regression",
+  "updated": "2026-11-09 08:05:33",
+  "updated_by": "claude_code",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,41 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-11-09",
+      "what": "V37.9.384 Top 5 picker 新鲜度闸门：结果文件年龄 > cadence(registry cron 推导, 日更源 24h) + 2h 即整源跳过 + stderr WARN + 结果新增 stale_sources；dev 复现 51 天前 DBLP ⭐5 曾排第一；26h 按真实排程模拟（健康最老 20.9h / 漏跑一天 27 组合抓 25，36h 只抓 9）；Mac Mini 取证：9 源中 8 个健康文件 1.3–23.0h（< 26h，窗口成立），ai_leaders_x 停在 11-07 09:02 = 55h 陈旧（当前 0 条 ⭐≥4，今日未进 Top 5）；守卫 +20（102），破坏验证七连（首轮被 .pyc 复用骗过一次，清缓存重跑）；rebase 到 V37.9.383 之后 VERSION 0.37.9.193→0.37.9.194。顺带：recent_changes 按日期倒序归位（末尾手动追加的条目会被 status_update --add 先插头再截 20 条截掉）",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-11-09",
+      "by": "claude_code",
+      "what": "V37.9.379: 08:30 watchdog 告警 triage — Yahoo Finance RSS 自 10-07 持续 404 按 NBER 先例退役（13 RSS + 10 X）；job_watchdog fetch_failed 告警按字段存在性三分支渲染根治「(HTTP )」空括号（14 写入方里 10 个不写 http_code）；dblp/s2 fetch_failed 补 errors 计数；SLO degradation_rate 90% 读码定性为 primary doubao_21 几乎全失败走 fallback（断路器大概率 OPEN），根因须 Mac Mini 取证；守卫 15 单测 + sabotage 双连；VERSION 0.37.9.189→0.37.9.190"
+    },
+    {
+      "date": "2026-11-09",
+      "by": "claude_code",
+      "what": "V37.9.380: OpenClaw 2026.10.10 / 11.1 / 11.2 追加读数 27.7 — ① 10.10 DIRTY 3 / 11.1 DIRTY 4 / 11.2 CLEAN 0（19.8 协议首个 CLEAN，计数 0→1，状态符号仍 ❌）；② 4.44/2.30/3.00 天 🔴 4 周窗 2.75/周；③ engines 上游放宽回 >=24.16.0 <25 || >=26.1.0（安全下限降为非阻塞推荐）Mac Mini 26.12.1 不回退 ✅；dist 核实无新默认自主行为（Doctor allowFrom→groupAllowFrom 复制判物化既有回退，进 7.2/7.4 核对）→ 追加不新开节、LAST_EVAL_DATE 不变；tripwire 46/50 剩 4；守卫 test_336 144→160 + sabotage 七连；VERSION 不变"
+    },
+    {
+      "date": "2026-11-09",
+      "what": "V37.9.381: 主力 Ark key 被停用 12 天分诊闭环——方舟版 doubao_21 退役，主力切同模型 doubao_21_tokenhub（Mac Mini 已切换验证 200/closed），插件+FILE_MAP+ARK_* env 退役，12 provider，router 赢家连带变 kimi_k3 已登记",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-11-09",
+      "what": "V37.9.382: doubao_21_tokenhub 本平台看图实测 flip verified_vision（探针 C 纯红 PNG → 「红色」），cap_score 12→14，router text+prefer reasoning 重回生产主力（shadow，零运行时影响）；同时登记探针 A 关思考拒答（判定行漏看内容），交付扫描 + 复测两条命令待回传",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-11-09",
+      "what": "V37.9.382 后记: 关思考拒答生产定性——切换后 26 条逐条结果 + 16 个文件零拒答（probe 短题 2/9），判定为短指令型、真实批量提示未受影响；不改代码，触发条件登记",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-11-09",
+      "what": "V37.9.383 DBLP 退役删除（用户决策）：09-19 起 Anubis 反爬 100% 失败 7 周；pwc 先例删脚本+保留 disabled entry；运行时 7 处清单移除 + 按类守卫 TestRetiredJobsLeaveNoRuntimeWiring（sabotage 四连开火）；发现 Top 5 挑选器不看结果文件新旧（登记）",
+      "by": "claude_code"
+    },
     {
       "date": "2026-10-27",
       "what": "V37.9.376 WhatsApp 建连终止有界自动重启（用户决策 b）：parser 5 段 auto 字段 + wa_keepalive 告警轮 _wa_auto_restart 每 6h≤1/24h≤2 先记账后执行 + 结果进告警 + WA_AUTO_RESTART 开关；守卫 35 单测 sabotage 六连；VERSION 0.37.9.188→0.37.9.189",
@@ -222,36 +257,6 @@
     {
       "date": "2026-09-06",
       "what": "V37.9.350 后记: Mac Mini 合并 #927 同步 + preflight --full 87/0/2; check_upgrade.sh 仓库模式 100644→100755 (preflight 4/19 警告根因, cron 经 bash 调用不受影响); KB 覆盖 99% 由 03:30 kb_embed 自愈",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-11-09",
-      "by": "claude_code",
-      "what": "V37.9.379: 08:30 watchdog 告警 triage — Yahoo Finance RSS 自 10-07 持续 404 按 NBER 先例退役（13 RSS + 10 X）；job_watchdog fetch_failed 告警按字段存在性三分支渲染根治「(HTTP )」空括号（14 写入方里 10 个不写 http_code）；dblp/s2 fetch_failed 补 errors 计数；SLO degradation_rate 90% 读码定性为 primary doubao_21 几乎全失败走 fallback（断路器大概率 OPEN），根因须 Mac Mini 取证；守卫 15 单测 + sabotage 双连；VERSION 0.37.9.189→0.37.9.190"
-    },
-    {
-      "date": "2026-11-09",
-      "by": "claude_code",
-      "what": "V37.9.380: OpenClaw 2026.10.10 / 11.1 / 11.2 追加读数 27.7 — ① 10.10 DIRTY 3 / 11.1 DIRTY 4 / 11.2 CLEAN 0（19.8 协议首个 CLEAN，计数 0→1，状态符号仍 ❌）；② 4.44/2.30/3.00 天 🔴 4 周窗 2.75/周；③ engines 上游放宽回 >=24.16.0 <25 || >=26.1.0（安全下限降为非阻塞推荐）Mac Mini 26.12.1 不回退 ✅；dist 核实无新默认自主行为（Doctor allowFrom→groupAllowFrom 复制判物化既有回退，进 7.2/7.4 核对）→ 追加不新开节、LAST_EVAL_DATE 不变；tripwire 46/50 剩 4；守卫 test_336 144→160 + sabotage 七连；VERSION 不变"
-    },
-    {
-      "date": "2026-11-09",
-      "what": "V37.9.381: 主力 Ark key 被停用 12 天分诊闭环——方舟版 doubao_21 退役，主力切同模型 doubao_21_tokenhub（Mac Mini 已切换验证 200/closed），插件+FILE_MAP+ARK_* env 退役，12 provider，router 赢家连带变 kimi_k3 已登记",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-11-09",
-      "what": "V37.9.382: doubao_21_tokenhub 本平台看图实测 flip verified_vision（探针 C 纯红 PNG → 「红色」），cap_score 12→14，router text+prefer reasoning 重回生产主力（shadow，零运行时影响）；同时登记探针 A 关思考拒答（判定行漏看内容），交付扫描 + 复测两条命令待回传",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-11-09",
-      "what": "V37.9.382 后记: 关思考拒答生产定性——切换后 26 条逐条结果 + 16 个文件零拒答（probe 短题 2/9），判定为短指令型、真实批量提示未受影响；不改代码，触发条件登记",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-11-09",
-      "what": "V37.9.383 DBLP 退役删除（用户决策）：09-19 起 Anubis 反爬 100% 失败 7 周；pwc 先例删脚本+保留 disabled entry；运行时 7 处清单移除 + 按类守卫 TestRetiredJobsLeaveNoRuntimeWiring（sabotage 四连开火）；发现 Top 5 挑选器不看结果文件新旧（登记）",
       "by": "claude_code"
     }
   ],
@@ -449,7 +454,10 @@
         "item": "【🟡 已定性 · 观察中 · tokenhub 关思考拒答 · 2026-11-09】探针 A（批量形态 + thinking:disabled）返回固定拒答「针对这个需求我无法为你提供相应帮助…」，判定行只看思考 token 误报 ✅（原则 #36-1）。用户 Mac Mini 两条复测：refusal_probe.py 关思考 ×9 = 原题 1/3、论文摘要 0/3、新闻 1/3（共 2/9），不关思考对照 1/1 正常但 77.6 秒；refusal_scan.py：10:55 切换后 26 条逐条结果（chaspark 5 / semantic_scholar 10 / github_trending 10 / ai_leaders_blogs 1）+ 16 个 KB/原始响应文件零拒答零过短零失败。这些任务只在 HTTP 错误/解析失败/空内容时重试，拒答是非空内容会被当成功记录 → 0/26 是真实首答。若生产拒答率同为 2/9，26 条全无拒答的概率约 0.15% → 拒答集中在探针这类短而无上下文的单句指令，真实批量提示目前未受影响。复测脚本判定行把「短题被拒」写成「批量任务受影响」= 又一次越过证据。不改代码，关思考维持（对照组 77.6s 是去掉它的代价）。🔴 触发条件：生产产物里一旦出现拒答文案（重跑 ~/refusal_scan.py 即可查，SCAN_SINCE 可改起点）→ 在 adapter 批量路径加「检出拒答文案即以同参数重试一次」，一处覆盖全部批量调用方；届时需同步考虑 per-item 任务会把拒答当成功推送这一面。",
         "added": "2026-11-09"
       },
-      "【🟡 新 finding · Top 5 挑选器不看结果文件新旧 · 2026-11-09】top_alignment_picker.scan_source_results 只读 cache/llm_results.jsonl，不看 mtime/日期；多数 job 在抓取失败（fetch_failed/parse_failed）时提前 exit，不会清空上一轮的 llm_results.jsonl → 该源的旧条目会被当成「今日高对齐 Top 5」进 kb_dream / kb_evening / kb_radar。dblp 09-19→11-09 正是此形态（已随 V37.9.383 退役消除）。类修复候选：picker 跳过 mtime 超过该源 cron 周期（日更 36h / ACL 周更 8 天）的结果文件，或 job 在 fetch 前先清空结果文件。先用 Mac Mini 实测看历史 Top 5 是否真出现过 DBLP 旧条目再定（原则 #28）。"
+      {
+        "item": "【🟡 V37.9.384 已实现待合并 · Top 5 picker 新鲜度闸门 · 2026-11-09】接 V37.9.383 登记的 finding。Mac Mini 取证（16:00 前后）：hf 6.0h / s2 4.6h / arxiv 8.0h / github 2.0h / rss 22.0h / blogs 2.5h / bsky 23.0h / hn 1.3h 均 < 26h，ai_leaders_x 55h（11-07 09:02 后两次 09:00 运行都未重写）= 陈旧类问题在线上真实存在；DBLP 已删出 picker 无法再回溯其产物出现次数。⚠️ 同一份取证里 9 源 41 条结果 ⭐≥4 为 0、当前 Top 5 为空（no picks）——是今日真低对齐还是 🎚️ 字段在模型切换后解析不出，待一条命令定性（见 V37.9.384 交接），不在本版处理。合并后同步，`python3 ~/top_alignment_picker.py --json` 的 stale_sources 应列出 ai_leaders_x（若届时仍未重写）。",
+        "added": "2026-11-09"
+      }
     ],
     "open_prs": [],
     "blocked_on": "",
@@ -458,7 +466,7 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6855,
+    "test_count": 6875,
     "last_regression": "2026-11-09 07:29 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",

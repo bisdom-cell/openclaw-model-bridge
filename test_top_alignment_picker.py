@@ -801,5 +801,363 @@ class TestV37_9_169_Guards(unittest.TestCase):
         self.assertNotEqual(mapped, unmapped)
 
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+# V37.9.384 结果文件新鲜度闸门
+# ═══════════════════════════════════════════════════════════════════════════
+import contextlib
+import io
+import re
+import time
+from unittest import mock
+
+_STALE_DAYS = 51  # DBLP 2026-09-19 → 2026-11-09 的失败天数, 血案形态 (dev 复现用合成源)
+# 2026-11-09 Mac Mini 取证实测: ai_leaders_x 文件停在 11-07 09:02 = 55h (两次 09:00 运行
+# 均未重写), 是 DBLP 退役 (V37.9.383) 后仍在 ALIGNED_SOURCES 里的真实陈旧源
+_PROD_STALE_HOURS = 55
+
+
+def _write_results(cache_dir, title, stars, mtime=None):
+    os.makedirs(cache_dir, exist_ok=True)
+    path = os.path.join(cache_dir, "llm_results.jsonl")
+    content = f"📌 标题: {title}\n⭐ 评级: ⭐⭐⭐\n🎚️ 项目对齐度: {'⭐' * stars} / 直接相关"
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(json.dumps({"idx": 0, "content": content, "failed": False}, ensure_ascii=False) + "\n")
+    if mtime is not None:
+        os.utime(path, (mtime, mtime))
+    return path
+
+
+def _src(src_id, cache_dir, display=None, cadence=24, priority=3):
+    return {"id": src_id, "display": display or src_id, "priority": priority,
+            "cache_paths": [cache_dir, cache_dir], "cadence_hours": cadence}
+
+
+def _watchdog_err_pattern():
+    with open(os.path.join(REPO_ROOT, "job_watchdog.sh"), encoding="utf-8") as f:
+        src = f.read()
+    m = re.search(r"local err_pattern='([^']+)'", src)
+    assert m, "job_watchdog.sh err_pattern not found"
+    return m.group(1)
+
+
+class TestResultsFreshness(unittest.TestCase):
+    """V37.9.384: 上一轮留下的 llm_results.jsonl 不再冒充今天的 Top 5."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = self._tmp.name
+        self.now = time.time()
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _collect(self, sources, now=None):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            picks = tap.collect_all_picks(repo_root=self.tmp, sources=sources,
+                                          now=self.now if now is None else now)
+        return picks, err.getvalue()
+
+    def test_fresh_file_yields_picks_without_warn(self):
+        d = os.path.join(self.tmp, "fresh")
+        _write_results(d, "今天的论文", 5)
+        picks, err = self._collect([_src("hf_papers", d)])
+        self.assertEqual(len(picks), 1)
+        self.assertNotIn("WARN", err)
+
+    def test_stale_file_yields_no_picks_and_warns(self):
+        d = os.path.join(self.tmp, "stale")
+        _write_results(d, "七周前的论文", 5, mtime=self.now - _STALE_DAYS * 86400)
+        picks, err = self._collect([_src("dblp", d, display="DBLP")])
+        self.assertEqual(picks, [])
+        self.assertIn("WARN", err)
+        self.assertIn("DBLP", err)
+        self.assertIn("不计入 Top 5", err)
+        self.assertIn(f"{_STALE_DAYS * 24:.1f}h", err)
+
+    def test_missing_file_still_empty_and_silent(self):
+        d = os.path.join(self.tmp, "nothing_here")
+        picks, err = self._collect([_src("hf_papers", d)])
+        self.assertEqual(picks, [])
+        self.assertNotIn("WARN", err)
+        self.assertIsNone(tap.results_file_age_hours(d))
+
+    def test_boundary_just_inside_and_just_outside(self):
+        d = os.path.join(self.tmp, "edge")
+        limit = tap.max_age_hours({"cadence_hours": 24})
+        _write_results(d, "边界论文", 5, mtime=self.now - (limit - 0.1) * 3600)
+        picks, _ = self._collect([_src("hf_papers", d)])
+        self.assertEqual(len(picks), 1, "上限内 0.1h 的文件必须计入")
+        os.utime(os.path.join(d, "llm_results.jsonl"),
+                 (self.now - (limit + 0.1) * 3600,) * 2)
+        picks, err = self._collect([_src("hf_papers", d)])
+        self.assertEqual(picks, [], "超出上限 0.1h 的文件必须跳过")
+        self.assertIn("WARN", err)
+
+    def test_future_mtime_counts_as_fresh(self):
+        d = os.path.join(self.tmp, "future")
+        _write_results(d, "时钟偏差", 5, mtime=self.now + 3600)
+        picks, err = self._collect([_src("hf_papers", d)])
+        self.assertEqual(len(picks), 1)
+        self.assertNotIn("WARN", err)
+
+    def test_unstatable_file_fails_open(self):
+        d = os.path.join(self.tmp, "nostat")
+        _write_results(d, "读得到但 stat 不了", 5)
+        with mock.patch.object(tap.os.path, "getmtime", side_effect=PermissionError("denied")):
+            picks, err = self._collect([_src("hf_papers", d)])
+        self.assertEqual(len(picks), 1, "无法判断年龄时不得吞掉结果 (FAIL-OPEN)")
+        self.assertNotIn("WARN", err)
+
+    def test_per_source_cadence_respected(self):
+        d = os.path.join(self.tmp, "weekly")
+        _write_results(d, "三天前的周更内容", 5, mtime=self.now - 72 * 3600)
+        daily, _ = self._collect([_src("daily_src", d, cadence=24)])
+        weekly, _ = self._collect([_src("weekly_src", d, cadence=168)])
+        self.assertEqual(daily, [], "日更源 72h 前的文件是陈旧的")
+        self.assertEqual(len(weekly), 1, "周更源 72h 前的文件仍在周期内")
+
+    def test_missing_cadence_defaults_to_daily(self):
+        self.assertEqual(tap.max_age_hours({}), tap.DEFAULT_CADENCE_HOURS + tap.FRESHNESS_GRACE_HOURS)
+        self.assertEqual(tap.max_age_hours({"cadence_hours": "垃圾"}),
+                         tap.DEFAULT_CADENCE_HOURS + tap.FRESHNESS_GRACE_HOURS)
+
+    def test_blood_case_stale_source_does_not_outrank_today(self):
+        """血案回归: dev 复现 51 天前的 DBLP ⭐5 压过当天 HF ⭐4 排第一; DBLP 已退役,
+        这里用 Mac Mini 实测仍在线的陈旧源 ai_leaders_x (55h) 复刻同一形状."""
+        x = next(s for s in tap.ALIGNED_SOURCES if s["id"] == "ai_leaders_x")
+        hf = next(s for s in tap.ALIGNED_SOURCES if s["id"] == "hf_papers")
+        _write_results(os.path.join(self.tmp, x["cache_paths"][0]), "两天前的推文观点", 5,
+                       mtime=self.now - _PROD_STALE_HOURS * 3600)
+        _write_results(os.path.join(self.tmp, hf["cache_paths"][0]), "今天的 HF 论文", 4)
+        err = io.StringIO()
+        with mock.patch.dict(os.environ, {"HOME": self.tmp}), contextlib.redirect_stderr(err):
+            result = tap.pick_top_aligned(repo_root=self.tmp)
+        self.assertEqual(result["status"], "ok")
+        self.assertNotIn("两天前的推文观点", result["block"])
+        self.assertIn("今天的 HF 论文", result["block"])
+        self.assertEqual([s["source_id"] for s in result["stale_sources"]], ["ai_leaders_x"])
+        self.assertAlmostEqual(result["stale_sources"][0]["age_hours"], _PROD_STALE_HOURS, delta=0.2)
+
+    def test_all_sources_stale_gives_no_picks(self):
+        for src in tap.ALIGNED_SOURCES:
+            _write_results(os.path.join(self.tmp, src["cache_paths"][0]), f"{src['id']} 旧内容", 5,
+                           mtime=self.now - 3 * 86400)
+        err = io.StringIO()
+        with mock.patch.dict(os.environ, {"HOME": self.tmp}), contextlib.redirect_stderr(err):
+            result = tap.pick_top_aligned(repo_root=self.tmp)
+        self.assertEqual(result["status"], "no_picks")
+        self.assertEqual(result["block"], "")
+        self.assertEqual(len(result["stale_sources"]), len(tap.ALIGNED_SOURCES))
+
+    def test_exception_path_keeps_schema(self):
+        with mock.patch.object(tap, "_collect", side_effect=RuntimeError("boom")), \
+                contextlib.redirect_stderr(io.StringIO()):
+            result = tap.pick_top_aligned(repo_root=self.tmp)
+        self.assertEqual(result["status"], "no_picks")
+        self.assertEqual(result["stale_sources"], [])
+
+    def test_warn_goes_to_stderr_not_stdout(self):
+        """MR-11: kb_dream 用 $(... --block-only) 捕获 stdout, WARN 混进去会进 prompt."""
+        x = next(s for s in tap.ALIGNED_SOURCES if s["id"] == "ai_leaders_x")
+        _write_results(os.path.join(self.tmp, x["cache_paths"][0]), "旧论文", 5,
+                       mtime=self.now - _PROD_STALE_HOURS * 3600)
+        env = dict(os.environ, HOME=self.tmp)
+        proc = subprocess.run(
+            [sys.executable, os.path.join(REPO_ROOT, "top_alignment_picker.py"),
+             "--repo-root", self.tmp, "--block-only"],
+            capture_output=True, text=True, env=env, timeout=30)
+        self.assertEqual(proc.returncode, 0)
+        self.assertNotIn("WARN", proc.stdout)
+        self.assertNotIn("旧论文", proc.stdout)
+        self.assertIn("WARN", proc.stderr)
+
+    def test_cli_json_reports_stale_sources(self):
+        x = next(s for s in tap.ALIGNED_SOURCES if s["id"] == "ai_leaders_x")
+        _write_results(os.path.join(self.tmp, x["cache_paths"][0]), "旧论文", 5,
+                       mtime=self.now - _PROD_STALE_HOURS * 3600)
+        env = dict(os.environ, HOME=self.tmp)
+        proc = subprocess.run(
+            [sys.executable, os.path.join(REPO_ROOT, "top_alignment_picker.py"),
+             "--repo-root", self.tmp, "--json"],
+            capture_output=True, text=True, env=env, timeout=30)
+        data = json.loads(proc.stdout)
+        self.assertEqual([s["source_id"] for s in data["stale_sources"]], ["ai_leaders_x"])
+
+    def test_warn_does_not_match_watchdog_err_pattern(self):
+        """WARN 进 kb_evening.log / kb_radar 日志; 源自身失败已由 watchdog 按状态文件告警,
+        这行若匹配 err_pattern 会每天多报一条日志错误 (V37.9.300 告警疲劳家族)."""
+        d = os.path.join(self.tmp, "stale")
+        _write_results(d, "旧论文", 5, mtime=self.now - _STALE_DAYS * 86400)
+        _, err = self._collect([_src("dblp", d, display="DBLP")])
+        warn_lines = [ln for ln in err.splitlines() if "WARN" in ln]
+        self.assertEqual(len(warn_lines), 1)
+        pattern = _watchdog_err_pattern()
+        proc = subprocess.run(["grep", "-ciE", pattern], input=err, capture_output=True, text=True)
+        self.assertEqual(proc.stdout.strip(), "0", f"WARN 行匹配了 watchdog err_pattern: {warn_lines[0]}")
+        probe = subprocess.run(["grep", "-ciE", pattern], input="ERROR: fetch_failed\n",
+                               capture_output=True, text=True)
+        self.assertEqual(probe.stdout.strip(), "1", "反向证据: 抽出的 err_pattern 必须能匹配真错误行")
+
+
+# ── registry cron → cadence 推导 (测试侧单一真理源) ────────────────────────
+def _cron_field(field, lo, hi):
+    vals = set()
+    for piece in field.split(","):
+        step = 1
+        if "/" in piece:
+            piece, step_s = piece.split("/", 1)
+            step = int(step_s)
+        if piece == "*":
+            a, b = lo, hi
+        elif "-" in piece:
+            a_s, b_s = piece.split("-", 1)
+            a, b = int(a_s), int(b_s)
+        else:
+            a = b = int(piece)
+        vals.update(range(a, b + 1, step))
+    return vals
+
+
+def _week_run_minutes(cron):
+    minute, hour, dom, month, dow = str(cron).split()[:5]
+    if dom != "*" or month != "*":
+        raise ValueError(f"unsupported cron for cadence derivation: {cron}")
+    days = {d % 7 for d in _cron_field(dow, 0, 7)}
+    mins = _cron_field(minute, 0, 59)
+    hours = _cron_field(hour, 0, 23)
+    return sorted(d * 1440 + h * 60 + m for d in days for h in hours for m in mins)
+
+
+def _max_gap_hours(cron):
+    runs = _week_run_minutes(cron)
+    gaps = [b - a for a, b in zip(runs, runs[1:])]
+    gaps.append(runs[0] + 7 * 1440 - runs[-1])
+    return max(gaps) / 60.0
+
+
+def _expected_cadence(cron):
+    return max(24.0, _max_gap_hours(cron))
+
+
+def _registry_intervals():
+    out = {}
+    current = None
+    with open(os.path.join(REPO_ROOT, "jobs_registry.yaml"), encoding="utf-8") as f:
+        for raw in f:
+            stripped = raw.strip()
+            if stripped.startswith("- id:"):
+                current = stripped.split(":", 1)[1].strip()
+                continue
+            m = re.match(r'interval:\s*"([^"]+)"', stripped)
+            if current and m:
+                out[current] = m.group(1)
+    return out
+
+
+class TestCadenceDerivedFromRegistry(unittest.TestCase):
+    """MR-8: cadence_hours 必须等于 jobs_registry cron 推导值, 改排程不改 picker 即红."""
+
+    def test_cron_helper_semantics(self):
+        self.assertEqual(_max_gap_hours("0 10 * * *"), 24.0)
+        self.assertEqual(_max_gap_hours("0 8,20 * * *"), 12.0)
+        self.assertEqual(_max_gap_hours("45 8,14,20 * * *"), 12.0)
+        self.assertEqual(_max_gap_hours("30 9 * * 3"), 168.0)
+        self.assertEqual(_max_gap_hours("0 9 * * 1-5"), 72.0)
+        self.assertEqual(_expected_cadence("0 8,20 * * *"), 24.0, "一天多跑的源按每日下限")
+        self.assertEqual(_expected_cadence("30 9 * * 3"), 168.0)
+
+    def test_every_source_matches_registry(self):
+        intervals = _registry_intervals()
+        checked = 0
+        for src in tap.ALIGNED_SOURCES:
+            rid = src.get("registry_id")
+            self.assertTrue(rid, f"{src['id']} 缺 registry_id")
+            self.assertIn(rid, intervals,
+                          f"{src['id']} 的 registry_id={rid} 不在 jobs_registry.yaml "
+                          f"(job 已删除就把它从 ALIGNED_SOURCES 一起删掉)")
+            self.assertIn("cadence_hours", src, f"{src['id']} 缺 cadence_hours")
+            self.assertEqual(float(src["cadence_hours"]), _expected_cadence(intervals[rid]),
+                             f"{src['id']} cadence_hours 与 registry interval "
+                             f"{intervals[rid]!r} 推导值不一致")
+            checked += 1
+        self.assertEqual(checked, len(tap.ALIGNED_SOURCES))
+        self.assertGreaterEqual(checked, 9, "防空转: 至少核对 9 个源")
+
+    def test_reverse_evidence_guard_can_fire(self):
+        """若某源改成周更, 推导值 168 ≠ 声明的 24 —— 上面的比对不是恒真式."""
+        self.assertNotEqual(_expected_cadence("30 9 * * 3"), 24.0)
+
+
+class TestFreshnessWindowAgainstSchedule(unittest.TestCase):
+    """用 registry 真实排程验证窗口两条性质 (V37.9.384 选 26h 而非 36h 的依据).
+
+    (a) 不误杀: 每个源正常运行时, 在 kb_dream / kb_radar / kb_evening 的任一读取
+        时刻, 最近一次写出的文件都在上限内。
+    (b) 不放过: 某源过去 24h 内的运行全部没写文件, 下一次 kb_dream 读取时必被跳过。
+    """
+
+    WRITE_DELAYS_MIN = (5, 60)  # job 启动到最后一次写文件的耗时区间
+
+    @classmethod
+    def setUpClass(cls):
+        cls.intervals = _registry_intervals()
+        cls.readers = {r: cls.intervals[r] for r in ("kb_dream", "kb_radar", "kb_evening")}
+
+    def _runs(self, cron, weeks=3):
+        base = _week_run_minutes(cron)
+        return [w * 7 * 1440 + r for w in range(weeks) for r in base]
+
+    def _reader_instants(self, cron):
+        return [7 * 1440 + r for r in _week_run_minutes(cron)]
+
+    def _fresh_age_hours(self, src_cron, reader_min, delay):
+        writes = [r + delay for r in self._runs(src_cron) if r + delay <= reader_min]
+        return (reader_min - writes[-1]) / 60.0
+
+    def _stale_age_hours(self, src_cron, reader_min, delay):
+        writes = [r + delay for r in self._runs(src_cron) if r < reader_min - 24 * 60]
+        return (reader_min - writes[-1]) / 60.0
+
+    def test_a_no_false_skip_at_any_reader(self):
+        worst = 0.0
+        for src in tap.ALIGNED_SOURCES:
+            cron = self.intervals[src["registry_id"]]
+            limit = tap.max_age_hours(src)
+            for rname, rcron in self.readers.items():
+                for t in self._reader_instants(rcron):
+                    for delay in self.WRITE_DELAYS_MIN:
+                        age = self._fresh_age_hours(cron, t, delay)
+                        worst = max(worst, age)
+                        self.assertLess(age, limit,
+                                        f"{src['id']} 在 {rname} 读取时健康文件 {age:.1f}h 被误判过期")
+        self.assertGreater(worst, 12.0, "防空转: 模拟必须覆盖到接近一天的健康文件")
+
+    def test_b_missed_day_caught_by_next_dream(self):
+        dream = self._reader_instants(self.readers["kb_dream"])
+        for src in tap.ALIGNED_SOURCES:
+            cron = self.intervals[src["registry_id"]]
+            limit = tap.max_age_hours(src)
+            for t in dream:
+                age = min(self._stale_age_hours(cron, t, d) for d in self.WRITE_DELAYS_MIN)
+                self.assertGreater(age, limit,
+                                   f"{src['id']} 漏跑一天后 kb_dream 读到 {age:.1f}h 的旧文件仍被计入")
+
+    def test_reverse_evidence_36h_window_would_miss(self):
+        """反向证据: 36h 窗口在 kb_dream 时刻放过 arxiv/HN 的漏跑日 —— (b) 守的是真性质."""
+        dream = self._reader_instants(self.readers["kb_dream"])
+        missed = []
+        for src in tap.ALIGNED_SOURCES:
+            cron = self.intervals[src["registry_id"]]
+            for t in dream:
+                age = min(self._stale_age_hours(cron, t, d) for d in self.WRITE_DELAYS_MIN)
+                if age <= 36.0:
+                    missed.append(src["id"])
+                    break
+        self.assertIn("arxiv", missed)
+        self.assertIn("hn", missed)
+
+
 if __name__ == "__main__":
     unittest.main()
