@@ -80,11 +80,6 @@
   ],
   "recent_changes": [
     {
-      "date": "2026-11-02",
-      "what": "V37.9.377 OpenClaw 2026.10.8 / 10.9 追加读数（eval doc 27.6）：三判据与 10-27 后记状态逐项相同 ❌🔴✅（① 10.8 DIRTY 2 / 10.9 hotfix 分支直判 DIRTY 2 计数仍 0；② 3.16 / 2.18 天 🔴 4 周窗 2.5/周；③ engines 逐字同 + Mac Mini 26.12.1 在区间），七个门控函数 10.7↔10.9 逐字同 + docs 对比 4 条 ★1 登记不入 + exports 零变化 + 桥接 2026.9.5 未变 → 无新默认自主行为 → 按日落规则追加不新开节、LAST_EVAL_DATE 保持 10-27；tripwire 43/50 剩 7 预计 11-23 触发；守卫 +TestAppendReading276 12（132→144）+ Sixteenth 三 pin 演进，sabotage 八连开火；VERSION 0.37.9.189 不变",
-      "by": "claude_code"
-    },
-    {
       "date": "2026-10-27",
       "what": "V37.9.376 WhatsApp 建连终止有界自动重启（用户决策 b）：parser 5 段 auto 字段 + wa_keepalive 告警轮 _wa_auto_restart 每 6h≤1/24h≤2 先记账后执行 + 结果进告警 + WA_AUTO_RESTART 开关；守卫 35 单测 sabotage 六连；VERSION 0.37.9.188→0.37.9.189",
       "by": "claude_code"
@@ -247,6 +242,11 @@
     {
       "date": "2026-11-09",
       "what": "V37.9.382: doubao_21_tokenhub 本平台看图实测 flip verified_vision（探针 C 纯红 PNG → 「红色」），cap_score 12→14，router text+prefer reasoning 重回生产主力（shadow，零运行时影响）；同时登记探针 A 关思考拒答（判定行漏看内容），交付扫描 + 复测两条命令待回传",
+      "by": "claude_code"
+    },
+    {
+      "date": "2026-11-09",
+      "what": "V37.9.382 后记: 关思考拒答生产定性——切换后 26 条逐条结果 + 16 个文件零拒答（probe 短题 2/9），判定为短指令型、真实批量提示未受影响；不改代码，触发条件登记",
       "by": "claude_code"
     }
   ],
@@ -441,7 +441,7 @@
         "added": "2026-11-09"
       },
       {
-        "item": "【🔴 新 · tokenhub 关思考拒答 · 待 Mac Mini 回传 · 2026-11-09】探针 A（批量形态 + thinking:disabled）2.1s 返回固定拒答文案「针对这个需求我无法为你提供相应帮助。你可以尝试提供其他话题…」，同一题不关思考（B）37.7s 正常回答。探针判定行只看了思考 token 没看内容，误报 ✅（原则 #36-1 在我自己的探针上违反）。单样本，未定性：可能是这段题目文字触发内容审核，也可能关思考下普遍更易拒答。批量任务（无 tools 请求）全部注入 thinking:disabled（B1），若后者成立则 10:59 切换后所有批量产出受影响。已交付两条 dev 验证过的命令：refusal_scan.py（扫 ~/.openclaw/jobs/*/cache/llm_results.jsonl + 当日 KB 产物里的拒答文案）+ refusal_probe.py（三类题目各关思考 ×3 + 不关思考对照 1 次，判定区分「仅原题」/「普通内容也被拒」/「不可判」）。回传前不改代码（原则 #28）。若普通内容也被拒：候选处置 = 去掉 tokenhub 的 reasoning_off_body（批量变慢，V37.9.220 超时风险）或 adapter 遇拒答文案时去掉 thinking 重试一次，用数据再选。旁证待查：finance_news 09-24 short_content:13 当时也是关思考批量请求（Ark 期）。",
+        "item": "【🟡 已定性 · 观察中 · tokenhub 关思考拒答 · 2026-11-09】探针 A（批量形态 + thinking:disabled）返回固定拒答「针对这个需求我无法为你提供相应帮助…」，判定行只看思考 token 误报 ✅（原则 #36-1）。用户 Mac Mini 两条复测：refusal_probe.py 关思考 ×9 = 原题 1/3、论文摘要 0/3、新闻 1/3（共 2/9），不关思考对照 1/1 正常但 77.6 秒；refusal_scan.py：10:55 切换后 26 条逐条结果（chaspark 5 / semantic_scholar 10 / github_trending 10 / ai_leaders_blogs 1）+ 16 个 KB/原始响应文件零拒答零过短零失败。这些任务只在 HTTP 错误/解析失败/空内容时重试，拒答是非空内容会被当成功记录 → 0/26 是真实首答。若生产拒答率同为 2/9，26 条全无拒答的概率约 0.15% → 拒答集中在探针这类短而无上下文的单句指令，真实批量提示目前未受影响。复测脚本判定行把「短题被拒」写成「批量任务受影响」= 又一次越过证据。不改代码，关思考维持（对照组 77.6s 是去掉它的代价）。🔴 触发条件：生产产物里一旦出现拒答文案（重跑 ~/refusal_scan.py 即可查，SCAN_SINCE 可改起点）→ 在 adapter 批量路径加「检出拒答文案即以同参数重试一次」，一处覆盖全部批量调用方；届时需同步考虑 per-item 任务会把拒答当成功推送这一面。",
         "added": "2026-11-09"
       }
     ],
