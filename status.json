@@ -1,6 +1,6 @@
 {
-  "updated": "2026-11-11 05:52:42",
-  "updated_by": "unknown",
+  "updated": "2026-11-11 06:04:30",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -311,7 +311,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-11-09 08:08:26",
+      "checked_at": "2026-11-11 05:55:05",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -472,7 +472,7 @@
   "quality": {
     "security_score": 98,
     "test_count": 6885,
-    "last_regression": "2026-11-09 08:16 pass",
+    "last_regression": "2026-11-11 06:04 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 208,
