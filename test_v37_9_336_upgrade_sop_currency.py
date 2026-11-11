@@ -1635,7 +1635,7 @@ class TestAppendReading277(unittest.TestCase):
         self.doc = _read()
         self.head = self.doc[:self.doc.index("## 一、版本概览")]
         self.sec27 = self.doc[self.doc.index("## 第二十七节"):]
-        self.s277 = _slice(self.sec27, "### 27.7", "\n---\n")
+        self.s277 = _slice(self.sec27, "### 27.7", "### 27.8")
         self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
         self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
         self.pre_check = _slice(self.sop, "### 7.2", "### 7.3")
@@ -1802,6 +1802,156 @@ class TestAppendReading277(unittest.TestCase):
         rc2, out2 = runner._run(self._shape_11_2(with_sqlite=True))
         self.assertEqual(2, rc2, out2)
         self.assertIn("VERDICT=DIRTY", out2)
+        self.assertNotIn("VERDICT=CLEAN", out2)
+
+
+class TestAppendReading278(unittest.TestCase):
+    """2026.11.3 追加读数（V37.9.385，2026-11-11）的落地守卫。
+
+    11.2 是第一个 CLEAN（计数 1/2），27.7 给下一个 stable 写了两个分支：再 CLEAN → 新开第二十八节；DIRTY → 归零。
+    11.3 两个都不是：34 PR 的 hotfix 规模版本，19.8 hotfix 分支三条件全满足、内容直判 0 命中 → N/A_HOTFIX，**不计入任一侧**。
+    这是最容易被误读成「第二个 CLEAN → 开窗」的形态，本类钉住：
+    追加段形态 / ① 记 N/A_HOTFIX 且计数仍 1/2（含禁误记）/ 结论不依赖分支 / 协议外更宽扫描如实披露 /
+    changelog 未写的默认值变化（输出上限 8192 → 32768）经 dist 核实、登记不入前置 C 但进 7.2 / 7.4 /
+    **MR-8 跨文件**：「我方行显式 8192」的依据在 docs/config.md 真存在 + adapter 原样透传 max_tokens + LAST_EVAL_DATE 不重置 + config.md 头行 /
+    **行为级**：7.2 新命令从文档抽出来对三种配置形状真跑；11.3 形态喂 19.8 协议必 rc=3 且绝不输出 CLEAN。
+    """
+
+    def setUp(self):
+        self.doc = _read()
+        self.head = self.doc[:self.doc.index("## 一、版本概览")]
+        self.sec27 = self.doc[self.doc.index("## 第二十七节"):]
+        self.s278 = _slice(self.sec27, "### 27.8", "\n---\n")
+        self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
+        self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
+        self.pre_check = _slice(self.sop, "### 7.2", "### 7.3")
+        self.verify = _slice(self.sop, "### 7.4", "### 7.5")
+        self.root = os.path.dirname(os.path.abspath(__file__))
+
+    def test_appended_not_new_section(self):
+        self.assertEqual(_latest_eval(self.doc), ("第二十七节", "十六", "2026-10-27"))
+        self.assertIn("### 27.7", self.sec27[:self.sec27.index("### 27.8")], "27.7 须仍在 27.8 之前（只追加不改写）")
+        self.assertNotIn("## 第二十八节", self.doc, "N/A_HOTFIX 不是第二个 CLEAN，不得新开开窗前评估节")
+        first = self.s278.splitlines()[0]
+        for kw in ("不新开节", "不重置 LAST_EVAL_DATE", "状态符号与 27.7 全同", "无新默认自主行为", "N/A_HOTFIX", "仍 1/2"):
+            self.assertIn(kw, first, f"27.8 标题须写明「{kw}」")
+        for kw in ("2026.11.3 追加读数", "27.8", "上游 latest **2026.11.3**", "11-11 读数 47/50", "11.3 为 hotfix 规模、不计入任一侧"):
+            self.assertIn(kw, self.head, f"头部须同步「{kw}」")
+        self.assertIn("下一次追加读数的位置为 27.9", self.s278)
+
+    def test_hotfix_reading_not_counted_on_either_side(self):
+        for kw in ("2.34 天", "🔴", "rc=3 不可判", "34 < 100", "**0 命中**", "N/A_HOTFIX，不计入连续干净计数", "连续干净计数仍 1/2",
+                   "结论不依赖分支是否适用", "2.5/周", "❌🔴✅", "LAST_EVAL_DATE 保持 2026-10-27", "No new configuration options or features"):
+            self.assertIn(kw, self.s278, f"27.8 缺「{kw}」")
+        for bad in ("11.3 CLEAN", "11.3 干净", "计数 2/2", "**2/2**", "由 1 变 2", "判据 ① 已满足", "① ✅", "② ✅", "③ ❌", "计数归零，", "11.3 DIRTY"):
+            self.assertNotIn(bad, self.s278, f"不得出现误记「{bad}」")
+
+    def test_wider_scan_disclosed_without_changing_verdict(self):
+        for kw in ("协议外更宽扫描", "#175678", "#181906", "不据此改判定", "弧线是否真收尾", "须在下一个读数到来之前由用户决定"):
+            self.assertIn(kw, self.s278, f"27.8 缺「{kw}」")
+
+    def test_output_cap_default_registered_not_in_prereq_c_but_in_72_74(self):
+        for kw in ("DEFAULT_MODEL_MAX_TOKENS", "resolveDefaultModelMaxTokens", "core/doctor/legacy-output-cap", "8192 → 32768",
+                   "changelog 未写", "显式写了的行不经过默认值", "登记不入前置 C", "Saved model output caps"):
+            self.assertIn(kw, self.s278, f"27.8 候选表缺「{kw}」")
+        for kw in ("maxTokens", "legacy-output-cap", "output cap"):
+            self.assertNotIn(kw, self.prereq, f"输出上限默认值不是自主行为，不得进前置 C（{kw}）")
+        self.assertEqual(self.prereq.count("- [ ]"), PREREQ_CHECKBOXES, "追加读数零新增前置项")
+        self.assertIn("保持 18 项", self.s278)
+        self.assertIn("providerMaxTokens", self.pre_check, "7.2 须加模型行输出上限只读命令")
+        for kw in ("core/doctor/legacy-output-cap", "不要按提示删掉 `maxTokens`", "原样透传", "首次启动前补上 8192"):
+            self.assertIn(kw, self.verify, f"7.4 缺「{kw}」")
+
+    def test_explicit_cap_claim_grounded_in_repo(self):
+        """MR-8 跨文件：「我方 qwen-local 行显式 maxTokens 8192」来自 docs/config.md 的 openclaw.json 记录；
+        「不要删值」的理由是 adapter 原样透传 max_tokens。两处任一改变，本读数的结论要复核。"""
+        with open(os.path.join(self.root, "docs", "config.md"), encoding="utf-8") as f:
+            cfg = f.read()
+        row = cfg[cfg.index('"qwen-local": {'):]
+        row = row[:row.index("}]")]
+        self.assertIn('"contextWindow": 131072', row)
+        self.assertIn('"maxTokens": 8192', row, "docs/config.md 应记录 qwen-local 模型行显式 maxTokens 8192")
+        with open(os.path.join(self.root, "adapter.py"), encoding="utf-8") as f:
+            src = f.read()
+        self.assertRegex(src, r'if "max_tokens" in body:\s*\n\s*clean\["max_tokens"\] = body\["max_tokens"\]')
+        # 27.8 写的「去掉的话默认值会是 32768」按 11.3 的公式对账
+        window = 131072
+        self.assertEqual(min(32768, max(min(8192, window), window // 2)), 32768)
+
+    def test_72_output_cap_command_runs_on_three_shapes(self):
+        blocks = [b for b in _bash_blocks(self.pre_check) if "providerMaxTokens" in b]
+        self.assertEqual(len(blocks), 1, "7.2 应恰有一个模型行输出上限只读命令块")
+        cmd = blocks[0].strip()
+        self.assertNotIn("\n#", "\n" + cmd, "命令块不得含注释行（原则 #35）")
+        runner = TestSameDayRunbook266("test_section_266_records_upstream_bridge_with_versions")
+        row = {"id": "Q", "contextWindow": 131072}
+        r1 = runner._run(cmd, runner._home_with({"models": {"providers": {"qwen-local": {"models": [dict(row, maxTokens=8192)]}}}}))
+        self.assertEqual(r1.returncode, 0, r1.stderr)
+        self.assertIn("provider: qwen-local providerMaxTokens: None | model: Q contextWindow: 131072 maxTokens: 8192", r1.stdout)
+        r2 = runner._run(cmd, runner._home_with({"models": {"providers": {"qwen-local": {"models": [row]}}}}))
+        self.assertEqual(r2.returncode, 0, r2.stderr)
+        self.assertIn("maxTokens: None", r2.stdout, "未设值的行必须显示出来（这正是升级后会变的那种行）")
+        r3 = runner._run(cmd, runner._home_with({"agents": {"list": []}}))
+        self.assertEqual(r3.returncode, 0, r3.stderr)
+        self.assertIn("providers: 0", r3.stdout, "没有 providers 块时也要有输出，不能空白")
+
+    def test_gates_and_prereq_b_and_upgrade_docs_rechecked(self):
+        for kw in ("resolveAgentToolSearchRuntimeConfig", "resolveFailureAlert", "hasFailureRepairOwner", "resolveNotifyOnExitEmptySuccess",
+                   "resolveAgentRoute", "assertSupportedRuntime", "allowBots", "relocateNonBehavioralRegion", "allowAcrossProviders",
+                   "+1 / −0", "352", "memory-core-host-transcript-stats", "前置 B 不变",
+                   "桥接版本未变（2026.9.5）", "spawnSync node ETIMEDOUT", "不改 7.x 两段配方", "手工包管理器路径", "★ 0"):
+            self.assertIn(kw, self.s278, f"27.8 缺「{kw}」")
+        prereq_d = [l for l in self.prereq.splitlines() if "前置 D" in l]
+        self.assertTrue(prereq_d and "2026.9.5" in prereq_d[0])
+
+    def test_protocol_table_row_and_holding_cost(self):
+        t = _slice(self.doc, "### 20.4", "### 20.5")
+        self.assertIn("| **2026.11.3**（2026-11-11 追加读数） | **20** | 10 | 24 | **30** | **34** |", t)
+        row = next(l for l in t.splitlines() if l.startswith("| **2026.11.3**"))
+        self.assertIn("N/A_HOTFIX，不计入任一侧", row)
+        self.assertNotIn("CLEAN", row, "11.3 行不得出现 CLEAN 字样（不可判 ≠ 干净）")
+        for kw in ("47/50", "主线 minor **47**", "维护线 14", "**64**", "11-23 更可能", "23.5", "不预先改机器", "142 天", "195 天",
+                   ">=2026.11.3", "15/180"):
+            self.assertIn(kw, self.s278, f"27.8 缺持有成本 / tripwire 要素「{kw}」")
+
+    def test_last_eval_date_and_config_head(self):
+        with open(os.path.join(self.root, "check_upgrade.sh"), encoding="utf-8") as f:
+            m = re.search(r'LAST_EVAL_DATE="\$\{OPENCLAW_LAST_EVAL_DATE:-(\d{4}-\d{2}-\d{2})\}"', f.read())
+        self.assertEqual(m.group(1), "2026-10-27", "追加读数不得重置 LAST_EVAL_DATE")
+        with open(os.path.join(self.root, "docs", "config.md"), encoding="utf-8") as f:
+            head4 = f.read().split("\n")[3]
+        for kw in ("2026.11.3 追加读数", "27.8", "N/A_HOTFIX", "仍 1/2", "47/50", "8192 → 32768"):
+            self.assertIn(kw, head4, f"docs/config.md 头行须同步「{kw}」")
+
+    @staticmethod
+    def _shape_11_3(with_sqlite=False):
+        """11.3 形态：粗体 bullet 20 条、行内引用 34 个唯一 PR；贡献记录 10 条归属行 + 24 条裸 PR 行。"""
+        refs = [f"#{176000 + i}" for i in range(34)]
+        hi = [f"- **Item {i}:** Keep plugin results scoped to their credentials. ({refs[i]})" for i in range(20)]
+        for i in range(14):
+            hi[i] = hi[i][:-1] + f", {refs[20 + i]})"
+        if with_sqlite:
+            hi[3] = "- **Storage:** Tolerate transient SQLite contention during session store writes. (#176003, #176023)"
+        authored = [f"- **PR #{176000 + i}** Authored by @steipete." for i in range(10)]
+        bare = [f"- **PR #{176010 + i}** Thanks @z." for i in range(24)]
+        return ("# Changelog\n\n## 0.0.0\n\n### Highlights\n\n" + "\n".join(hi) +
+                "\n\n### Changes\n\nNo new configuration options or features.\n\n"
+                "### Complete contribution record\n\nThis audited record covers 34 in-range PRs + 0 retained seed-only PRs = 34 unique PRs.\n\n"
+                "#### Pull requests\n\n" + "\n".join(authored) + "\n" + "\n".join(bare) + "\n")
+
+    def test_protocol_on_11_3_shape_is_not_decidable_and_never_clean(self):
+        """行为级：11.3 形态喂 19.8 协议 → rc=3，输出里没有 CLEAN——零迁移关键词的小版本不得被读成第二个干净 stable。
+        含关键词时同样 rc=3（不可判优先；内容直判由执行者按 hotfix 分支做）。"""
+        TestCriterion1ProtocolBehavior.setUpClass()
+        runner = TestCriterion1ProtocolBehavior("test_skeleton_is_not_decidable")
+        rc, out = runner._run(self._shape_11_3())
+        self.assertRegex(out, r"(?m)^semantic_entries=30 narrative=20 described_pr=10 bare_pr=24 inline_pr_refs=34$",
+                         "fixture 读数须与真实 11.3 一致")
+        self.assertEqual(3, rc, out)
+        self.assertIn("N/A_NO_CONTENT", out)
+        self.assertNotIn("VERDICT=CLEAN", out)
+        rc2, out2 = runner._run(self._shape_11_3(with_sqlite=True))
+        self.assertEqual(3, rc2, out2)
         self.assertNotIn("VERDICT=CLEAN", out2)
 
 

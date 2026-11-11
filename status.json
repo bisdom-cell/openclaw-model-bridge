@@ -1,6 +1,6 @@
 {
-  "updated": "2026-11-09 09:03:01",
-  "updated_by": "claude_code",
+  "updated": "2026-11-11 05:52:42",
+  "updated_by": "unknown",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-11-11",
+      "what": "V37.9.385: OpenClaw 2026.11.3 追加读数 27.8 — 34 PR hotfix 规模，19.8 hotfix 分支三条件全满足、内容直判 0 命中 → N/A_HOTFIX 不计入任一侧，① 连续干净计数仍 1/2；② 2.34 天 🔴；③ engines 同 ✅；门控函数 11.2↔11.3 逐字同；升级路径文档对比抓到 changelog 未写的默认值变化（未设 maxTokens 的模型行输出上限 8192 → 32768，我方行显式 8192 不生效，进 7.2 / 7.4 核对不入前置 C）；tripwire 47/50 剩 3；守卫 test_336 160→170 + 破坏验证八连；VERSION 不变",
+      "by": "claude_code"
+    },
     {
       "date": "2026-11-09",
       "what": "V37.9.384 Top 5 picker 新鲜度闸门：结果文件年龄 > cadence(registry cron 推导, 日更源 24h) + 2h 即整源跳过 + stderr WARN + 结果新增 stale_sources；dev 复现 51 天前 DBLP ⭐5 曾排第一；26h 按真实排程模拟（健康最老 20.9h / 漏跑一天 27 组合抓 25，36h 只抓 9）；Mac Mini 取证：9 源中 8 个健康文件 1.3–23.0h（< 26h，窗口成立），ai_leaders_x 停在 11-07 09:02 = 55h 陈旧（当前 0 条 ⭐≥4，今日未进 Top 5）；守卫 +20（102），破坏验证七连（首轮被 .pyc 复用骗过一次，清缓存重跑）；rebase 到 V37.9.383 之后 VERSION 0.37.9.193→0.37.9.194。顺带：recent_changes 按日期倒序归位（末尾手动追加的条目会被 status_update --add 先插头再截 20 条截掉）",
@@ -340,7 +345,7 @@
     }
   },
   "session_context": {
-    "last_session": "2026-11-05",
+    "last_session": "2026-11-11",
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -443,8 +448,8 @@
         "added": "2026-11-09"
       },
       {
-        "item": "【OpenClaw 27.7 跟踪点 · 2026-11-09】(a) 下一个 stable 发布时先跑 19.8 协议：**若再 CLEAN → 判据 ① 满足（2/2）= 状态变化 → 新开第二十八节做开窗前正式评估**（按 25.5 口径对 11.x 线从 10.9 起做默认自主行为全量核实，并把 27.7 (a)(ii) 登记的协议外 database/Doctor 面修复放进「弧线是否真收尾」判断）；DIRTY → 计数归零照常追加 27.8。(b) tripwire [2/6] 46/50 剩 4，预计 11-16 或 11-23 周一 09:10 触发 + Discord 告警 = 预注册事件非事故，按 23.5 三选一（调阈值 / 接受每周告警 / 借机正式评估）。(c) ③ 上游已放宽为推荐，Mac Mini 26.12.1 不动。(d) 开窗日 7.2 新增 WhatsApp groupPolicy 只读命令 + 7.4 Doctor groupAllowFrom 复制核对（预期不出现）。",
-        "added": "2026-11-09"
+        "item": "【OpenClaw 27.8 跟踪点 · 2026-11-11】11.3（11-10）= 34 PR hotfix 规模 → N/A_HOTFIX 不计入任一侧，判据 ① 连续干净计数仍 1/2（V37.9.385）。(a) 下一个 stable 先跑 19.8 协议：≥100 PR 且 CLEAN → ① 满足 = 状态变化 → 新开第二十八节做开窗前正式评估（对 11.x 线从 10.9 起做默认自主行为全量核实，并把 27.7 (a)(ii) 与 27.8 (a)(iii) 登记的协议外 update / 存储面修复放进「弧线是否真收尾」判断）；DIRTY → 归零追加 27.9；再来零命中 hotfix → 仍 N/A_HOTFIX。(b) 🔴 待用户决定（须在下一个读数到来前）：是否把「连续若干零命中 hotfix 合计 ≥100 PR」视作一个可判单元——不决定则按现规则，① 可能长时间停在 1/2。(c) tripwire [2/6] 47/50 剩 3，11-23 周一 09:10 更可能触发 = 预注册事件，按 23.5 三选一。(d) 开窗日新增：7.2 模型行输出上限只读命令 + 7.4 Doctor「Saved model output caps」核对（预期一条信息级提示，不要删 maxTokens）；可选现在就在 Mac Mini 跑 7.2 新命令确认 qwen-local 行实际带 maxTokens 8192。",
+        "added": "2026-11-11"
       },
       {
         "item": "【✅ 已闭环 V37.9.382 · 2026-11-09】router 赢家变 kimi_k3 的连带效应：Mac Mini 回传 ROUTER_ENFORCE=unset (cron env 未设, router 仅 shadow 记录, radar retry 自 07-01 未触发 = 零运行时影响) + tokenhub 看图探针 C 返回「红色」finish=stop → V37.9.382 flip verified_vision, cap_score 12→14, text+prefer reasoning 重回 doubao_21_tokenhub (24 > kimi_k3 23)；无 prefer 时与 qwen 并列 14, 稳定排序取 qwen。",
@@ -466,7 +471,7 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6875,
+    "test_count": 6885,
     "last_regression": "2026-11-09 08:16 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
@@ -538,7 +543,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-11-05: 论文 #1 IEEE Software 拒稿（11-04 三审：概念认可，证据设计被否）→ V37.9.378 交付三审分诊 + 59 例分母研究（人 86% / 运行时自动化 14% 首发现，provisional）+ 期刊底稿 v3（全部审稿点已应用）。🔴 待用户决策 D1–D5（重编码 CSV / arXiv v2 / EMSE vs JSS / 标题 / 独立重编码者），默认先 arXiv v2 + EMSE。OpenClaw hold 不变（27.6，tripwire 43/50 预计 11-23 触发按 23.5 处置）。被动验证: V37.9.376 自动重启首周 / V37.9.373 主线口径 / WAF 418 / DBLP [69] / V37.9.370-371。",
+  "focus": "2026-11-11: OpenClaw 11.3 读数 = N/A_HOTFIX（27.8），hold 不变，判据 ① 仍 1/2；🔴 待用户决定 hotfix 累计是否算可判单元。论文 #1 期刊改投仍待用户 D1–D5（默认 arXiv v2 + EMSE）。被动验证: V37.9.384 picker 闸门 / tokenhub 拒答与打分尺度观察 / tripwire 预计 11-23 触发按 23.5 处置。",
   "notes": "",
   "preferences": [
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",
