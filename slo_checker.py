@@ -23,6 +23,10 @@ import time
 from config_loader import load_config
 
 STATS_FILE = os.path.expanduser("~/proxy_stats.json")
+# V37.9.386: 降级告警的原因取自 adapter /health（周报 / 诊断 / 小时刷新 / 体检同一端点）
+ADAPTER_HEALTH_URL = os.environ.get(
+    "ADAPTER_HEALTH_URL", "http://localhost:5001/health")
+ADAPTER_HEALTH_TIMEOUT_SEC = 3
 STATUS_JSON = os.path.expanduser("~/.kb/status.json")
 
 
@@ -155,8 +159,71 @@ def judged_summary(results):
     return len(results) - len(na), len(na), [r["name"] for r in na]
 
 
-def format_alert(results):
+def read_adapter_health(url=None, timeout=None):
+    """读 adapter /health → dict; 读不到返回 None（调用方如实说「不可达」）。"""
+    try:
+        from urllib.request import urlopen
+        with urlopen(url or ADAPTER_HEALTH_URL,  # nosec B310 - 固定 localhost http
+                     timeout=timeout or ADAPTER_HEALTH_TIMEOUT_SEC) as resp:
+            data = json.loads(resp.read().decode("utf-8", "replace"))
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
+
+
+def degradation_evidence(stats, health):
+    """降级率违规时附带的证据片段（纯函数）: 流量去了哪 / 主力是谁、断路器状态 / 主力为什么失败。
+
+    V37.9.386 血案: 2026-10-28 → 11-09 主力 key 被停用 12 天, 告警每天只有一行
+    「degradation_rate: 90%」。百分比说明"有事", 不说明"什么事", 于是它被当成
+    又一条偶发指标告警。原因 (401) 从第一次失败起就在 adapter 里。
+
+    每一段都只说测到的东西: 字段缺失就明说缺失, 不补默认值（「跑不动 ≠ 没问题」）。
+    health 的 model 字段刻意不渲染（可能是接入点 ID, V37.9.365 同一约定）。
+
+    返回片段列表, format_alert 把它们接在违规行**同一行**后面: job_watchdog 把
+    --alert 输出按行拆成独立告警条目, 另起行会让一条违规被数成五条告警。
+    """
+    lines = []
+    slo = (stats or {}).get("slo", {}) or {}
+    by = slo.get("fallback_by_provider")
+    count = slo.get("fallback_count")
+    total = (stats or {}).get("total_requests")
+    if isinstance(by, dict) and by:
+        parts = ", ".join(
+            f"{k}×{v}" for k, v in sorted(by.items(), key=lambda kv: (-kv[1], kv[0])))
+        lines.append(f"去向 {parts}（今日 {count}/{total} 请求）")
+    elif count is not None:
+        lines.append(f"今日 {count}/{total} 请求降级（去向未记录）")
+
+    if not health:
+        lines.append("主力状态未知: adapter /health 不可达")
+        return lines
+
+    provider = health.get("provider", "?")
+    cb = health.get("circuit_breaker")
+    cb_txt = f"断路器 {cb}" if cb else "未配置 fallback 链"
+    lines.append(f"主力 {provider} {cb_txt}")
+
+    err = health.get("primary_last_error")
+    last_ok = health.get("primary_last_ok")
+    if isinstance(err, dict) and err.get("reason"):
+        lines.append(f"主力最近失败: {err.get('reason')}（{err.get('at', '?')}）")
+        if last_ok:
+            lines.append(f"最近成功 {last_ok}")
+        else:
+            lines.append("adapter 本次启动以来主力未成功过")
+    elif "primary_last_error" not in health and "primary_last_ok" not in health:
+        lines.append("主力失败原因未提供（adapter 旧版本，或启动后主力尚未被调用）")
+    else:
+        lines.append(f"主力本次启动以来无失败记录（最近成功 {last_ok}）")
+    return lines
+
+
+def format_alert(results, evidence=None):
     """格式化违规告警文本.
+
+    V37.9.386: evidence = {metric_name: [片段...]}, 接在对应违规行同一行后面。
 
     V37.9.28 F4: 直接读 v["direction"] (check_slo 写入), 不再用纠缠 if-else 推断.
     旧 bug: 3/5 metric 方向显示错 (latency_p95/tool_success/auto_recovery 颠倒).
@@ -171,7 +238,11 @@ def format_alert(results):
         # direction 由 check_slo 在每个 metric 创建时显式写入 ("<" 或 ">"),
         # 旧 fallback "<" 仅为了向后兼容: 如有旧代码路径未写 direction 字段, 不崩.
         direction = v.get("direction", "<")
-        lines.append(f"  🔴 {v['name']}: {v['value']}{v['unit']} (目标: {direction}{v['target']}{v['unit']})")
+        line = f"  🔴 {v['name']}: {v['value']}{v['unit']} (目标: {direction}{v['target']}{v['unit']})"
+        extra = [str(e).replace("\n", " ") for e in (evidence or {}).get(v["name"], [])]
+        if extra:
+            line += " — " + " | ".join(extra)
+        lines.append(line)
     return "\n".join(lines)
 
 
@@ -209,7 +280,12 @@ def main():
     }
 
     if "--alert" in sys.argv:
-        alert = format_alert(results)
+        # V37.9.386: 降级率违规 → 告警自带原因（只在违规时才读 /health, 平日零开销）
+        evidence = {}
+        if any(r["name"] == "degradation_rate" and not r["ok"] for r in results):
+            evidence["degradation_rate"] = degradation_evidence(
+                stats, read_adapter_health())
+        alert = format_alert(results, evidence)
         if alert:
             print(alert)
             return 2  # 退出码 2 表示有违规

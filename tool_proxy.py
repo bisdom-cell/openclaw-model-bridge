@@ -1347,7 +1347,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 # 放在 parse 块之前: 请求被 fallback 服务这一事实与后续 parse 成败无关。
                 _fb_provider = resp.headers.get("X-Adapter-Fallback", "")
                 if _fb_provider:
-                    proxy_stats.record_fallback()
+                    proxy_stats.record_fallback(_fb_provider)
                     log(f"[{rid}] DEGRADED: served via adapter fallback ({_fb_provider})")
 
                 if "/chat/completions" in self.path and resp_body:
@@ -1385,7 +1385,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                             bool(rj.pop("_proxy_followup_degraded", False))
                             if isinstance(rj, dict) else False)
                         if _followup_degraded:
-                            proxy_stats.record_fallback()
+                            proxy_stats.record_fallback("kb_followup")
                             log(f"[{rid}] DEGRADED: search_kb followup failed, "
                                 f"raw results served (excluded from conversation capture)")
 

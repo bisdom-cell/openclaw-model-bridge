@@ -357,7 +357,7 @@ class TestSourceGuards(unittest.TestCase):
     def test_tool_proxy_reads_header_and_records(self):
         src = _read("tool_proxy.py")
         self.assertIn('resp.headers.get("X-Adapter-Fallback"', src)
-        self.assertIn("proxy_stats.record_fallback()", src)
+        self.assertIn("proxy_stats.record_fallback(", src)
 
     def test_tool_proxy_wiring_position(self):
         """record_fallback 必须在 Backend log 之后、do_POST parse 块之前
@@ -366,7 +366,7 @@ class TestSourceGuards(unittest.TestCase):
         故用带偏移的顺序查找锚定 do_POST 内的真实顺序（找不到会 ValueError）。"""
         src = _read("tool_proxy.py")
         idx_backend = src.index("] Backend:")
-        idx_record = src.index("proxy_stats.record_fallback()", idx_backend)
+        idx_record = src.index("proxy_stats.record_fallback(", idx_backend)
         # record 之后必须还有 do_POST 的 parse（证明 record 在 parse 块之前）
         src.index("rj = json.loads(resp_body)", idx_record)
 

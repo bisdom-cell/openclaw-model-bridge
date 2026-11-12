@@ -182,7 +182,7 @@ class TestFollowupDegradedSentinel(unittest.TestCase):
                       "do_POST 必须消费并 pop 哨兵（防下传 Gateway）")
         m = re.search(r"_followup_degraded = \(.*?\n(.*?)# Log model decision", src, re.S)
         self.assertIsNotNone(m)
-        self.assertIn("proxy_stats.record_fallback()", m.group(0),
+        self.assertIn("proxy_stats.record_fallback(", m.group(0),
                       "降级必须进 SLO degradation_rate（V37.9.229 同款语义）")
 
     def test_degraded_dump_not_captured(self):
