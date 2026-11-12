@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import http.server, socketserver, json, ssl, sys, os, threading, time
+import re
 from datetime import datetime
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
@@ -414,6 +415,57 @@ class CircuitBreaker:
 
 _circuit_breaker = CircuitBreaker(_CB_THRESHOLD, _CB_RESET_SEC)
 
+# V37.9.386: 主力最近一次失败原因 / 成功时间, 经 /health 暴露。
+# 血案 (2026-10-28 → 11-09): 主力 key 被停用 12 天, 全流量走 fallback, 唯一可见信号是
+# SLO 告警里一行 "degradation_rate 90%" —— 只有百分比没有原因, 要上机 grep adapter.log
+# 才知道是 401。原因其实在第一次失败时就已知, 只是没有任何读者拿得到。
+# 刻意放在 CircuitBreaker 之外的模块级状态: 断路器 OPEN 期间主力不再被尝试, 这里保留的
+# 正是"让它打开的那个原因"; 且不改断路器接口 (测试里的替身不必跟着改)。
+# override 请求不记 (V37.9.273: 默认主力的健康状态不受 ?provider= 影响)。
+_PRIMARY_ERR_MAX = 120
+_PRIMARY_ERR_REDACT = re.compile(
+    r"(sk-[A-Za-z0-9_-]{6,}|ark-[A-Za-z0-9_-]{6,}|ep-[A-Za-z0-9_-]{6,}|Bearer\s+\S+)")
+_primary_last = {"error": "", "error_at": 0.0, "ok_at": 0.0}
+_primary_last_lock = threading.Lock()
+
+
+def _sanitize_primary_error(err):
+    """错误原因 → 可进告警的一行短文本 (去密钥形态 / 压空白 / 截断)。"""
+    text = " ".join(str(err).split())
+    text = _PRIMARY_ERR_REDACT.sub("[redacted]", text)
+    if len(text) > _PRIMARY_ERR_MAX:
+        text = text[:_PRIMARY_ERR_MAX] + "…"
+    return text or type(err).__name__
+
+
+def _note_primary_outcome(err=None):
+    """记录默认主力的一次真实尝试结果 (err=None 表示成功)。绝不抛异常。"""
+    try:
+        with _primary_last_lock:
+            if err is None:
+                _primary_last["ok_at"] = time.time()
+            else:
+                _primary_last["error"] = _sanitize_primary_error(err)
+                _primary_last["error_at"] = time.time()
+    except Exception:
+        pass
+
+
+def _primary_last_for_health():
+    """/health 的两个可选字段; 没发生过的那一半不出现 (不写哨兵值)。"""
+    out = {}
+    with _primary_last_lock:
+        snap = dict(_primary_last)
+    fmt = "%Y-%m-%d %H:%M:%S"
+    if snap["error_at"]:
+        out["primary_last_error"] = {
+            "reason": snap["error"],
+            "at": datetime.fromtimestamp(snap["error_at"]).strftime(fmt),
+        }
+    if snap["ok_at"]:
+        out["primary_last_ok"] = datetime.fromtimestamp(snap["ok_at"]).strftime(fmt)
+    return out
+
 ALLOWED_PARAMS = {
     "model", "messages", "max_tokens", "temperature", "top_p",
     "stream", "stop", "tools", "tool_choice", "n",
@@ -466,6 +518,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 info["fallback_chain"] = [fb["name"] for fb in FALLBACK_CHAIN]
                 info["fallback"] = FALLBACK_CHAIN[0]["name"]  # backward compat
                 info["circuit_breaker"] = _circuit_breaker.state()
+            # V37.9.386: 主力最近一次失败原因 / 成功时间 (slo_checker 降级告警读它)
+            info.update(_primary_last_for_health())
             if _HOT_RELOAD_ENABLED:
                 info["hot_reload"] = {
                     "enabled": True,
@@ -711,6 +765,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     log(f"{tag}RESPONSE: {status} ({len(resp_body)} bytes) {elapsed}ms")
                     if not is_override:  # V37.9.273: override 成功不重置默认 primary 断路器
                         _circuit_breaker.record_success()
+                        _note_primary_outcome()
                     # V37.9.231 (审计 finding E): 回写经 _deliver — 此前 _send_json 在本
                     # try 内, client 断开 (BrokenPipe) 被 except 当 backend 失败 →
                     # 健康 backend 被记 CB failure + 对死 socket 跑整条 fallback 链
@@ -723,6 +778,7 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                     log(f"{tag}PRIMARY FAILED ({elapsed}ms): {primary_err}")
                     if not is_override:  # V37.9.273: override 失败不误开默认 primary 断路器
                         _circuit_breaker.record_failure()
+                        _note_primary_outcome(primary_err)
 
             if not FALLBACK_CHAIN:
                 log(f"{tag}NO FALLBACK CHAIN configured, returning 502")

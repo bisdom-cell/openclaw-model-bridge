@@ -1302,6 +1302,7 @@ class ProxyStats:
         self.tool_calls_total = 0
         self.tool_calls_success = 0
         self.fallback_count = 0        # 降级次数
+        self.fallback_by_provider = {}  # V37.9.386: 降级去向 (provider → 次数)
         self._recovery_total = 0       # 连续错误后恢复的次数
         self._failure_streaks = 0      # 曾发生的连续错误事件数
 
@@ -1329,6 +1330,7 @@ class ProxyStats:
             self.tool_calls_total = 0
             self.tool_calls_success = 0
             self.fallback_count = 0
+            self.fallback_by_provider = {}
             self._recovery_total = 0
             self._failure_streaks = 0
             self._latencies.clear()
@@ -1438,8 +1440,12 @@ class ProxyStats:
             if success:
                 self.tool_calls_success += 1
 
-    def record_fallback(self):
+    def record_fallback(self, provider: str = ""):
         """记录一次降级（使用 fallback provider）。
+
+        V37.9.386: 可选 provider = 这次请求实际由谁服务（adapter 的
+        X-Adapter-Fallback 值）。按去向分开计数, SLO 降级告警据此说出
+        「流量去了哪」而不只是一个百分比。不传 → 记到 "unknown"（旧调用形态不崩）。
 
         V37.9.229 (审计 finding A): 由 tool_proxy 在读到 adapter 的
         X-Adapter-Fallback 响应 header 时调用（此前零生产调用 = 死代码,
@@ -1447,6 +1453,8 @@ class ProxyStats:
         """
         with self._lock:
             self.fallback_count += 1
+            key = str(provider or "unknown")[:40]
+            self.fallback_by_provider[key] = self.fallback_by_provider.get(key, 0) + 1
 
     def get_latency_percentiles(self) -> dict:
         """计算延迟百分位（调用方需持锁或在 _lock 内调用）。"""
@@ -1527,6 +1535,7 @@ class ProxyStats:
                     # (failure_streaks) 也从恒 0 变真值。
                     "tool_calls_success": self.tool_calls_success,
                     "fallback_count": self.fallback_count,
+                    "fallback_by_provider": dict(self.fallback_by_provider),
                     "recovery_total": self._recovery_total,
                     "failure_streaks": self._failure_streaks,
                 },
@@ -1567,6 +1576,7 @@ class ProxyStats:
                     # V37.9.229: 原始计数（与 _write_stats 同步, 见彼处注释）
                     "tool_calls_success": self.tool_calls_success,
                     "fallback_count": self.fallback_count,
+                    "fallback_by_provider": dict(self.fallback_by_provider),
                     "recovery_total": self._recovery_total,
                     "failure_streaks": self._failure_streaks,
                 },

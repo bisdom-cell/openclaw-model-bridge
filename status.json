@@ -1,6 +1,6 @@
 {
-  "updated": "2026-11-11 06:33:21",
-  "updated_by": "unknown",
+  "updated": "2026-11-12 01:38:07",
+  "updated_by": "security_score",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -79,6 +79,11 @@
     }
   ],
   "recent_changes": [
+    {
+      "date": "2026-11-12",
+      "what": "V37.9.386: SLO 降级率告警说出原因 — adapter /health 新增 primary_last_error / primary_last_ok，proxy 降级按去向计数 slo.fallback_by_provider，slo_checker 违规行同一行带上 去向 / 主力与断路器 / 主力最近失败原因（只在违规时读 /health，读不到如实说不可达）；守卫 32 单测 + 破坏验证九连；VERSION 0.37.9.194→0.37.9.195",
+      "by": "claude_code"
+    },
     {
       "date": "2026-11-11",
       "what": "V37.9.385: OpenClaw 2026.11.3 追加读数 27.8 — 34 PR hotfix 规模，19.8 hotfix 分支三条件全满足、内容直判 0 命中 → N/A_HOTFIX 不计入任一侧，① 连续干净计数仍 1/2；② 2.34 天 🔴；③ engines 同 ✅；门控函数 11.2↔11.3 逐字同；升级路径文档对比抓到 changelog 未写的默认值变化（未设 maxTokens 的模型行输出上限 8192 → 32768，我方行显式 8192 不生效，进 7.2 / 7.4 核对不入前置 C）；tripwire 47/50 剩 3；守卫 test_336 160→170 + 破坏验证八连；VERSION 不变",
@@ -173,96 +178,6 @@
       "date": "2026-10-07",
       "what": "V37.9.370 dev 镜像 10-03 装上 numpy/pdfplumber/bs4 后干净 main 三套件变红（305/kb_deep_dive/memory_plane）根治：local_embed 库路径只 raise 不 print+exit（aggregator --json FAIL-OPEN 契约在部分依赖缺失时第一次真成立，此前 rc=1 + stdout 污染=真生产代码 bug）+ kb_embed 预加载 ERROR: 行守卫 + memory_plane kb 层可导入≠可用镜像 mm 层查索引 meta + kb_deep_dive 测试 hermetic 化；新守卫 test_v37_9_370 14 单测 sabotage 四连开火；VERSION 0.37.9.184→0.37.9.185",
       "by": "claude_code"
-    },
-    {
-      "date": "2026-10-07",
-      "what": "V37.9.369 CLAUDE.md changelog 第四轮归档：内联 124→38 行（V37.9.325→240 共 86 行迁 docs/changelog.md，301→387 版，守恒 425），979KB→559KB；头注/尾指针/INDEX 边界同步四轮口径；归档前治理与 11 个引用测试只读预检；纯 doc VERSION 不变",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-10-06",
-      "what": "论文 #2 中文科普版知乎发布：https://zhuanlan.zhihu.com/p/2090772315231539352（用户发布）；README 发表物表 / CLAUDE 话语权行「知乎（待发布）」改为链接 + status unfinished (a) 闭环；知乎发表版 HTML/MD 为渲染产物不入库（结尾相对链接换成三篇已发表知乎文章与 GitHub 绝对链接），仓库原文不动；zh md 权限 0600→0644 归一",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-10-06",
-      "what": "论文 #2 arXiv 公告：submit/8180312 → 永久编号 arXiv:2610.05981（cs.SE 主分类，CC BY 4.0，20 页 4 图）。发布配套镜像 V37.9.154 先例同日落地：README Latest milestone/Highlights/发表物表 + CLAUDE 宪法级 #1 块/话语权表/文件表/V37.9.367 后记 + design doc 头部与 Stage 6 + data_inventory 终版归档段 + DECISIONS_NEEDED 闭环注 + ARXIV_SUBMISSION_GUIDE 4.7 完成注 + docs/INDEX + 中文科普版头尾链接 + draft.md「Published as」注记 + fail_plausible_bench 配套句；占位符清零；论文密码不入库。VERSION 0.37.9.184 不变（纯 doc）",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-10-05",
-      "what": "论文 #2 中文科普版 docs/articles/mechanizing_the_eye_zh.md（镜像 V37.9.155 先例）+ Chromium 无头渲染 A4 15 页 PDF 交付本窗口（PDF 不入库，.gitignore docs/articles/*.pdf）；README 发表物表 + INDEX 登记；冻结数字与 draft v1.1 一致",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-10-05",
-      "what": "论文 #2 v1.1 arXiv 提交完成 submit/8180312（submitted）；runbook 4.5 摘要压缩为 1,889 字符元数据版（字段上限 1,920 实录）+ 两处交接物缺陷登记（grep 字面量跨 LaTeX 换行 / 摘要未对字段上限，原则 #35 补充家族）+ .gitignore 补 latex/*.zip",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-10-05",
-      "what": "V37.9.367 后记: 用户 Mac Mini 跑 runbook 第 0 步 → on 期 56 行 / fired 0, 写进论文 P6; 六篇引用 Claude WebSearch 独立核对一致; runbook curl 改 -sL https (旧 http 版因跳转返回空); Table 5 版式修正 (首列 0.55cm + 行距 1.5pt) 重编译 20 页 0 警告. 待用户: 合并后同步 Mac Mini → 重新 zip main.tex → Overleaf → arXiv",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-10-05",
-      "what": "V37.9.368 OpenClaw 2026.9.8 到期读数: 三判据与第十四次逐项相同 (① hotfix 规模 stable 按 19.8 本日修订分支内容直判 DIRTY 2 计数仍 0 / ② 2.94 天 🔴 / ③ engines 六版逐字同) 且按 25.5 口径无新默认自主行为 (Tool Search 门控函数 9.7↔9.8 逐字节相同, discord allowBots 不变) → 日落规则首次走追加读数分支: eval doc 25.6 + 19.8 hotfix 修订 + 20.4 行, 不新开节、LAST_EVAL_DATE 保持 10-02, check_upgrade 零改动; tripwire [2/6] 45/50 剩 5. VERSION 不变",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-10-05",
-      "what": "V37.9.367 论文 #2 v1.1 刷新: Postscript 扩为冻结后八周记录 P1-P6 (原则#36 五纪律 / 观测面自身 fail-plausible 家族 / 反向形态与 327 条假成功笔记 / O11 / 注册窗现状) + §7 observer 自身事故台账对账 O1-O8→O1-O10 (窗内漏计 O9 V37.9.252/264, O10 V37.9.287, 正文披露) + 本地 texlive 真编译 20 页 0 error + runbook 新增第 0 步 (Mac Mini 核 fired 计数); 冻结窗数字零改动; VERSION 0.37.9.184 不变; 登记上游 2026.9.8 到期读数",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-10-02",
-      "what": "V37.9.366 OpenClaw 第十四次评估: 2026.9.7 判据 ❌🔴✅ 与上次相同, 但 Discord allowBots 默认翻转 (#157091, dist 代码级 + 我方推送主通道) 按日落规则新开第二十五节 → 继续 hold; 前置 C 14→15 (预防性) / 前置 B weixin removal-pending 子路径 / 7.4 max_tokens 核对; 预注册「新默认自主行为」判定口径; check_upgrade LAST_EVAL_DATE 10-02 + 注释块退役逐次摘要; 守卫 +14 (91) sabotage 八连开火; 两处字面量 pin 改动态/单常量. VERSION 0.37.9.184 不变",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-30",
-      "what": "V37.9.365 周报/诊断「模型」检查改测主力路由（adapter /health: 主力+fallback链+断路器），退役 Qwen3 远端比对（自 V37.9.222 起测的是 fallback 末位）；diagnose/cron_doctor 错误 launchd 标签收编 restart.sh；新守卫 test_v37_9_365 24 单测；VERSION 0.37.9.184",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-28",
-      "what": "V37.9.363 同日后记: 用户在 Mac Mini 完成垃圾笔记清理 (327 笔记 / 287 topics / 327 index, 14:53, 已备份), 与预测逐一吻合; 残留检查与次日复核命令在 dev 假知识库上验证后交付; unfinished 由待执行转为被动验证",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-28",
-      "what": "V37.9.363 kb_write.sh 调用契约: finance_news/chaspark 按 --title/--tags 选项+管道调用 kb_write.sh (它只收位置参数不读 stdin) → 正文丢弃, 每天写入 \"--title\" 垃圾笔记 + 垃圾 topics 文件 (生产累计 327+287); 修两个调用点为位置参数 + kb_write 遇 --选项 rc=2 不写入 + 守卫 16 单测 sabotage 三连; 顺带更正 V37.9.355 技术/机器人 自动标签说法 (kb_autotag 只在未传标签时运行, 生产定时任务全带标签). VERSION 0.37.9.182",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-25",
-      "what": "V37.9.361 finance_news 失败证据独立留存: 用户取证发现 llm_raw_last.json 已被次日成功运行覆盖 (09-24 的 13 字符永久不可知, 不做推测性修复) → 失败分支写 cache/llm_raw_failed.json (最近一次失败运行全部尝试, 成功不触碰, 含解码 content/finish_reason/usage); 守卫 +6 sabotage 双连开火; VERSION 0.37.9.180",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-24",
-      "what": "V37.9.360 OpenClaw 第十三次评估: 2026.9.6 触发, ② 🟡→🔴 (4.91 天, 4 周窗 2.0/周) 按日落规则新开第二十四节 → 继续 hold (❌🔴✅); Tool Search 默认开 dist 核实对我方自定义 provider 不触发但与上游文档不一致 → 前置 C 第 14 项预防性 tools.toolSearch:false; LAST_EVAL_DATE 09-24; 守卫 +9 (77) sabotage 三连开火; 20:30 告警 triage: finance short_content:13 x3 待 Mac Mini 读 llm_raw_last.json 定性",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-22",
-      "what": "V37.9.356 货代 L2「解析率」判据重定义：三层格式（📊/🏢/🚢 标记齐 + 正文非空）替代评级数/新闻数比值——Mac Mini 取证坐实 15 条新闻仅评 8 条的正确输出差 1 条即被判解析失败并丢弃整份报告；status 加 layers_ok、告警带诊断、preflight 文案演进、V37.9.31 pin 1:1 演进；守卫 17 单测 + sabotage 4 连；VERSION 0.37.9.177",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-22",
-      "what": "V37.9.355 后记: Mac Mini preflight 报 finance_news 缺执行位 (V37.9.352 文档刷新时 100755→100644 潜伏 13 天, cron bash -lc 不受影响) → git update-index --chmod=+x + test_check_registry +2 exec-bit 守卫前移 dev CI (sabotage 开火)",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-22",
-      "what": "V37.9.355 信息平台扩域: World Model + 具身机器人 两个跟踪领域接入既有 16 源平台 (零新 job): project_concepts +2 方向 weight 4 + 退役 generative_media 的 video generation 词 / kb_deep_dive +18 词封顶 9 / arxiv ti: 32→43 池 100 / S2+DBLP 16→18 / github_trending 换出 machine-learning+agentic 加 robotics+world-model / rss_blogs +DeepMind 官方博客 +IEEE Spectrum Robotics (dev EGRESS_BLOCKED 待 Mac Mini 首跑) / kb_autotag +技术/机器人; 守卫 28 单测 sabotage 八连开火; VERSION 0.37.9.176",
-      "by": "claude_code"
-    },
-    {
-      "date": "2026-09-06",
-      "what": "V37.9.350 后记: Mac Mini 合并 #927 同步 + preflight --full 87/0/2; check_upgrade.sh 仓库模式 100644→100755 (preflight 4/19 警告根因, cron 经 bash 调用不受影响); KB 覆盖 99% 由 03:30 kb_embed 自愈",
-      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -311,7 +226,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-11-11 05:55:05",
+      "checked_at": "2026-11-12 01:28:20",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -345,7 +260,7 @@
     }
   },
   "session_context": {
-    "last_session": "2026-11-11",
+    "last_session": "2026-11-12",
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -462,23 +377,27 @@
       {
         "item": "【🟡 V37.9.384 已合并 PR #973 · Top 5 picker 新鲜度闸门 · 2026-11-09 · 剩被动观察】接 V37.9.383 登记的 finding。Mac Mini 取证（16:00 前后）：hf 6.0h / s2 4.6h / arxiv 8.0h / github 2.0h / rss 22.0h / blogs 2.5h / bsky 23.0h / hn 1.3h 均 < 26h，ai_leaders_x 55h（11-07 09:02 后两次 09:00 运行都未重写）= 陈旧类问题在线上真实存在；DBLP 已删出 picker 无法再回溯其产物出现次数。同一份取证里 9 源 41 条结果 ⭐≥4 为 0、Top 5 为空（no picks）；对齐诊断已定性：41 条全部带 🎚️ 且解析正常，星数全在 1–3 = 当日真实低对齐非解析失败。待观察：10:55 切到 doubao_21_tokenhub 后各源多为 1–2 星（切换前 arxiv {2:5,3:5}），连续几天 ⭐≥4 都为 0 再评估新主模型打分尺度是否偏严。合并同步后 Mac Mini 实测 stale_sources = [ai_leaders_x 56.0h > 26.0h]，闸门生效。剩余被动观察：次日 22:00 kb_evening.log 出现「结果文件 …h 未更新 … 不计入 Top 5」行；ai_leaders_x 为何连续两次 09:00 未重写结果文件（0 条新推文提前退出，属已知 429 形态）不在本项处理。",
         "added": "2026-11-09"
+      },
+      {
+        "item": "【V37.9.386 Mac Mini 待用户 · SLO 降级告警自证原因】合并 + git fetch+reset 同步后 restart.sh（adapter.py / proxy_filters.py / tool_proxy.py / slo_checker.py 走 FILE_MAP，adapter 与 proxy 须重启才加载）。验证: (a) PA 或任一批量任务跑过一次后 `curl -s localhost:5001/health` 出现 primary_last_ok (b) ~/proxy_stats.json 的 slo 段出现 fallback_by_provider (c) 被动: 下次 degradation_rate 违规时 watchdog 告警那一行带「去向 … | 主力 … 断路器 … | 主力最近失败: …」，首次出现时把告警正文发我对账。已知边界: adapter 重启后原因清空直到主力下一次被真实尝试。",
+        "added": "2026-11-12"
       }
     ],
     "open_prs": [],
     "blocked_on": "",
-    "focus": "V37.9.381 主力切 doubao_21_tokenhub 已上线；待回传 tokenhub 看图探针与 router enforce 状态，候选 V37.9.382 让 SLO 降级告警自证原因",
+    "focus": "V37.9.386 SLO 降级率告警自证原因已交付，待合并与 Mac Mini 重启验证",
     "recent_changes": []
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6885,
-    "last_regression": "2026-11-11 06:04 pass",
+    "test_count": 6917,
+    "last_regression": "2026-11-12 01:37 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
-    "test_suites": 208,
+    "test_suites": 209,
     "governance_invariants": "91/91",
     "governance_checks": "746/760",
-    "version": "0.37.9.194",
+    "version": "0.37.9.195",
     "observer": {}
   },
   "incidents": [
@@ -543,7 +462,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-11-11: OpenClaw 11.3 读数 = N/A_HOTFIX（27.8），hold 不变，判据 ① 仍 1/2；🔴 待用户决定 hotfix 累计是否算可判单元。论文 #1 期刊改投仍待用户 D1–D5（默认 arXiv v2 + EMSE）。被动验证: V37.9.384 picker 闸门 / tokenhub 拒答与打分尺度观察 / tripwire 预计 11-23 触发按 23.5 处置。",
+  "focus": "2026-11-12: V37.9.386 SLO 降级率告警自证原因已交付（待合并 + Mac Mini 重启 adapter/proxy）。OpenClaw 无新 stable，hold 不变，判据 ① 仍 1/2；🔴 待用户决定 hotfix 累计是否算可判单元。论文 #1 期刊改投仍待 D1–D5。tripwire 预计 11-23 触发按 23.5 处置。",
   "notes": "",
   "preferences": [
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",
