@@ -18,8 +18,10 @@
 反向验证 (机器化): TestDocHeaderReverseValidation 破坏真 doc 摘要行 → 断言修回.
 """
 
+import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -236,10 +238,54 @@ class TestCheckModeRealRepo(unittest.TestCase):
         self.assertIn("无漂移", r.stdout)
 
     def test_write_is_idempotent(self):
-        # --write 在已同步仓库上应报"已是最新", exit 0
-        r = subprocess.run([sys.executable, _SCRIPT, "--write"],
-                           capture_output=True, text=True, timeout=60)
-        self.assertEqual(r.returncode, 0)
+        # V37.9.387: --write 只在临时副本上跑, 绝不改真仓库。此前本测试对真仓库执行 --write:
+        # 徽章过期时 (CLAUDE.md 版本头先于徽章更新 = 每个版本都会发生) 它在 full_regression
+        # 中途改写 README / FEATURES / config.md → 工作树变脏 → 混沌审计层按「不干净」跳过。
+        # 副本上先人为制造漂移, 第一次 --write 必须真改, 第二次必须报「已是最新」= 幂等。
+        managed = ["README.md", "docs/FEATURES.md", "docs/config.md",
+                   "docs/ontology_engine_packaging.md"]
+
+        def _snapshot():
+            out = {}
+            for rel in managed:
+                with open(os.path.join(_REPO, rel), "rb") as f:
+                    out[rel] = f.read()
+            return out
+
+        before = _snapshot()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = os.path.join(tmp, "repo")
+            shutil.copytree(_REPO, root, ignore=shutil.ignore_patterns(
+                ".git", "__pycache__", "node_modules", "*.pyc"))
+            status_path = os.path.join(root, "status.json")
+            with open(status_path, encoding="utf-8") as f:
+                status = json.load(f)
+            status["quality"]["test_count"] = int(status["quality"]["test_count"]) + 1
+            with open(status_path, "w", encoding="utf-8") as f:
+                json.dump(status, f, ensure_ascii=False)
+
+            def _write():
+                return subprocess.run(
+                    [sys.executable, _SCRIPT, "--write", "--repo-root", root],
+                    capture_output=True, text=True, timeout=60)
+
+            r1 = _write()
+            self.assertEqual(r1.returncode, 0, r1.stderr)
+            self.assertIn("已同步", r1.stdout, "副本上有漂移, 第一次 --write 必须真写")
+            r2 = _write()
+            self.assertEqual(r2.returncode, 0, r2.stderr)
+            self.assertIn("已是最新", r2.stdout, "第二次 --write 必须无改动 (幂等)")
+        self.assertEqual(_snapshot(), before, "--write 测试不得改动真仓库文件")
+
+    def test_no_test_writes_real_repo(self):
+        # 源码守卫: 本文件里任何 --write 调用都必须带 --repo-root (指向临时副本)。
+        with open(os.path.abspath(__file__), encoding="utf-8") as f:
+            src = f.read()
+        calls = re.findall(r"subprocess\.run\(\s*\[(.*?)\]", src, flags=re.S)
+        writes = [c for c in calls if '"--write"' in c]
+        self.assertTrue(writes, "应至少有一处 --write 调用 (防空转)")
+        for c in writes:
+            self.assertIn('"--repo-root"', c, "--write 必须带 --repo-root, 不得对真仓库执行")
 
 
 class TestDriftDetection(unittest.TestCase):
