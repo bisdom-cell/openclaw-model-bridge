@@ -1,6 +1,6 @@
 {
-  "updated": "2026-11-12 01:38:07",
-  "updated_by": "security_score",
+  "updated": "2026-11-19 01:16:58",
+  "updated_by": "full_regression",
   "priorities": [
     {
       "task": "【宪法·研究攻关 #1】机械化人眼 — LLM-Observer（凌驾功能添加,服务'世界顶级大模型系统专家'初始目标）",
@@ -178,6 +178,11 @@
       "date": "2026-10-07",
       "what": "V37.9.370 dev 镜像 10-03 装上 numpy/pdfplumber/bs4 后干净 main 三套件变红（305/kb_deep_dive/memory_plane）根治：local_embed 库路径只 raise 不 print+exit（aggregator --json FAIL-OPEN 契约在部分依赖缺失时第一次真成立，此前 rc=1 + stdout 污染=真生产代码 bug）+ kb_embed 预加载 ERROR: 行守卫 + memory_plane kb 层可导入≠可用镜像 mm 层查索引 meta + kb_deep_dive 测试 hermetic 化；新守卫 test_v37_9_370 14 单测 sabotage 四连开火；VERSION 0.37.9.184→0.37.9.185",
       "by": "claude_code"
+    },
+    {
+      "date": "2026-11-19",
+      "what": "V37.9.387 OpenClaw 第十七次升级评估：11.4 DIRTY 2 / 11.5 DIRTY 3，连续干净计数 1→0；11.5 dist 实证 heartbeat 机制退役为默认启用的自动化任务 → eval doc 新开第二十八节，前置 C 第 3、6 项原位改写，7.2/7.4 加核对命令，LAST_EVAL_DATE=2026-11-19；守卫 170→182，破坏验证七连开火；两段 Doctor 串联未实跑（下载 Node 被权限策略拒绝）登记为开窗前必做。继续 hold。",
+      "by": "claude_code"
     }
   ],
   "feedback": [
@@ -226,7 +231,7 @@
     "security_score": "98/100 (98.0%)",
     "text_index": "15011 chunks, 277/282 files (98%), 277 stale, 9h ago, 22516KB",
     "slo": {
-      "checked_at": "2026-11-12 01:28:20",
+      "checked_at": "2026-11-19 01:09:13",
       "all_ok": true,
       "judged_count": 1,
       "na_count": 4,
@@ -260,7 +265,7 @@
     }
   },
   "session_context": {
-    "last_session": "2026-11-12",
+    "last_session": "2026-11-19",
     "unfinished": [
       "【2026-07-02 多镜头审计 · 9 findings 全部处置完毕 (V37.9.226-239: 8 修复闭环 + I half-open 登记为可接受设计 tradeoff) · 剩纯 Mac Mini 被动验证】同步+重启 proxy/adapter 后观察: (A) 真 fallback 时 proxy 日志 DEGRADED 行 + proxy_stats.json slo.fallback_count 变真值 (V37.9.229) (C) ls ~/.kb/status.json.lock ~/.kb/audit.jsonl.lock 伴生锁文件出现 (V37.9.238) (E) client 断开时 adapter.log 记 CLIENT GONE 单行非 traceback (V37.9.231/242) (B) streaming 请求撞 parse 异常时 Gateway 收 SSE 而非 content-type 错配 (V37.9.239) (G) last_run_self_critique.json time 本地格式 + watchdog 4h 覆盖 observer (V37.9.230)。完整分诊记录见 CLAUDE.md V37.9.226-239 changelog, 无 dev 剩余动作。",
       "【V37.9.211/212 Qwen3 端点刷新 · adapter ✅ + V37.9.212 ✅ 已并入 main(PR#774, 2026-07-02 dev 核实) · 剩用户 env 动作】剩余非紧急: (A) .env_shared 设新 REMOTE_API_KEY+REMOTE_BASE_URL(cron 直连脚本 health_check 每周报 CURRENT_MODEL/diagnose 用) (C) 🔴 明文 key 建议用完轮换。教训钉死: adapter/proxy 是 launchd job, env 改必须进 plist EnvironmentVariables + bootout/bootstrap(不是 shell export + kickstart)。",
@@ -363,7 +368,7 @@
         "added": "2026-11-09"
       },
       {
-        "item": "【OpenClaw 27.8 跟踪点 · 2026-11-11】11.3（11-10）= 34 PR hotfix 规模 → N/A_HOTFIX 不计入任一侧，判据 ① 连续干净计数仍 1/2（V37.9.385）。(a) 下一个 stable 先跑 19.8 协议：≥100 PR 且 CLEAN → ① 满足 = 状态变化 → 新开第二十八节做开窗前正式评估（对 11.x 线从 10.9 起做默认自主行为全量核实，并把 27.7 (a)(ii) 与 27.8 (a)(iii) 登记的协议外 update / 存储面修复放进「弧线是否真收尾」判断）；DIRTY → 归零追加 27.9；再来零命中 hotfix → 仍 N/A_HOTFIX。(b) 🔴 待用户决定（须在下一个读数到来前）：是否把「连续若干零命中 hotfix 合计 ≥100 PR」视作一个可判单元——不决定则按现规则，① 可能长时间停在 1/2。(c) tripwire [2/6] 47/50 剩 3，11-23 周一 09:10 更可能触发 = 预注册事件，按 23.5 三选一。(d) 开窗日新增：7.2 模型行输出上限只读命令 + 7.4 Doctor「Saved model output caps」核对（预期一条信息级提示，不要删 maxTokens）；Mac Mini 已于 11-11 实测 qwen-local 行显式 maxTokens 8192（与仓库记录一致）。",
+        "item": "【✅ 27.8 跟踪点已由第十七次评估接续 · 2026-11-19 V37.9.387】11.4 / 11.5 均 DIRTY，连续干净计数 1 → 0；(b) hotfix 可判单元问题在读数到来前未决定，本次按现规则执行，计数归零后暂无对象（保留为开放项）；(c) tripwire 见下一条；(d) 7.2 / 7.4 模型输出上限核对保留。接续项见【OpenClaw 第十七次评估跟踪】。",
         "added": "2026-11-11"
       },
       {
@@ -381,6 +386,10 @@
       {
         "item": "【V37.9.386 Mac Mini 待用户 · SLO 降级告警自证原因】合并 + git fetch+reset 同步后 restart.sh（adapter.py / proxy_filters.py / tool_proxy.py / slo_checker.py 走 FILE_MAP，adapter 与 proxy 须重启才加载）。验证: (a) PA 或任一批量任务跑过一次后 `curl -s localhost:5001/health` 出现 primary_last_ok (b) ~/proxy_stats.json 的 slo 段出现 fallback_by_provider (c) 被动: 下次 degradation_rate 违规时 watchdog 告警那一行带「去向 … | 主力 … 断路器 … | 主力最近失败: …」，首次出现时把告警正文发我对账。已知边界: adapter 重启后原因清空直到主力下一次被真实尝试。",
         "added": "2026-11-12"
+      },
+      {
+        "item": "【OpenClaw 第十七次评估跟踪 · 2026-11-19 · eval doc 第二十八节】继续 hold（❌🔴✅，连续干净计数 0/2）。(a) 🔴 待用户决定：是否允许在隔离目录下载官方 Node（≥24.16）实跑 9.5 / 9.7 → 11.5 两段真 Doctor——本次该下载被会话权限策略拒绝、未绕过；要回答四个问题：桥接后 agents.defaults.heartbeat 的形状与目标版本是否接受 / 是否真建出启用的「Proactive check (research)」任务及投递目标 / every 0m 是否让任务停用 / 嵌套 workspace-state.json 在 9.5 与 9.7 下如何处理（决定桥接版本）。开窗前必做，现在做可提前定档。(b) Mac Mini 可选：跑 7.2 新增的 heartbeat 只读命令，回传 defaults.heartbeat / HEARTBEAT.md 大小 / nested workspace-state 三行。(c) tripwire [2/6] 49/50 剩 1：下一个主线 stable 之后的周一 09:10 触发 = 预注册事件，按 23.5 在「调阈值 / 接受每周告警」间选（10-20 已选过改口径）。(d) 下一个 stable：19.8 协议 + 间隔 + engines；dist 对照用标识符归一化（11.5 起逐字比较不可用）；三项全同且无新默认自主行为 → 追加 28.6。(e) 升级后可退役项登记：HEARTBEAT.md 拦截与 INV-HB-001（11.5 运行时不再读该文件），升级前仍必需。",
+        "added": "2026-11-19"
       }
     ],
     "open_prs": [],
@@ -390,8 +399,8 @@
   },
   "quality": {
     "security_score": 98,
-    "test_count": 6917,
-    "last_regression": "2026-11-12 01:37 pass",
+    "test_count": 6929,
+    "last_regression": "2026-11-19 01:16 pass",
     "coverage_pct": 0,
     "security_score_time": "2026-07-20 01:07",
     "test_suites": 209,
@@ -462,7 +471,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-11-12: V37.9.386 SLO 降级率告警自证原因已交付（待合并 + Mac Mini 重启 adapter/proxy）。OpenClaw 无新 stable，hold 不变，判据 ① 仍 1/2；🔴 待用户决定 hotfix 累计是否算可判单元。论文 #1 期刊改投仍待 D1–D5。tripwire 预计 11-23 触发按 23.5 处置。",
+  "focus": "2026-11-19: V37.9.387 OpenClaw 第十七次评估已交付（11.4 / 11.5 均 DIRTY，连续干净计数 1 → 0；11.5 heartbeat 机制退役为默认启用的自动化任务 → 新开 eval doc 第二十八节，继续 hold）。待用户决定：是否允许在沙箱下载 Node 实跑两段 Doctor（开窗前必做，现在做可提前定档）。tripwire [2/6] 49/50，下一个主线 stable 后的周一触发，按 23.5 处置。论文 #1 期刊改投仍待 D1–D5。",
   "notes": "",
   "preferences": [
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",
