@@ -2258,6 +2258,21 @@ class TestSeventeenthEvaluationPresent(unittest.TestCase):
                    "桥接后 `agents.defaults.heartbeat` 的实际形状", "9.5 与 9.7"):
             self.assertIn(kw, s285, f"28.5 缺「{kw}」")
 
+    def test_hold_cadence_rule_recorded_v388(self):
+        """V37.9.388 用户决策：hold 期间新 stable 只做机械读数，完整评估只在触发条件出现时做。"""
+        tail = self.sec28[self.sec28.index("**LAST_EVAL_DATE 更新至 2026-11-19。**"):]
+        for kw in ("用户决策", "只做机械读数", "19.8", "engines.node", "不新开评估节、不重置 LAST_EVAL_DATE",
+                   "弃用或停止支持", "安全漏洞", "重启无效", "业务需求", "连续 2 个 CLEAN", "满 180 天",
+                   "调阈值", "接受每周告警"):
+            self.assertIn(kw, tail, f"节奏规则缺「{kw}」")
+        # 规则的代价必须写明：前置 C 停在 11.5，开窗前须补全跨度并实跑
+        for kw in ("11.5 到目标版本的全部跨度", "沙箱实跑两段 Doctor", "不得被当作完整清单使用"):
+            self.assertIn(kw, tail, f"节奏规则须写明代价「{kw}」")
+        self.assertNotIn("### 28.6", tail, "节奏规则是后记，不是读数")
+        with open(DOC, encoding="utf-8") as f:
+            head = "\n".join(f.read().splitlines()[:40])
+        self.assertIn("只做机械读数", head, "文档头当前态须指向节奏规则")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
