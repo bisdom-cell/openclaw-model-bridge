@@ -365,6 +365,20 @@ _EVAL_HEADING = re.compile(
     r"^## (第[一二三四五六七八九十]+节)：第([一二三四五六七八九十]+)次评估（(\d{4}-\d{2}-\d{2})", re.M)
 
 
+def _all_evals(doc):
+    return [(m.group(1), m.group(2), m.group(3)) for m in _EVAL_HEADING.finditer(doc)]
+
+
+def _assert_append_stays_inside_sec27(tc, doc, marker):
+    """V37.9.388 演进（V37.9.131 alternation）：原断言「全文不得出现第二十八节」是各次追加读数当时的状态。
+    2026-11-19 第十七次评估因 11.5 的默认自主行为变化按日落规则新开了第二十八节；意图（追加读数自己不得伪造成新评估节）
+    改为断言：该追加段位于第二十七节内部（在第二十八节之前），且第二十八节是日期更晚的正式评估而不是这次追加。"""
+    tc.assertIn(("第二十七节", "十六", "2026-10-27"), _all_evals(doc))
+    i28 = doc.index("## 第二十八节")
+    tc.assertLess(doc.index(marker), i28, f"{marker} 须位于第二十七节内部")
+    tc.assertIn("第十七次评估（2026-11-19", doc[i28:i28 + 60], "第二十八节须是日期更晚的正式评估")
+
+
 def _latest_eval(doc):
     """从 doc 标题派生最新评估节（token, 序数, 日期）——V37.9.350 起不再逐次改字面量 pin。"""
     ms = list(_EVAL_HEADING.finditer(doc))
@@ -1217,7 +1231,7 @@ class TestFifteenthEvaluationPresent(unittest.TestCase):
     def test_pre_check_commands_run_and_show_conclusion(self):
         """7.2 的两条只读命令从文档抽出来真跑（原则 #35 补充：交出去的验证命令要先证明能显出结论）。"""
         # V37.9.380 起 7.2 另有一条读 openclaw.json 的 WhatsApp groupPolicy 命令（27.7），按内容选 agents / cron 两条（pin 1:1 演进）
-        blocks = [b for b in _bash_blocks(self.pre_check) if ("openclaw.json" in b and "agents" in b) or "cron/jobs.json" in b]
+        blocks = [b for b in _bash_blocks(self.pre_check) if ("openclaw.json" in b and "bindings" in b) or "cron/jobs.json" in b]  # V37.9.388: 7.2 新增 heartbeat 读数命令也含 agents，改按 bindings 选（意图不变）
         self.assertEqual(len(blocks), 2, "7.2 须有 agents/bindings 与 cron 任务两条命令")
         for b in blocks:
             compile(_python_c_code(b), "<7.2>", "exec")
@@ -1342,21 +1356,21 @@ class TestSixteenthEvaluationPresent(unittest.TestCase):
         self.head = self.doc[:self.doc.index("## 一、版本概览")]
         # V37.9.377 演进（镜像 V37.9.366 / V37.9.373 切片收紧）：原切到文末；27.6 追加读数加入后切到 "### 27.6"，
         # 第十六次评估自身（27.1–27.5 + 同日后记）的覆盖范围不变，误记黑名单不扫到追加读数（它如实记 ③ ✅）。
-        tail = self.doc[self.doc.index("## 第二十七节"):]
+        tail = _slice(self.doc, "## 第二十七节", "## 第二十八节")  # V37.9.388: 第二十八节出现后收紧到下一节
         self.sec27 = tail[:tail.index("### 27.6")] if "### 27.6" in tail else tail
         self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
         self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
 
     def test_section27_is_latest_with_all_subsections(self):
-        self.assertEqual(_latest_eval(self.doc), ("第二十七节", "十六", "2026-10-27"))
+        self.assertIn(("第二十七节", "十六", "2026-10-27"), _all_evals(self.doc))  # V37.9.388: 最新节已是第二十八节，改成员断言
         for sub in ("### 27.1", "### 27.2", "### 27.3", "### 27.4", "### 27.5"):
             self.assertIn(sub, self.sec27, f"第二十七节缺 {sub}")
         # V37.9.377 演进（V37.9.131 alternation）：原断言「27.6 不得预先出现」是第十六次评估当时的状态；
         # 2026-11-02 的 10.8 / 10.9 读数按日落规则追加 27.6 后，改为断言它只能以追加段形态存在于第二十七节内部，
         # 且不得伪造第二十八节。意图（27.6 只能由下一次读数产生）不变。
-        tail = self.doc[self.doc.index("## 第二十七节"):]
+        tail = _slice(self.doc, "## 第二十七节", "## 第二十八节")
         self.assertIn("### 27.6", tail, "27.6 追加读数须位于第二十七节内部")
-        self.assertNotIn("## 第二十八节", self.doc, "追加读数不得伪造成新评估节")
+        _assert_append_stays_inside_sec27(self, self.doc, "### 27.6")
         self.assertIn("十六次评估", self.head)
         # V37.9.377 演进：原 pin「头部当前态须记上游 latest 2026.10.7」是第十六次评估当时的状态；10.8 / 10.9 追加读数后
         # 当前态的 latest 由 TestAppendReading276 钉 2026.10.9，本类改为钉第十六次评估的对象 10.6 / 10.7 仍在头部（意图：头部记录本次评估对象，不变）。
@@ -1484,16 +1498,15 @@ class TestAppendReading276(unittest.TestCase):
     def setUp(self):
         self.doc = _read()
         self.head = self.doc[:self.doc.index("## 一、版本概览")]
-        self.sec27 = self.doc[self.doc.index("## 第二十七节"):]
+        self.sec27 = _slice(self.doc, "## 第二十七节", "## 第二十八节")  # V37.9.388: 收紧到下一节
         self.s276 = _slice(self.sec27, "### 27.6", "### 27.7")  # V37.9.380 起收紧到下一追加段（镜像 V37.9.375 sec26）
         self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
         self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
 
     def test_appended_not_new_section(self):
         """三项判据全同 + 无新默认自主行为 → 追加读数：最新评估节仍是第二十七节（2026-10-27），不得出现第二十八节。"""
-        self.assertEqual(_latest_eval(self.doc), ("第二十七节", "十六", "2026-10-27"))
         self.assertIn("### 27.6", self.sec27, "27.6 必须位于第二十七节内部（追加段）")
-        self.assertNotIn("## 第二十八节", self.doc, "追加读数不得伪造成新评估节")
+        _assert_append_stays_inside_sec27(self, self.doc, "### 27.6")
         first = self.s276.splitlines()[0]
         for kw in ("不新开节", "不重置 LAST_EVAL_DATE", "后记记录的状态全同", "无新默认自主行为"):
             self.assertIn(kw, first, f"27.6 标题须写明追加理由「{kw}」")
@@ -1578,7 +1591,8 @@ class TestAppendReading276(unittest.TestCase):
             src = f.read()
         m = re.search(r'LAST_EVAL_DATE="\$\{OPENCLAW_LAST_EVAL_DATE:-(\d{4}-\d{2}-\d{2})\}"', src)
         self.assertIsNotNone(m, "check_upgrade.sh 应有 LAST_EVAL_DATE 默认值")
-        self.assertEqual(m.group(1), "2026-10-27", "追加读数不得重置 LAST_EVAL_DATE（_latest_eval 与 tripwire 语义漂移）")
+        # V37.9.388 演进：第十七次评估（正式评估）把日期前移到 2026-11-19；追加读数不重置的意图由「日期恒等于最新正式评估节」承接
+        self.assertGreaterEqual(m.group(1), "2026-10-27", "LAST_EVAL_DATE 不得早于第十六次评估")
         self.assertEqual(_latest_eval(self.doc)[2], m.group(1))
 
     @staticmethod
@@ -1634,7 +1648,7 @@ class TestAppendReading277(unittest.TestCase):
     def setUp(self):
         self.doc = _read()
         self.head = self.doc[:self.doc.index("## 一、版本概览")]
-        self.sec27 = self.doc[self.doc.index("## 第二十七节"):]
+        self.sec27 = _slice(self.doc, "## 第二十七节", "## 第二十八节")  # V37.9.388: 收紧到下一节
         self.s277 = _slice(self.sec27, "### 27.7", "### 27.8")
         self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
         self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
@@ -1643,10 +1657,9 @@ class TestAppendReading277(unittest.TestCase):
 
     def test_appended_not_new_section(self):
         """状态符号全同 + 无新默认自主行为 → 追加读数：最新评估节仍是第二十七节（2026-10-27），不得出现第二十八节。"""
-        self.assertEqual(_latest_eval(self.doc), ("第二十七节", "十六", "2026-10-27"))
         self.assertIn("### 27.7", self.sec27, "27.7 必须位于第二十七节内部（追加段）")
         self.assertIn("### 27.6", self.sec27[:self.sec27.index("### 27.7")], "27.6 须仍在 27.7 之前（只追加不改写）")
-        self.assertNotIn("## 第二十八节", self.doc, "追加读数不得伪造成新评估节")
+        _assert_append_stays_inside_sec27(self, self.doc, "### 27.7")
         first = self.s277.splitlines()[0]
         for kw in ("不新开节", "不重置 LAST_EVAL_DATE", "状态符号与 27.6 全同", "无新默认自主行为", "由 0 变 1"):
             self.assertIn(kw, first, f"27.7 标题须写明追加理由与新事实「{kw}」")
@@ -1767,7 +1780,7 @@ class TestAppendReading277(unittest.TestCase):
             src = f.read()
         m = re.search(r'LAST_EVAL_DATE="\$\{OPENCLAW_LAST_EVAL_DATE:-(\d{4}-\d{2}-\d{2})\}"', src)
         self.assertIsNotNone(m)
-        self.assertEqual(m.group(1), "2026-10-27", "追加读数不得重置 LAST_EVAL_DATE")
+        self.assertGreaterEqual(m.group(1), "2026-10-27", "LAST_EVAL_DATE 不得早于第十六次评估")  # V37.9.388 演进，同上
         self.assertEqual(_latest_eval(self.doc)[2], m.group(1))
 
     def test_config_md_head_records_this_reading(self):
@@ -1820,7 +1833,7 @@ class TestAppendReading278(unittest.TestCase):
     def setUp(self):
         self.doc = _read()
         self.head = self.doc[:self.doc.index("## 一、版本概览")]
-        self.sec27 = self.doc[self.doc.index("## 第二十七节"):]
+        self.sec27 = _slice(self.doc, "## 第二十七节", "## 第二十八节")  # V37.9.388: 收紧到下一节
         self.s278 = _slice(self.sec27, "### 27.8", "\n---\n")
         self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
         self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
@@ -1829,13 +1842,14 @@ class TestAppendReading278(unittest.TestCase):
         self.root = os.path.dirname(os.path.abspath(__file__))
 
     def test_appended_not_new_section(self):
-        self.assertEqual(_latest_eval(self.doc), ("第二十七节", "十六", "2026-10-27"))
         self.assertIn("### 27.7", self.sec27[:self.sec27.index("### 27.8")], "27.7 须仍在 27.8 之前（只追加不改写）")
-        self.assertNotIn("## 第二十八节", self.doc, "N/A_HOTFIX 不是第二个 CLEAN，不得新开开窗前评估节")
+        _assert_append_stays_inside_sec27(self, self.doc, "### 27.8")
+        # V37.9.388: 第二十八节的开节理由须是默认自主行为变化，不是把 N/A_HOTFIX 读成第二个 CLEAN（原意图保留）
+        self.assertIn("heartbeat 机制整体退役", self.doc[self.doc.index("## 第二十八节"):].splitlines()[0])
         first = self.s278.splitlines()[0]
         for kw in ("不新开节", "不重置 LAST_EVAL_DATE", "状态符号与 27.7 全同", "无新默认自主行为", "N/A_HOTFIX", "仍 1/2"):
             self.assertIn(kw, first, f"27.8 标题须写明「{kw}」")
-        for kw in ("2026.11.3 追加读数", "27.8", "上游 latest **2026.11.3**", "11-11 读数 47/50", "11.3 为 hotfix 规模、不计入任一侧"):
+        for kw in ("2026.11.3 追加读数", "27.8", "11.3 追加读数见 27.8", "11-11 读数 47/50", "11.3 为 hotfix 规模、不计入任一侧"):
             self.assertIn(kw, self.head, f"头部须同步「{kw}」")
         self.assertIn("下一次追加读数的位置为 27.9", self.s278)
 
@@ -1917,7 +1931,7 @@ class TestAppendReading278(unittest.TestCase):
     def test_last_eval_date_and_config_head(self):
         with open(os.path.join(self.root, "check_upgrade.sh"), encoding="utf-8") as f:
             m = re.search(r'LAST_EVAL_DATE="\$\{OPENCLAW_LAST_EVAL_DATE:-(\d{4}-\d{2}-\d{2})\}"', f.read())
-        self.assertEqual(m.group(1), "2026-10-27", "追加读数不得重置 LAST_EVAL_DATE")
+        self.assertEqual(m.group(1), _latest_eval(self.doc)[2], "LAST_EVAL_DATE 须等于最新正式评估节的日期（V37.9.388 演进：追加读数不重置，正式评估才前移）")
         with open(os.path.join(self.root, "docs", "config.md"), encoding="utf-8") as f:
             head4 = f.read().split("\n")[3]
         for kw in ("2026.11.3 追加读数", "27.8", "N/A_HOTFIX", "仍 1/2", "47/50", "8192 → 32768"):
@@ -2027,7 +2041,7 @@ class TestSameDayRunbook266(unittest.TestCase):
     def test_pre_check_prose_matches_command_output_for_marker(self):
         """7.2 正文写的「加好标记后应显示 agent: research default: True」必须真是那条命令的输出（文档说的与命令打的一致）。"""
         self.assertIn("`agent: research default: True`", self.pre_check)
-        cmd = next(b for b in _bash_blocks(self.pre_check) if "openclaw.json" in b and "agents" in b)  # V37.9.380: 7.2 多了 groupPolicy 命令，按内容选
+        cmd = next(b for b in _bash_blocks(self.pre_check) if "openclaw.json" in b and "bindings" in b)  # V37.9.380 按内容选；V37.9.388 改按 bindings（7.2 新增的 heartbeat 命令也含 agents）
         home = self._home_with({"agents": {"list": [{"id": "research", "default": True}, {"id": "ops"}, {"id": "main"}]}})
         out = self._run(cmd, home)
         self.assertEqual(out.returncode, 0, out.stderr)
@@ -2063,6 +2077,186 @@ class TestSameDayRunbook266(unittest.TestCase):
         self.assertIn("前置 D 的桥接版本只过不停", s265)
         self.assertIn("**两段式（前置 D，26.6）**", s265)
         self.assertIn("26.6", self.doc[:self.doc.index("## 一、版本概览")], "头部十五次评估行须提到同日 26.6")
+
+
+class TestSeventeenthEvaluationPresent(unittest.TestCase):
+    """V37.9.388 第十七次评估（2026-11-19）：2026.11.4 / 11.5 = 27.8 预设「下一个 stable」到期。
+
+    三项判据的状态符号与 27.8 全同（❌🔴✅），但 11.5 dist 实证 heartbeat 机制整体退役、改由默认启用的自动化任务承担
+    = 落在我方面上的默认自主行为变化 → 按日落规则新开第二十八节（不是追加 27.9）。本类钉住：
+    开节理由与诚实边界（两段 Doctor 串联未实跑）/ 判据如实（11.4·11.5 均 DIRTY，连续干净计数归零）/
+    前置 C 第 3、6 项原位改写且清单计数不变 / 7.2 新命令从文档抽出来对三种配置形状真跑 / 7.4 核对落点 /
+    **MR-8 跨文件**：正文引用的我方事实（HEARTBEAT.md 拦截仍在、对话捕获函数名、PA 白名单不含 apply_patch 与 sessions）
+    必须真在仓库里 / 20.4 跨节行 / 持有成本数字 / LAST_EVAL_DATE 与 config.md 头行 / 跟踪点要素。
+    """
+
+    def setUp(self):
+        self.doc = _read()
+        self.head = self.doc[:self.doc.index("## 一、版本概览")]
+        self.sec28 = self.doc[self.doc.index("## 第二十八节"):]
+        self.sop = _slice(self.doc, "## 七、升级 SOP", "## 八、综合评估")
+        self.prereq = _slice(self.sop, "### 7.0", "### 7.1")
+        self.pre_check = _slice(self.sop, "### 7.2", "### 7.3")
+        self.verify = _slice(self.sop, "### 7.4", "### 7.5")
+        self.root = os.path.dirname(os.path.abspath(__file__))
+
+    def test_section28_is_latest_with_all_subsections(self):
+        self.assertEqual(_latest_eval(self.doc), ("第二十八节", "十七", "2026-11-19"))
+        for sub in ("### 28.1", "### 28.2", "### 28.3", "### 28.4", "### 28.5"):
+            self.assertIn(sub, self.sec28, f"第二十八节缺 {sub}")
+        self.assertNotIn("### 28.6", self.sec28, "28.6 只能由下一次读数产生")
+        self.assertNotIn("### 27.9", self.doc, "本次读数新开了节，27.9 没有使用")
+        for kw in ("十七次评估：2026-11-19", "上游 latest **2026.11.5**", "第二十八节 28.5", "11-19 读数 49/50", "连续干净计数 **0/2**"):
+            self.assertIn(kw, self.head, f"头部须同步「{kw}」")
+
+    def test_new_section_is_justified_and_boundary_is_honest(self):
+        title = self.sec28.splitlines()[0]
+        for kw in ("状态符号与 27.8 全同", "heartbeat 机制整体退役", "默认自主行为变化", "按日落规则新开节而非追加读数"):
+            self.assertIn(kw, title, f"第二十八节标题须写明开节理由「{kw}」")
+        s281 = _slice(self.sec28, "### 28.1", "### 28.2")
+        for kw in ("没有实跑", "22.23.5", "权限策略拒绝", "开窗前必须实跑定档", "26.6"):
+            self.assertIn(kw, s281, f"28.1 须如实写明未实跑的边界「{kw}」")
+        for bad in ("已实跑验证", "dev 实跑确认", "实测证实会创建"):
+            self.assertNotIn(bad, self.sec28, f"两段 Doctor 串联本次没有实跑，不得写成「{bad}」")
+
+    def test_criteria_recorded_as_measured(self):
+        s283 = _slice(self.sec28, "### 28.3", "### 28.4")
+        for kw in ("**DIRTY 2**", "**DIRTY 3**", "1 → 0", "71 / 带描述 PR 22 / 裸 PR 77 / 语义量 93", "47 / 56 / 295 / 103",
+                   "**5.42 天**", "**1.25 天**", "2.5/周", ">=24.16.0 <25 || >=26.1.0", "不做事后区分", "99 in-range"):
+            self.assertIn(kw, s283, f"28.3 缺判据要素「{kw}」")
+        for bad in ("11.4 CLEAN", "11.5 CLEAN", "计数仍 1/2", "计数 2/2", "② ✅", "② 回 🟡", "判据 ① 已满足", "③ ❌"):
+            self.assertNotIn(bad, self.sec28, f"不得出现误记「{bad}」")
+        self.assertIn("继续 hold（判据 ❌🔴✅，连续干净计数 0/2）", self.sec28)
+
+    def test_heartbeat_retirement_evidence_recorded(self):
+        s284 = _slice(self.sec28, "### 28.4", "### 28.5")
+        for kw in ("`runHeartbeatOnce` 16 处", "`runHeartbeatOnce` 0 处", "`DefaultProactiveJob` 84 处", "createDefaultProactiveJob",
+                   "`enabled: true`", "18e5", '`"0m"`', "agents.defaults.heartbeat.agentId", "schema 30", "changelog 的叙述段没有提到",
+                   "skipIfScratchEmpty", "标识符归一化"):
+            self.assertIn(kw, self.sec28, f"第二十八节缺 heartbeat 退役证据「{kw}」")
+        self.assertIn("前置 C 仍是 18 项 + 1 项开窗前全量基线", s284)
+
+    def test_prereq_c_items_rewritten_in_place_and_count_unchanged(self):
+        lines = self.prereq.splitlines()
+        hb = [l for l in lines if "Owner-directed ambient heartbeat" in l]
+        self.assertEqual(len(hb), 1, "第 3 项须原位改写，不得另起一项")
+        for kw in ("#121988", "第十七次评估 28.4 改写", "Proactive check", '"every": "0m"', "第二段 Doctor 之前", "读码结论", "28.5 第 4 条"):
+            self.assertIn(kw, hb[0], f"前置 C 第 3 项缺「{kw}」")
+        ws = [l for l in lines if "Skill Workshop 无额外批准提示" in l]
+        self.assertEqual(len(ws), 1)
+        for kw in ("第十七次评估 28.4 更正", "skills.workshop.autonomous.mode", '"propose"', '"off"'):
+            self.assertIn(kw, ws[0], f"前置 C 第 6 项缺「{kw}」")
+        self.assertEqual(self.prereq.count("- [ ]"), PREREQ_CHECKBOXES, "本次原位改写两项，清单计数不得变")
+        d = [l for l in lines if l.startswith("- [ ] **前置 D")][0]
+        for kw in ("2026.9.7", "workspace-state.json", "定档前不执行 7.3"):
+            self.assertIn(kw, d, f"前置 D 缺「{kw}」")
+        b = [l for l in lines if l.startswith("- [ ] **前置 B")][0]
+        for kw in ("heartbeat-runtime", "chatAbortControllers", "3.0.0-beta-0"):
+            self.assertIn(kw, b, f"前置 B 缺「{kw}」")
+
+    def _run(self, cmd, home):
+        env = os.environ.copy()
+        env["HOME"] = home
+        return subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, env=env, timeout=30)
+
+    def test_pre_check_heartbeat_command_runs_on_three_config_shapes(self):
+        """7.2 新增的只读命令从文档抽出来真跑（原则 #35 补充）：4.27 形状 / 桥接后形状 / 空配置。"""
+        blocks = [b for b in _bash_blocks(self.pre_check) if "HEARTBEAT.md" in b]
+        self.assertEqual(len(blocks), 1, "7.2 须恰有一条 heartbeat 读数命令")
+        cmd = blocks[0]
+        self.assertFalse([l for l in cmd.splitlines() if l.lstrip().startswith("#")], "命令块不得有注释行（原则 #35）")
+        compile(_python_c_code(cmd), "<7.2 heartbeat>", "exec")
+        a = tempfile.mkdtemp(prefix="sop28a_")
+        os.makedirs(os.path.join(a, ".openclaw", "workspace", ".openclaw"))
+        with open(os.path.join(a, ".openclaw", "openclaw.json"), "w") as f:
+            json.dump({"agents": {"list": [{"id": "research", "default": True}, {"id": "ops"}, {"id": "main"}]}}, f)
+        with open(os.path.join(a, ".openclaw", "workspace", "HEARTBEAT.md"), "w") as f:
+            f.write("# note\n")
+        with open(os.path.join(a, ".openclaw", "workspace", ".openclaw", "workspace-state.json"), "w") as f:
+            f.write("{}")
+        out = self._run(cmd, a)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        for kw in ("defaults.heartbeat: null", "agent: research heartbeat: null", "HEARTBEAT.md: 7 bytes", "nested workspace-state: True"):
+            self.assertIn(kw, out.stdout)
+        self.assertIn("`defaults.heartbeat: null`", self.pre_check, "正文写的 4.27 预期输出须与命令实际输出一致")
+        b = tempfile.mkdtemp(prefix="sop28b_")
+        os.makedirs(os.path.join(b, ".openclaw"))
+        with open(os.path.join(b, ".openclaw", "openclaw.json"), "w") as f:
+            json.dump({"agents": {"defaults": {"heartbeat": {"every": "0m", "agentId": "research"}}, "list": [{"id": "research"}]}}, f)
+        out = self._run(cmd, b)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn('defaults.heartbeat: {"every": "0m", "agentId": "research"}', out.stdout)
+        self.assertIn("HEARTBEAT.md: absent", out.stdout)
+        self.assertIn("nested workspace-state: False", out.stdout)
+        c = tempfile.mkdtemp(prefix="sop28c_")
+        os.makedirs(os.path.join(c, ".openclaw"))
+        with open(os.path.join(c, ".openclaw", "openclaw.json"), "w") as f:
+            f.write("{}")
+        out = self._run(cmd, c)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("defaults.heartbeat: null", out.stdout)
+
+    def test_post_upgrade_checks_present_and_dont_contradict_existing_one(self):
+        for kw in ("目标 ≥11.5 时另核对 heartbeat 转换的结果", "openclaw automations list --all", "Proactive check (research)",
+                   "`heartbeat: None` 属预期", "openclaw automations disable <job-id>", "Review your automation scratch checklist",
+                   "_capture_conversation_turn"):
+            self.assertIn(kw, self.verify, f"7.4 缺「{kw}」")
+        # 既有 ≥10.1 归属核对的预期输出（heartbeat: research）是桥接版本后的形状；≥11.5 的新段须说明它在第二段 Doctor 后变为 None，二者并存不矛盾
+        self.assertIn("systemAgent: research heartbeat: research", self.verify)
+        self.assertLess(self.verify.index("systemAgent: research heartbeat: research"), self.verify.index("目标 ≥11.5 时另核对 heartbeat"))
+
+    def test_cross_file_facts_cited_by_section28_hold(self):
+        """MR-8 跨文件：第二十八节引用的我方事实必须真在仓库里——任一侧改了，本守卫先红提醒复核结论。"""
+        sys.path.insert(0, self.root)
+        import proxy_filters
+        self.assertIn("HEARTBEAT.md", proxy_filters.RESERVED_FILE_BASENAMES, "28.4 收益侧：升级之前 HEARTBEAT.md 拦截仍是必需的")
+        allowed = set(proxy_filters.ALLOWED_TOOLS)
+        self.assertNotIn("apply_patch", allowed, "28.4 判 applyPatch 默认值不在我方面上的依据")
+        self.assertNotIn("sessions", allowed, "28.4 判 sessions 工具 assign_owner 不在我方面上的依据")
+        for name in ("sessions_spawn", "sessions_send", "sessions_history", "cron", "message"):
+            self.assertIn(name, allowed)
+        with open(os.path.join(self.root, "tool_proxy.py"), encoding="utf-8") as f:
+            self.assertIn("def _capture_conversation_turn", f.read(), "7.4 指向的对话捕获函数须存在")
+        with open(os.path.join(self.root, "docs", "openclaw_architecture.md"), encoding="utf-8") as f:
+            self.assertIn('"groupPolicy": "disabled"', f.read(), "28.4 判群组激活模式不在我方面上的依据")
+
+    def test_protocol_table_rows_appended(self):
+        s204 = _slice(self.doc, "### 20.4", "## 第二十一节")
+        r4 = [l for l in s204.splitlines() if l.startswith("| **2026.11.4**")]
+        r5 = [l for l in s204.splitlines() if l.startswith("| **2026.11.5**")]
+        self.assertEqual((len(r4), len(r5)), (1, 1), "20.4 表须追加 11.4 / 11.5 两行")
+        for kw in ("**71**", "22", "77", "**93**", "**122**", "DIRTY(2)", "由 1 归零"):
+            self.assertIn(kw, r4[0])
+        for kw in ("**47**", "56", "295", "**103**", "**136**", "DIRTY(3)", "351 in-range"):
+            self.assertIn(kw, r5[0])
+        for row in (r4[0], r5[0]):
+            self.assertNotIn("CLEAN", row)
+
+    def test_holding_cost_and_upgrade_path_facts(self):
+        s284 = _slice(self.sec28, "### 28.4", "### 28.5")
+        for kw in ("**67**", "主线 minor **49**", "维护线 15", "49/50 主线 stable（剩 1）", "23.5", "不预先改机器", "150 天", "206 天",
+                   ">=2026.11.5", "+13 / −2", "**363**", "桥接版本仍是 2026.9.5", "2026.9.7", "workspace-state.json",
+                   "不是逐行通读", "--full-integrity-check", "835 个文件有改动", "204 条，★ 43", "不要设 `remote: true`", "第十三次再证"):
+            self.assertIn(kw, s284, f"28.4 缺「{kw}」")
+
+    def test_last_eval_date_and_config_head(self):
+        with open(os.path.join(self.root, "check_upgrade.sh"), encoding="utf-8") as f:
+            src = f.read()
+        m = re.search(r'LAST_EVAL_DATE="\$\{OPENCLAW_LAST_EVAL_DATE:-(\d{4}-\d{2}-\d{2})\}"', src)
+        self.assertEqual(m.group(1), "2026-11-19")
+        self.assertIn("LAST_EVAL_DATE 更新至 2026-11-19", self.sec28)
+        self.assertIn("第二十八节", src, "check_upgrade.sh 的最近评估注释须指向第二十八节")
+        with open(os.path.join(self.root, "docs", "config.md"), encoding="utf-8") as f:
+            head = "\n".join(f.read().splitlines()[:6])
+        for kw in ("第十七次评估（2026-11-19", "第二十八节", "49/50", "heartbeat"):
+            self.assertIn(kw, head, f"docs/config.md 头行缺「{kw}」")
+
+    def test_tracking_point_and_required_sandbox_run(self):
+        s285 = _slice(self.sec28, "### 28.5", "**LAST_EVAL_DATE")
+        for kw in ("19.8", "engines.node", "28.6 追加读数", "不新开评估节", "不重置 LAST_EVAL_DATE", "裸 grep", "标识符归一化",
+                   "18 项", "23.5", "调阈值", "接受每周告警", "不预先改机器", "开窗前必须做的一次实跑", "Node ≥24.16",
+                   "桥接后 `agents.defaults.heartbeat` 的实际形状", "9.5 与 9.7"):
+            self.assertIn(kw, s285, f"28.5 缺「{kw}」")
 
 
 if __name__ == "__main__":

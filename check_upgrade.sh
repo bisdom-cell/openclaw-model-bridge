@@ -29,11 +29,11 @@ else
 fi
 
 # ── 配置（升级后须更新 LAST_EVAL_DATE）──
-# 最近一次正式评估: 2026-10-27 第十六次评估 (2026.10.6/10.7 两个 stable 触发): 继续 hold —— 判据 ❌🔴❌,
-#    ③ 由 ✅ 变 ❌: 10.6 起 engines.node 收紧为 >=24.22.1 <25 || >=26.12.1 (Node 2026-10 安全发布, eMudhra 被攻破密钥), Mac Mini 26.5.0 在区间外
-#    → 行动 brew upgrade node ≥26.12.1 不等开窗; 无新默认自主行为, 前置 C 保持 18; 主线口径读数 41/50. 详见 eval doc 第二十七节.
+# 最近一次正式评估: 2026-11-19 第十七次评估 (2026.11.4/11.5 两个 stable 触发): 继续 hold —— 判据 ❌🔴✅,
+#    ① 11.4 DIRTY 2 / 11.5 DIRTY 3, 连续干净计数 1 → 0; 11.5 起 heartbeat 机制退役, Doctor 把它转成默认启用的自动化任务
+#    (每 30 分钟 agent 主会话回合, 投递 owner 私聊) → 前置 C 第 3 项改写为可执行步骤; 主线口径读数 49/50. 详见 eval doc 第二十八节.
 # 历次评估摘要只在 eval doc 头部评估列表维护 (V37.9.366 起: 一物一形, 退役本处逐次复制的摘要——它与 eval doc 是同一事实的两份手写副本).
-LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-10-27}"  # V37.9.375: 第十六次评估 (eval doc 第二十七节; 第十五次=第二十六节)
+LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-11-19}"  # V37.9.388: 第十七次评估 (eval doc 第二十八节; 第十六次=第二十七节)
 TIME_TRIPWIRE_DAYS="${OPENCLAW_TIME_TRIPWIRE_DAYS:-180}"
 VERSION_GAP_TRIPWIRE="${OPENCLAW_VERSION_GAP_TRIPWIRE:-50}"
 MAINT_PATCH_MIN="${OPENCLAW_MAINT_PATCH_MIN:-32}"
