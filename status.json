@@ -392,7 +392,7 @@
         "added": "2026-11-12"
       },
       {
-        "item": "【OpenClaw 第十七次评估跟踪 · 2026-11-19 · eval doc 第二十八节】继续 hold（❌🔴✅，连续干净计数 0/2）。(a) 🔴 待用户决定：是否允许在隔离目录下载官方 Node（≥24.16）实跑 9.5 / 9.7 → 11.5 两段真 Doctor——本次该下载被会话权限策略拒绝、未绕过；要回答四个问题：桥接后 agents.defaults.heartbeat 的形状与目标版本是否接受 / 是否真建出启用的「Proactive check (research)」任务及投递目标 / every 0m 是否让任务停用 / 嵌套 workspace-state.json 在 9.5 与 9.7 下如何处理（决定桥接版本）。开窗前必做，现在做可提前定档。(b) Mac Mini 可选：跑 7.2 新增的 heartbeat 只读命令，回传 defaults.heartbeat / HEARTBEAT.md 大小 / nested workspace-state 三行。(c) tripwire [2/6] 49/50 剩 1：下一个主线 stable 之后的周一 09:10 触发 = 预注册事件，按 23.5 在「调阈值 / 接受每周告警」间选（10-20 已选过改口径）。(d) 下一个 stable：19.8 协议 + 间隔 + engines；dist 对照用标识符归一化（11.5 起逐字比较不可用）；三项全同且无新默认自主行为 → 追加 28.6。(e) 升级后可退役项登记：HEARTBEAT.md 拦截与 INV-HB-001（11.5 运行时不再读该文件），升级前仍必需。",
+        "item": "【OpenClaw 第十七次评估跟踪 · 2026-11-19 · eval doc 第二十八节】继续 hold（❌🔴✅，连续干净计数 0/2）。(a) 🔴 待用户决定：是否允许在隔离目录下载官方 Node（≥24.16）实跑 9.5 / 9.7 → 11.5 两段真 Doctor——本次该下载被会话权限策略拒绝、未绕过；要回答四个问题：桥接后 agents.defaults.heartbeat 的形状与目标版本是否接受 / 是否真建出启用的「Proactive check (research)」任务及投递目标 / every 0m 是否让任务停用 / 嵌套 workspace-state.json 在 9.5 与 9.7 下如何处理（决定桥接版本）。开窗前必做，现在做可提前定档。(b) Mac Mini 可选：跑 7.2 新增的 heartbeat 只读命令，回传 defaults.heartbeat / HEARTBEAT.md 大小 / nested workspace-state 三行。(c) tripwire [2/6] 49/50 剩 1：下一个主线 stable 之后的周一 09:10 触发 = 预注册事件，按 23.5 在「调阈值 / 接受每周告警」间选（10-20 已选过改口径）。(d) 下一个 stable：19.8 协议 + 间隔 + engines；dist 对照用标识符归一化（11.5 起逐字比较不可用）；三项全同且无新默认自主行为 → 追加 28.6。(e) 升级后可退役项登记：HEARTBEAT.md 拦截与 INV-HB-001（11.5 运行时不再读该文件），升级前仍必需。 【2026-11-19 用户决策，取代 (a)】短期不升级；此后每个新 stable 只做三条判据机械读数并追加到第二十八节末，完整评估只在触发条件出现时做（规则见 eval doc 第二十八节末后记）；沙箱实跑两段 Doctor 不现在做，留到开窗前。",
         "added": "2026-11-19"
       }
     ],
@@ -475,7 +475,7 @@
     "stage": "Stage2: 从系统构建者升级为被社区认可的系统作者",
     "mentor_review": "2026-04-03: 确认Stage1完成，主战场=Agent Runtime Control Plane + Memory Plane，下一步补证据而非功能"
   },
-  "focus": "2026-11-19: V37.9.388 OpenClaw 第十七次评估已交付（11.4 / 11.5 均 DIRTY，连续干净计数 1 → 0；11.5 heartbeat 机制退役为默认启用的自动化任务 → 新开 eval doc 第二十八节，继续 hold）。待用户决定：是否允许在沙箱下载 Node 实跑两段 Doctor（开窗前必做，现在做可提前定档）。tripwire [2/6] 49/50，下一个主线 stable 后的周一触发，按 23.5 处置。论文 #1 期刊改投仍待 D1–D5。",
+  "focus": "2026-11-19: V37.9.388 OpenClaw 第十七次评估已交付（11.4 / 11.5 均 DIRTY，连续干净计数 1 → 0；11.5 heartbeat 机制退役为默认启用的自动化任务 → 新开 eval doc 第二十八节，继续 hold）。待用户决定：是否允许在沙箱下载 Node 实跑两段 Doctor（开窗前必做，现在做可提前定档）。tripwire [2/6] 49/50，下一个主线 stable 后的周一触发，按 23.5 处置。论文 #1 期刊改投仍待 D1–D5。 【同日用户决策：短期不升级，hold 期间新 stable 只做机械读数，沙箱实跑留到开窗前。】",
   "notes": "",
   "preferences": [
     "[auto] 常用工具：read(10次)、sessions_spawn(8次)、sessions_history(8次)",
