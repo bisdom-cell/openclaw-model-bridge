@@ -2104,9 +2104,11 @@ class TestSeventeenthEvaluationPresent(unittest.TestCase):
         self.assertEqual(_latest_eval(self.doc), ("第二十八节", "十七", "2026-11-19"))
         for sub in ("### 28.1", "### 28.2", "### 28.3", "### 28.4", "### 28.5"):
             self.assertIn(sub, self.sec28, f"第二十八节缺 {sub}")
-        self.assertNotIn("### 28.6", self.sec28, "28.6 只能由下一次读数产生")
+        # V37.9.389 演进：原 pin「28.6 不得出现」「上游 latest 2026.11.5」是第十七次评估当时的状态；11.6 机械读数后，
+        # 意图由「28.6 是第二十八节内的机械读数、没有第二十九节」「头部仍指向 11.4 / 11.5 这次正式评估」承接。
+        self.assertNotIn("## 第二十九节", self.doc, "机械读数不新开评估节")
         self.assertNotIn("### 27.9", self.doc, "本次读数新开了节，27.9 没有使用")
-        for kw in ("十七次评估：2026-11-19", "上游 latest **2026.11.5**", "第二十八节 28.5", "11-19 读数 49/50", "连续干净计数 **0/2**"):
+        for kw in ("十七次评估：2026-11-19", "正式评估对象 11.4 / 11.5 见第二十八节", "第二十八节 28.5", "11-19 读数 49/50", "连续干净计数 **0/2**"):
             self.assertIn(kw, self.head, f"头部须同步「{kw}」")
 
     def test_new_section_is_justified_and_boundary_is_honest(self):
@@ -2260,7 +2262,7 @@ class TestSeventeenthEvaluationPresent(unittest.TestCase):
 
     def test_hold_cadence_rule_recorded_v388(self):
         """V37.9.388 用户决策：hold 期间新 stable 只做机械读数，完整评估只在触发条件出现时做。"""
-        tail = self.sec28[self.sec28.index("**LAST_EVAL_DATE 更新至 2026-11-19。**"):]
+        tail = _slice(self.sec28, "**LAST_EVAL_DATE 更新至 2026-11-19。**", "### 28.6")
         for kw in ("用户决策", "只做机械读数", "19.8", "engines.node", "不新开评估节、不重置 LAST_EVAL_DATE",
                    "弃用或停止支持", "安全漏洞", "重启无效", "业务需求", "连续 2 个 CLEAN", "满 180 天",
                    "调阈值", "接受每周告警"):
@@ -2272,6 +2274,79 @@ class TestSeventeenthEvaluationPresent(unittest.TestCase):
         with open(DOC, encoding="utf-8") as f:
             head = "\n".join(f.read().splitlines()[:40])
         self.assertIn("只做机械读数", head, "文档头当前态须指向节奏规则")
+
+
+class TestMechanicalReading286(unittest.TestCase):
+    """V37.9.389 2026.11.6 机械读数（2026-11-20）——节奏规则（V37.9.388 后记）第一次执行。
+
+    钉住：读数位于第二十八节内部、没有新评估节 / 判据如实（① 不可判不计入、② 2.29 天、③ 同）且不得误记成 CLEAN /
+    没做的事要写明没做 / 20.4 表行 / 头部同步 / LAST_EVAL_DATE 不重置 / config.md 头行。
+    """
+
+    def setUp(self):
+        self.doc = _read()
+        self.head = self.doc[:self.doc.index("## 一、版本概览")]
+        self.sec28 = self.doc[self.doc.index("## 第二十八节"):]
+        self.s286 = self.sec28[self.sec28.index("### 28.6"):]
+        self.root = os.path.dirname(os.path.abspath(__file__))
+
+    def test_reading_lives_inside_section28_after_cadence_rule(self):
+        self.assertEqual(_latest_eval(self.doc), ("第二十八节", "十七", "2026-11-19"), "机械读数不产生新的正式评估节")
+        self.assertLess(self.sec28.index("hold 期间的评估节奏规则"), self.sec28.index("### 28.6"), "读数须在节奏规则之后")
+        self.assertIn("### 28.6 机械读数（2026-11-20，2026.11.6）", self.sec28)
+        self.assertNotIn("### 28.7", self.sec28, "28.7 只能由下一次读数产生")
+        self.assertIn("下一次机械读数的位置为 28.7", self.s286)
+
+    def test_criteria_recorded_as_measured(self):
+        for kw in ("叙述 17 / 带描述 PR 52 / 裸 PR 137 / 语义量 69 / 行内引用 33", "rc=3", "189 in-range", "hotfix 分支不适用",
+                   "不可判优先", "仍 0/2", "**2.29 天**", "2.5/周", ">=24.16.0 <25 || >=26.1.0", "与 11.5 逐字相同",
+                   "没有在 Mac Mini 上复核"):
+            self.assertIn(kw, self.s286, f"28.6 缺判据要素「{kw}」")
+        for bad in ("11.6 CLEAN", "计数 0 → 1", "计数 1/2", "连续干净计数由 0", "N/A_HOTFIX"):
+            self.assertNotIn(bad, self.s286, f"11.6 是不可判，不得出现「{bad}」")
+
+    def test_scope_limits_are_stated(self):
+        """节奏规则的代价要在读数里写明：哪些核对没做、前置 C 停在哪。"""
+        for kw in ("没有做 dist 函数对照", "docs 默认值对比", "升级路径文档对比", "前置 B 复查", "不新开评估节",
+                   "LAST_EVAL_DATE 仍是 2026-11-19", "前置 C 仍停在 11.5 的状态"):
+            self.assertIn(kw, self.s286, f"28.6 须写明范围边界「{kw}」")
+        for kw in ("只登记，不改规则", "需要用户决定", "207 天", "1/180 天"):
+            self.assertIn(kw, self.s286)
+
+    def test_protocol_table_row_and_head(self):
+        s204 = _slice(self.doc, "### 20.4", "## 第二十一节")
+        rows = [l for l in s204.splitlines() if l.startswith("| **2026.11.6**")]
+        self.assertEqual(len(rows), 1, "20.4 表须追加 11.6 一行")
+        self.assertIn("| **2026.11.6**（2026-11-20 机械读数） | **17** | 52 | 137 | **69** | **33** |", rows[0])
+        self.assertIn("不计入任一侧", rows[0])
+        self.assertNotIn("✅ CLEAN", rows[0])
+        for kw in ("2026.11.6 机械读数：2026-11-20", "上游 latest **2026.11.6**", "机械读数见 28.6", "11-20 读数 50/50", "50/75",
+                   "11.6 不可判、不计入任一侧"):
+            self.assertIn(kw, self.head, f"头部须同步「{kw}」")
+
+    def test_protocol_reading_reproduces_on_synthetic_changelog(self):
+        """行为级：11.6 形态（17 条粗体叙述、行内 33 个引用、Authored by 归属行、无迁移词）喂 19.8 真协议必 rc=3，绝不 CLEAN。"""
+        narr = "\n".join(f"- **Topic {i}:** fix thing. (#{200000 + i}, #{201000 + i})" for i in range(16))
+        narr += "\n- **Last topic:** fix more. (#202000)"
+        rec = "\n".join(f"- **PR #{210000 + i}** Authored by @someone." for i in range(52))
+        rec += "\n" + "\n".join(f"- **PR #{220000 + i}**" for i in range(137))
+        cl = f"# Changelog\n\n## 2026.11.6\n\n### Fixes\n\n{narr}\n\n### Complete contribution record\n\n{rec}\n"
+        TestCriterion1ProtocolBehavior.setUpClass()
+        rc, out = TestCriterion1ProtocolBehavior._run(TestCriterion1ProtocolBehavior, cl)
+        self.assertEqual(rc, 3, out)
+        self.assertRegex(out, r"(?m)^semantic_entries=69 narrative=17 described_pr=52 bare_pr=137 inline_pr_refs=33$")
+        self.assertIn("N/A_NO_CONTENT", out)
+        self.assertNotIn("VERDICT=CLEAN", out)
+
+    def test_last_eval_date_not_reset_and_config_head(self):
+        with open(os.path.join(self.root, "check_upgrade.sh"), encoding="utf-8") as f:
+            src = f.read()
+        m = re.search(r'LAST_EVAL_DATE="\$\{OPENCLAW_LAST_EVAL_DATE:-(\d{4}-\d{2}-\d{2})\}"', src)
+        self.assertEqual(m.group(1), "2026-11-19", "机械读数不重置正式评估日期")
+        with open(os.path.join(self.root, "docs", "config.md"), encoding="utf-8") as f:
+            head = "\n".join(f.read().splitlines()[:6])
+        for kw in ("2026.11.6 机械读数（2026-11-20", "28.6", "不可判", "50 → 75"):
+            self.assertIn(kw, head, f"docs/config.md 头行缺「{kw}」")
 
 
 if __name__ == "__main__":

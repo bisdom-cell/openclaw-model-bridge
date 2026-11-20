@@ -35,7 +35,9 @@ fi
 # 历次评估摘要只在 eval doc 头部评估列表维护 (V37.9.366 起: 一物一形, 退役本处逐次复制的摘要——它与 eval doc 是同一事实的两份手写副本).
 LAST_EVAL_DATE="${OPENCLAW_LAST_EVAL_DATE:-2026-11-19}"  # V37.9.388: 第十七次评估 (eval doc 第二十八节; 第十六次=第二十七节)
 TIME_TRIPWIRE_DAYS="${OPENCLAW_TIME_TRIPWIRE_DAYS:-180}"
-VERSION_GAP_TRIPWIRE="${OPENCLAW_VERSION_GAP_TRIPWIRE:-50}"
+# V37.9.389: 阈值 50 → 75 —— 2026-11-20 主线口径读数到 50/50, 按 eval doc 第二十八节节奏规则第 3 条
+#    (只在「调阈值」与「接受每周告警」之间选) 用户选调阈值; 记录见 eval doc 28.6.
+VERSION_GAP_TRIPWIRE="${OPENCLAW_VERSION_GAP_TRIPWIRE:-75}"
 MAINT_PATCH_MIN="${OPENCLAW_MAINT_PATCH_MIN:-32}"
 CVE_FILE="${OPENCLAW_CVE_ALERT_FILE:-$HOME/.openclaw_cve_alert}"
 PAIN_FILE="${OPENCLAW_PAIN_POINT_FILE:-$HOME/.openclaw_pain_point}"
