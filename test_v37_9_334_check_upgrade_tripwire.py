@@ -70,6 +70,13 @@ def _extract_tripwire2_python(src):
     return code
 
 
+def _gap_threshold():
+    """版本差距阈值的默认值——从 check_upgrade.sh 读，不在测试里另写一份（V37.9.389：50 → 75 后三处行为断言改为派生）。"""
+    m = re.search(r'VERSION_GAP_TRIPWIRE="\$\{OPENCLAW_VERSION_GAP_TRIPWIRE:-(\d+)\}"', _read("check_upgrade.sh"))
+    assert m, "check_upgrade.sh 须有 VERSION_GAP_TRIPWIRE 默认值"
+    return int(m.group(1))
+
+
 def _run_gap_python(code, stdin_text, current="2026.4.27"):
     env = os.environ.copy()
     env["CURRENT_V"] = current
@@ -208,7 +215,8 @@ class TestScriptBehaviorHermetic(unittest.TestCase):
         self.assertIn("[4/6] WhatsApp 破坏性: 不可判", r.stdout)
         self.assertIn("0/6 触发", r.stdout)
         self.assertIn("3 项网络不可判", r.stdout)
-        self.assertNotIn("版本差距: 0/50", r.stdout, "旧 fail-green 形态复活（网络失败读作没新版）")
+        self.assertNotIn(f"版本差距: 0/{_gap_threshold()}", r.stdout, "旧 fail-green 形态复活（网络失败读作没新版）")
+        self.assertNotIn("版本差距: 0/", r.stdout, "网络失败时版本差距不得给出任何 0/N 读数")
         self.assertNotIn("EOL 信号: latest release 未检出", r.stdout,
                          "旧 fail-green 形态复活（看不到 release 读作未检出）")
         self.assertEqual(captured, "", "无触发不得推送告警")
@@ -218,7 +226,7 @@ class TestScriptBehaviorHermetic(unittest.TestCase):
         gh = '{"tag_name": "v2026.7.1-2", "body": "routine release notes"}'
         r, captured = self._run_script(npm_json=npm, gh_json=gh)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("✅ [2/6] 版本差距: 1/50", r.stdout)
+        self.assertIn(f"✅ [2/6] 版本差距: 1/{_gap_threshold()}", r.stdout)
         self.assertIn("✅ [3/6] EOL 信号: latest release 未检出", r.stdout)
         self.assertIn("✅ [4/6] WhatsApp 破坏性: latest release 未检出", r.stdout)
         self.assertIn("继续 hold", r.stdout)
@@ -347,17 +355,51 @@ class TestMainLineCaliberV373(unittest.TestCase):
             self, npm_json=_packument(_TRIGGER_DAY_STABLES + _TRIGGER_DAY_NOISE),
             gh_json='{"tag_name": "v2026.10.5", "body": "routine release notes"}')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("✅ [2/6] 版本差距: 39/50 主线 stable (剩 11; 另维护线 10 / -N patch 3 不计入)", r.stdout)
+        n = _gap_threshold()
+        self.assertIn(f"✅ [2/6] 版本差距: 39/{n} 主线 stable (剩 {n - 39}; 另维护线 10 / -N patch 3 不计入)", r.stdout)
         self.assertEqual(captured, "", "主线口径未达阈值不得推送")
 
     def test_hermetic_script_main_line_at_threshold_trips(self):
-        """检出力不减：主线 stable 真到 50 时仍触发并推送。"""
-        main = [f"2027.{m}.{d}" for m in range(1, 6) for d in range(1, 11)]
+        """检出力不减：主线 stable 真到阈值时仍触发并推送；差一个不触发（阈值由脚本默认值派生）。"""
+        n = _gap_threshold()
+        main = [f"2027.{m}.{d}" for m in range(1, 13) for d in range(1, 29)][:n]
+        self.assertEqual(len(main), n, "防空转：fixture 须恰好造出阈值个主线 stable")
         r, captured = TestScriptBehaviorHermetic._run_script(
             self, npm_json=_packument(main), gh_json='{"tag_name": "v2027.5.10", "body": "routine"}')
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
-        self.assertIn("🚨 [2/6] 版本差距: 50 ≥ 50 主线 stable (TRIPPED", r.stdout)
+        self.assertIn(f"🚨 [2/6] 版本差距: {n} ≥ {n} 主线 stable (TRIPPED", r.stdout)
         self.assertIn("[SYSTEM_ALERT] OpenClaw 升级 tripwire 1/6 触发", captured)
+        r, captured = TestScriptBehaviorHermetic._run_script(
+            self, npm_json=_packument(main[:-1]), gh_json='{"tag_name": "v2027.5.10", "body": "routine"}')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn(f"✅ [2/6] 版本差距: {n - 1}/{n} 主线 stable (剩 1;", r.stdout)
+        self.assertEqual(captured, "", "差一个到阈值不得推送")
+
+    def test_gap_threshold_is_75_and_recorded_in_eval_doc_v389(self):
+        """V37.9.389 用户决策（2026-11-20）：阈值 50 → 75。MR-8 跨文件：脚本默认值与 eval doc 28.6 的记录须一致。"""
+        self.assertEqual(_gap_threshold(), 75)
+        doc = _read("docs/gateway_upgrade_eval_v2026.4.md")
+        s286 = doc[doc.index("### 28.6"):]
+        for kw in ("阈值 50 → 75", "`VERSION_GAP_TRIPWIRE`", "50 ≥ 50 主线 stable", "用户 2026-11-20 选择", "代价"):
+            self.assertIn(kw, s286, f"28.6 缺阈值决策要素「{kw}」")
+
+    def test_old_threshold_would_have_tripped_on_decision_day(self):
+        """反向证据：决策日的读数（主线 50）在旧阈值下触发、在新阈值下不触发——阈值是承重的。"""
+        main = [f"2027.{m}.{d}" for m in range(1, 13) for d in range(1, 29)][:50]
+        r_new, cap_new = TestScriptBehaviorHermetic._run_script(
+            self, npm_json=_packument(main), gh_json='{"tag_name": "v2027.5.10", "body": "routine"}')
+        self.assertEqual(r_new.returncode, 0, r_new.stdout + r_new.stderr)
+        self.assertIn("✅ [2/6] 版本差距: 50/75 主线 stable (剩 25;", r_new.stdout)
+        self.assertEqual(cap_new, "")
+        os.environ["OPENCLAW_VERSION_GAP_TRIPWIRE"] = "50"
+        try:
+            r_old, cap_old = TestScriptBehaviorHermetic._run_script(
+                self, npm_json=_packument(main), gh_json='{"tag_name": "v2027.5.10", "body": "routine"}')
+        finally:
+            del os.environ["OPENCLAW_VERSION_GAP_TRIPWIRE"]
+        self.assertEqual(r_old.returncode, 1, r_old.stdout + r_old.stderr)
+        self.assertIn("🚨 [2/6] 版本差距: 50 ≥ 50 主线 stable (TRIPPED", r_old.stdout)
+        self.assertIn("[SYSTEM_ALERT]", cap_old)
 
     def test_v37_9_373_marker(self):
         self.assertIn("V37.9.373", self.src)
