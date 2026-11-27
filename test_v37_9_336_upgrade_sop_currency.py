@@ -2287,14 +2287,16 @@ class TestMechanicalReading286(unittest.TestCase):
         self.doc = _read()
         self.head = self.doc[:self.doc.index("## 一、版本概览")]
         self.sec28 = self.doc[self.doc.index("## 第二十八节"):]
-        self.s286 = self.sec28[self.sec28.index("### 28.6"):]
+        # V37.9.390 演进：28.7 出现后切片收紧到 28.7 之前，意图不变（只看 11.6 这一段）。
+        self.s286 = _slice(self.sec28, "### 28.6", "### 28.7")
         self.root = os.path.dirname(os.path.abspath(__file__))
 
     def test_reading_lives_inside_section28_after_cadence_rule(self):
         self.assertEqual(_latest_eval(self.doc), ("第二十八节", "十七", "2026-11-19"), "机械读数不产生新的正式评估节")
         self.assertLess(self.sec28.index("hold 期间的评估节奏规则"), self.sec28.index("### 28.6"), "读数须在节奏规则之后")
         self.assertIn("### 28.6 机械读数（2026-11-20，2026.11.6）", self.sec28)
-        self.assertNotIn("### 28.7", self.sec28, "28.7 只能由下一次读数产生")
+        # V37.9.390 演进：原 pin「28.7 不得出现」是 11-20 当时的状态；意图由「28.7 在 28.6 之后、仍在第二十八节内」承接。
+        self.assertLess(self.sec28.index("### 28.6"), self.sec28.index("### 28.7"), "读数按时间顺序追加")
         self.assertIn("下一次机械读数的位置为 28.7", self.s286)
 
     def test_criteria_recorded_as_measured(self):
@@ -2320,7 +2322,7 @@ class TestMechanicalReading286(unittest.TestCase):
         self.assertIn("| **2026.11.6**（2026-11-20 机械读数） | **17** | 52 | 137 | **69** | **33** |", rows[0])
         self.assertIn("不计入任一侧", rows[0])
         self.assertNotIn("✅ CLEAN", rows[0])
-        for kw in ("2026.11.6 机械读数：2026-11-20", "上游 latest **2026.11.6**", "机械读数见 28.6", "11-20 读数 50/50", "50/75",
+        for kw in ("2026.11.6 机械读数：2026-11-20", "11.6 机械读数见 28.6", "11-20 读数 50/50", "50/75",
                    "11.6 不可判、不计入任一侧"):
             self.assertIn(kw, self.head, f"头部须同步「{kw}」")
 
@@ -2346,6 +2348,107 @@ class TestMechanicalReading286(unittest.TestCase):
         with open(os.path.join(self.root, "docs", "config.md"), encoding="utf-8") as f:
             head = "\n".join(f.read().splitlines()[:6])
         for kw in ("2026.11.6 机械读数（2026-11-20", "28.6", "不可判", "50 → 75"):
+            self.assertIn(kw, head, f"docs/config.md 头行缺「{kw}」")
+
+
+class TestMechanicalReading287(unittest.TestCase):
+    """V37.9.390 2026.11.7 / 11.8 / 11.9 / 11.10 机械读数（2026-11-27）——节奏规则第二次执行。
+
+    钉住：读数在第二十八节内、没有新评估节 / 四版判据如实且计数仍 0/2 / 没做的核对写明 / 弃用期限清单这个盲点只登记不改规则 /
+    20.4 四行 / 头部与 config.md 同步 / LAST_EVAL_DATE 不重置 / 两种真实形态喂 19.8 协议得到文档记录的结果。
+    """
+
+    DEPRECATIONS = "\n".join(
+        f"- **`doctor-record-{i}` — 2026-11-29:** canonical setting {i}. [Migration guide](https://docs.example/{i})."
+        for i in range(40))
+
+    def setUp(self):
+        self.doc = _read()
+        self.head = self.doc[:self.doc.index("## 一、版本概览")]
+        self.sec28 = self.doc[self.doc.index("## 第二十八节"):]
+        self.s287 = self.sec28[self.sec28.index("### 28.7"):]
+        self.root = os.path.dirname(os.path.abspath(__file__))
+
+    def test_reading_lives_inside_section28_and_no_new_eval(self):
+        self.assertEqual(_latest_eval(self.doc), ("第二十八节", "十七", "2026-11-19"), "机械读数不产生新的正式评估节")
+        self.assertNotIn("## 第二十九节", self.doc)
+        self.assertIn("### 28.7 机械读数（2026-11-27，2026.11.7 / 11.8 / 11.9 / 11.10）", self.sec28)
+        self.assertNotIn("### 28.8", self.sec28, "28.8 只能由下一次读数产生")
+        self.assertIn("下一次机械读数的位置为 28.8", self.s287)
+
+    def test_criteria_recorded_as_measured(self):
+        for kw in ("39 / 93 / 297 / 132 / 125", "**DIRTY 2**", "103 / 33 / 195 / 136 / 305", "**DIRTY 41**",
+                   "50 / 3 / 12 / 53 / 13", "rc=3", "15 in-range", "结论不依赖这个选择",
+                   "57 / 1795 / 5013 / 1852 / 233", "**DIRTY 46**", "6,808", "仍 0/2",
+                   "**3.35 天**", "**1.37 天**", "**0.60 天**", "**0.19 天**", "**2.75/周**",
+                   ">=24.16.0 <25 || >=26.1.0", "与 11.6 逐字相同", "没有在 Mac Mini 上复核",
+                   "211 天", "8/180 天", "54/75"):
+            self.assertIn(kw, self.s287, f"28.7 缺判据要素「{kw}」")
+        for bad in ("CLEAN(0)", "计数 0 → 1", "计数 1/2", "连续干净计数由 0", "11.9 CLEAN", "N/A_HOTFIX"):
+            self.assertNotIn(bad, self.s287, f"本次没有任何一版读成干净，不得出现「{bad}」")
+
+    def test_scope_limits_and_registered_blind_spot(self):
+        for kw in ("没有做 dist 函数对照", "docs 默认值对比", "升级路径文档对比", "前置 B 复查", "不新开评估节",
+                   "LAST_EVAL_DATE 仍是 2026-11-19", "前置 C 仍停在 11.5 的状态"):
+            self.assertIn(kw, self.s287, f"28.7 须写明范围边界「{kw}」")
+        # 弃用期限清单：只登记、写明判定不依赖它、留给用户决定
+        for kw in ("Upcoming deprecations", "只登记，不改规则", "判定不依赖清单", "需要用户决定", "清单外 0 条",
+                   "doctor-pre-july-retired-state", "2026-11-29", "not removals in this release", "本次没有核实"):
+            self.assertIn(kw, self.s287, f"28.7 缺「{kw}」")
+
+    def test_protocol_table_rows_and_head(self):
+        s204 = _slice(self.doc, "### 20.4", "## 第二十一节")
+        expect = {
+            "2026.11.7": "| **39** | 93 | 297 | **132** | **125** |",
+            "2026.11.8": "| **103** | 33 | 195 | **136** | **305** |",
+            "2026.11.9": "| **50** | 3 | 12 | **53** | **13** |",
+            "2026.11.10": "| **57** | 1795 | 5013 | **1852** | **233** |",
+        }
+        for ver, cells in expect.items():
+            rows = [l for l in s204.splitlines() if l.startswith(f"| **{ver}**（2026-11-27 机械读数）")]
+            self.assertEqual(len(rows), 1, f"20.4 表须追加 {ver} 一行")
+            self.assertIn(cells, rows[0])
+            self.assertNotIn("✅ CLEAN", rows[0])
+        for kw in ("2026.11.7 / 11.8 / 11.9 / 11.10 机械读数：2026-11-27", "上游 latest **2026.11.10**", "机械读数见 28.7",
+                   "11-27 读数 54/75", "11.9 不可判", "连续干净计数 **0/2**"):
+            self.assertIn(kw, self.head, f"头部须同步「{kw}」")
+
+    def _run(self, cl):
+        TestCriterion1ProtocolBehavior.setUpClass()
+        return TestCriterion1ProtocolBehavior._run(TestCriterion1ProtocolBehavior, cl)
+
+    def test_small_release_with_deprecation_list_is_not_decidable(self):
+        """11.9 形态：10 条真实叙述 + 40 条弃用期限清单行、行内 13 个引用 → rc=3，清单里的迁移字样不得让它变成可判。"""
+        narr = "\n".join(f"- **Topic {i}:** fix thing. (#{200000 + i})" for i in range(10))
+        narr += "\n- plain line (#200010, #200011, #200012)"
+        rec = "\n".join(f"- **PR #{210000 + i}** Authored by @someone." for i in range(3))
+        rec += "\n" + "\n".join(f"- **PR #{220000 + i}**" for i in range(12))
+        cl = (f"# Changelog\n\n## 2026.11.9\n\n### Fixes\n\n{narr}\n\n### Upcoming deprecations\n\n{self.DEPRECATIONS}\n\n"
+              f"### Complete contribution record\n\n{rec}\n")
+        rc, out = self._run(cl)
+        self.assertEqual(rc, 3, out)
+        self.assertRegex(out, r"(?m)^semantic_entries=53 narrative=50 described_pr=3 bare_pr=12 inline_pr_refs=13$")
+        self.assertNotIn("VERDICT=CLEAN", out)
+
+    def test_deprecation_list_alone_makes_a_decidable_release_dirty(self):
+        """28.7 登记的盲点是事实：一份其余内容不含任何迁移字样的可判 changelog，只因带这个清单就读成 DIRTY。"""
+        narr = "\n".join(f"- **Topic {i}:** fix thing. (#{300000 + 2 * i}, #{300001 + 2 * i})" for i in range(70))
+        base = f"# Changelog\n\n## 0.0.0\n\n### Fixes\n\n{narr}\n\n"
+        rec = "### Complete contribution record\n\n" + "\n".join(f"- **PR #{320000 + i}**" for i in range(200)) + "\n"
+        rc, out = self._run(base + rec)
+        self.assertEqual(rc, 0, "对照组：不带清单必须读成 CLEAN，否则下面的断言说明不了问题\n" + out)
+        rc, out = self._run(base + f"### Upcoming deprecations\n\n{self.DEPRECATIONS}\n\n" + rec)
+        self.assertEqual(rc, 2, out)
+        self.assertIn("migration_hits=40", out)
+
+    def test_last_eval_date_not_reset_and_config_head(self):
+        with open(os.path.join(self.root, "check_upgrade.sh"), encoding="utf-8") as f:
+            src = f.read()
+        m = re.search(r'LAST_EVAL_DATE="\$\{OPENCLAW_LAST_EVAL_DATE:-(\d{4}-\d{2}-\d{2})\}"', src)
+        self.assertEqual(m.group(1), "2026-11-19", "机械读数不重置正式评估日期")
+        with open(os.path.join(self.root, "docs", "config.md"), encoding="utf-8") as f:
+            head = "\n".join(f.read().splitlines()[:6])
+        for kw in ("2026.11.7 / 11.8 / 11.9 / 11.10 机械读数（2026-11-27", "28.7", "11.9 不可判", "54/75", "只登记不改规则"):
             self.assertIn(kw, head, f"docs/config.md 头行缺「{kw}」")
 
 
